@@ -7,24 +7,32 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Core\DTOs\**" />
-    <Compile Remove="Core\Entities\**" />
-    <Compile Remove="Core\Interfaces\**" />
-    <Compile Remove="Core\Services\**" />
-    <EmbeddedResource Remove="Core\DTOs\**" />
-    <EmbeddedResource Remove="Core\Entities\**" />
-    <EmbeddedResource Remove="Core\Interfaces\**" />
-    <EmbeddedResource Remove="Core\Services\**" />
-    <None Remove="Core\DTOs\**" />
-    <None Remove="Core\Entities\**" />
-    <None Remove="Core\Interfaces\**" />
-    <None Remove="Core\Services\**" />
+    <Compile Remove="Infrastructure\**" />
+    <EmbeddedResource Remove="Infrastructure\**" />
+    <None Remove="Infrastructure\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Core\Settings\" />
-    <Folder Include="Infrastructure\Data\" />
-    <Folder Include="Infrastructure\Shared\" />
+    <Folder Include="Infraestructure\Shared\" />
+    <Folder Include="Infrastructure\Repository\" />
+    <Folder Include="Infrastructure\Repository\" />
+    <Folder Include="Infrastructure\Repository\" />
+    <Folder Include="Infrastructure\Repository\" />
     <Folder Include="Infrastructure\Repository\" />
   </ItemGroup>
 
