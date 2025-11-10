@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Infrastructure\**" />
-    <EmbeddedResource Remove="Infrastructure\**" />
-    <None Remove="Infrastructure\**" />
+    <Compile Remove="Infraestructure\Shared\**" />
+    <EmbeddedResource Remove="Infraestructure\Shared\**" />
+    <None Remove="Infraestructure\Shared\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,12 +28,6 @@
 
   <ItemGroup>
     <Folder Include="Core\Settings\" />
-    <Folder Include="Infraestructure\Shared\" />
-    <Folder Include="Infrastructure\Repository\" />
-    <Folder Include="Infrastructure\Repository\" />
-    <Folder Include="Infrastructure\Repository\" />
-    <Folder Include="Infrastructure\Repository\" />
-    <Folder Include="Infrastructure\Repository\" />
   </ItemGroup>
 
 </Project>
