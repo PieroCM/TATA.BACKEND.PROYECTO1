@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
+
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+
 
 public partial class Alerta
 {
