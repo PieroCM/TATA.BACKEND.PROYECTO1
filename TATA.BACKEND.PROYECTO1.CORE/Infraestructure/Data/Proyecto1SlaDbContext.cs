@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+
 
 public partial class Proyecto1SlaDbContext : DbContext
 {
@@ -38,7 +40,9 @@ public partial class Proyecto1SlaDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=.;Database=Proyecto1SLA_DB;Integrated Security=True;TrustServerCertificate=True");
+
+        => optionsBuilder.UseSqlServer("Server=JoseCabrera;Database=Proyecto1SLA_DB;Integrated Security=True;TrustServerCertificate=True");
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
