@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {

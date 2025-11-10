@@ -8,12 +8,12 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 {
     public class RepositoryUsuario : IRepositoryUsuario
     {
         private readonly Proyecto1SlaDbContext _context;
-
+          
         public RepositoryUsuario(Proyecto1SlaDbContext context)
         {
             _context = context;
