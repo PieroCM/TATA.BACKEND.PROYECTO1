@@ -1,107 +1,114 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
+﻿using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
-
-    public class UsuarioService
+    public class UsuarioService : IUsuarioService
     {
-        private readonly RepositoryUsuario _repo;
+        private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IJWTService _jwtService;
 
-        public UsuarioService(RepositoryUsuario repo)
+        public UsuarioService(IUsuarioRepository usuarioRepository, IJWTService jwtService)
         {
-            _repo = repo;
+            _usuarioRepository = usuarioRepository;
+            _jwtService = jwtService;
         }
 
-
-        // Listar todos los usuarios
-        public async Task<List<UsuarioDTO>> GetAllAsync()
+        // LOGIN
+        public async Task<string?> SignInAsync(SignInRequestDTO dto)
         {
-            var usuarios = await _repo.GetAllUsuarios();
+            var usuario = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+            if (usuario == null) return null;
 
-            // Convertimos a DTO para no exponer contraseñas
-            return usuarios.Select(u => new UsuarioDTO
+            bool passwordOk = BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash);
+            if (!passwordOk) return null;
+
+            usuario.UltimoLogin = DateTime.Now;
+            await _usuarioRepository.UpdateAsync(usuario);
+
+            return _jwtService.GenerateJWToken(usuario);
+        }
+
+        // REGISTRO
+        public async Task<bool> SignUpAsync(SignUpRequestDTO dto)
+        {
+            var existing = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+            if (existing != null) return false;
+
+            var usuario = new Usuario
+            {
+                Username = dto.Username,
+                Correo = dto.Correo,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                IdRolSistema = dto.IdRolSistema,
+                Estado = "ACTIVO",
+                CreadoEn = DateTime.Now
+            };
+
+            await _usuarioRepository.AddAsync(usuario);
+            return true;
+        }
+
+        // CRUD
+        public async Task<IEnumerable<UsuarioResponseDTO>> GetAllAsync()
+        {
+            var usuarios = await _usuarioRepository.GetAllAsync();
+            return usuarios.Select(u => new UsuarioResponseDTO
             {
                 IdUsuario = u.IdUsuario,
                 Username = u.Username,
                 Correo = u.Correo,
                 IdRolSistema = u.IdRolSistema,
                 Estado = u.Estado,
-                UltimoLogin = u.UltimoLogin
-            }).ToList();
+                UltimoLogin = u.UltimoLogin,
+                CreadoEn = u.CreadoEn,
+                ActualizadoEn = u.ActualizadoEn
+            });
         }
 
-        // Obtener un usuario por ID
-        public async Task<UsuarioDTO?> GetByIdAsync(int id)
+        public async Task<UsuarioResponseDTO?> GetByIdAsync(int id)
         {
-            var usuario = await _repo.GetUsuarioById(id);
-            if (usuario == null)
-                return null;
+            var u = await _usuarioRepository.GetByIdAsync(id);
+            if (u == null) return null;
 
-            return new UsuarioDTO
+            return new UsuarioResponseDTO
             {
-                IdUsuario = usuario.IdUsuario,
-                Username = usuario.Username,
-                Correo = usuario.Correo,
-                IdRolSistema = usuario.IdRolSistema,
-                Estado = usuario.Estado,
-                UltimoLogin = usuario.UltimoLogin
+                IdUsuario = u.IdUsuario,
+                Username = u.Username,
+                Correo = u.Correo,
+                IdRolSistema = u.IdRolSistema,
+                Estado = u.Estado,
+                UltimoLogin = u.UltimoLogin,
+                CreadoEn = u.CreadoEn,
+                ActualizadoEn = u.ActualizadoEn
             };
         }
 
-        // Crear usuario
-        public async Task<bool> AddAsync(Usuario usuario)
+        public async Task<bool> UpdateAsync(int id, UsuarioUpdateDTO dto)
         {
-            await _repo.AddUsuario(usuario);
+            var usuario = await _usuarioRepository.GetByIdAsync(id);
+            if (usuario == null) return false;
+
+            usuario.Username = dto.Username;
+            usuario.Correo = dto.Correo;
+            usuario.IdRolSistema = dto.IdRolSistema;
+            usuario.ActualizadoEn = DateTime.Now;
+
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+                usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+            await _usuarioRepository.UpdateAsync(usuario);
             return true;
         }
 
-        // Actualizar usuario
-        public async Task<bool> UpdateAsync(Usuario usuario)
-        {
-            await _repo.UpdateUsuario(usuario);
-            return true;
-        }
-
-        // Eliminar usuario
         public async Task<bool> DeleteAsync(int id)
         {
-            await _repo.DeleteUsuario(id);
+            var usuario = await _usuarioRepository.GetByIdAsync(id);
+            if (usuario == null) return false;
+
+            await _usuarioRepository.DeleteAsync(id);
             return true;
-        }
-
-        // =========================================================
-        // 🔐 SIGN UP Y SIGN IN (aún sin JWT)
-        // =========================================================
-
-        public async Task<bool> SignUp(Usuario newUser)
-        {
-            return await _repo.SignUp(newUser);
-        }
-
-        public async Task<UsuarioDTO?> SignIn(string correo, string password)
-        {
-            var usuario = await _repo.SignIn(correo, password);
-            if (usuario == null)
-                return null;
-
-            // Convertir a DTO antes de devolver
-            return new UsuarioDTO
-            {
-                IdUsuario = usuario.IdUsuario,
-                Username = usuario.Username,
-                Correo = usuario.Correo,
-                IdRolSistema = usuario.IdRolSistema,
-                Estado = usuario.Estado,
-                UltimoLogin = usuario.UltimoLogin
-            };
         }
     }
 }
-
