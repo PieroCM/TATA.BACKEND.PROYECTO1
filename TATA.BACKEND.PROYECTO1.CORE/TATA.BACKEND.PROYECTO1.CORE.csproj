@@ -7,12 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Infrastructure\**" />
-    <EmbeddedResource Remove="Infrastructure\**" />
-    <None Remove="Infrastructure\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
@@ -28,7 +22,7 @@
 
   <ItemGroup>
     <Folder Include="Core\Settings\" />
-    <Folder Include="Infraestructure\Shared\" />
+    <Folder Include="Infrastructure\Shared\" />
   </ItemGroup>
 
 </Project>
