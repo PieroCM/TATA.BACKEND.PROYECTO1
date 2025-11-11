@@ -37,7 +37,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 
         public async Task UpdateAsync(Usuario usuario)
         {
-            usuario.ActualizadoEn = DateTime.Now;
             _context.Usuario.Update(usuario);
             await _context.SaveChangesAsync();
         }

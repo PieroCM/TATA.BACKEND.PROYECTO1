@@ -10,5 +10,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<UsuarioResponseDTO?> GetByIdAsync(int id);
         Task<bool> UpdateAsync(int id, UsuarioUpdateDTO dto);
         Task<bool> DeleteAsync(int id);
+
     }
 }

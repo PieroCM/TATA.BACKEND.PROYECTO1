@@ -1,4 +1,5 @@
-﻿using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
+﻿using Microsoft.EntityFrameworkCore;
+using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 
@@ -88,15 +89,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         public async Task<bool> UpdateAsync(int id, UsuarioUpdateDTO dto)
         {
             var usuario = await _usuarioRepository.GetByIdAsync(id);
-            if (usuario == null) return false;
+            if (usuario == null)
+                return false;
 
-            usuario.Username = dto.Username;
-            usuario.Correo = dto.Correo;
-            usuario.IdRolSistema = dto.IdRolSistema;
+            usuario.Estado = dto.Estado ?? usuario.Estado;
             usuario.ActualizadoEn = DateTime.Now;
-
-            if (!string.IsNullOrWhiteSpace(dto.Password))
-                usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
             await _usuarioRepository.UpdateAsync(usuario);
             return true;
@@ -110,5 +107,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             await _usuarioRepository.DeleteAsync(id);
             return true;
         }
+
     }
 }
