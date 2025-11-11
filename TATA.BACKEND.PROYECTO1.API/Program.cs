@@ -1,8 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,9 +13,23 @@ builder
         options.UseSqlServer(_cnx)
     );
 
-// DI de interfaces
-builder.Services.AddScoped<IRepositoryConfigSLA, RepositoryConfigSLA>();
-builder.Services.AddScoped<IConfigSlaService, ConfigSlaService>();
+// DI de interfaces (nombres completamente calificados para evitar conflictos)
+builder.Services.AddScoped<
+    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRepositoryConfigSLA,
+    TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository.RepositoryConfigSLA>();
+
+builder.Services.AddScoped<
+    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IConfigSlaService,
+    TATA.BACKEND.PROYECTO1.CORE.Core.Services.ConfigSlaService>();
+
+// RolRegistro DI
+builder.Services.AddScoped<
+    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRepositoryRolRegistro,
+    TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository.RepositoryRolRegistro>();
+
+builder.Services.AddScoped<
+    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRolRegistroService,
+    TATA.BACKEND.PROYECTO1.CORE.Core.Services.RolRegistroService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

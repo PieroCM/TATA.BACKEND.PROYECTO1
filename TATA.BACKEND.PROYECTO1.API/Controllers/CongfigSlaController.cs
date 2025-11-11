@@ -57,12 +57,5 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return ok ? NoContent() : NotFound();
         }
 
-        // PATCH (lógico): api/configsla/5/disable
-        [HttpPatch("{id:int}/disable")]
-        public async Task<IActionResult> Disable(int id)
-        {
-            var ok = await _service.DisableAsync(id);
-            return ok ? NoContent() : NotFound();
-        }
     }
 }

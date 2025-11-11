@@ -10,5 +10,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<IEnumerable<ConfigSlaDTO>> GetAllAsync(bool soloActivos = true);
         Task<ConfigSlaDTO?> GetByIdAsync(int id);
         Task<bool> UpdateAsync(int id, ConfigSlaUpdateDTO dto);
+
     }
 }
