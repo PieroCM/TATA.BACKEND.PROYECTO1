@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Infrastructure\**" />
-    <EmbeddedResource Remove="Infrastructure\**" />
-    <None Remove="Infrastructure\**" />
+    <Compile Remove="Infrastructure\Shared\**" />
+    <EmbeddedResource Remove="Infrastructure\Shared\**" />
+    <None Remove="Infrastructure\Shared\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,11 +24,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Core\Settings\" />
-    <Folder Include="Infraestructure\Shared\" />
   </ItemGroup>
 
 </Project>

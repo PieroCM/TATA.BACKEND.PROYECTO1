@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 public partial class Solicitud
 {
@@ -31,6 +32,8 @@ public partial class Solicitud
     public DateTime CreadoEn { get; set; }
 
     public DateTime? ActualizadoEn { get; set; }
+
+    public string? EstadoCumplimientoSla { get; set; }
 
     public virtual ICollection<Alerta> Alerta { get; set; } = new List<Alerta>();
 
