@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Infraestructure\Shared\**" />
-    <EmbeddedResource Remove="Infraestructure\Shared\**" />
-    <None Remove="Infraestructure\Shared\**" />
+    <Compile Remove="Infrastructure\Shared\**" />
+    <EmbeddedResource Remove="Infrastructure\Shared\**" />
+    <None Remove="Infrastructure\Shared\**" />
   </ItemGroup>
 
   <ItemGroup>

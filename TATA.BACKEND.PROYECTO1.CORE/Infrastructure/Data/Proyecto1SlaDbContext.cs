@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 public partial class Proyecto1SlaDbContext : DbContext
 {
@@ -38,7 +39,7 @@ public partial class Proyecto1SlaDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=.;Database=Proyecto1SLA_DB;Integrated Security=True;TrustServerCertificate=True");
+        => optionsBuilder.UseSqlServer("Server=PIERO\\MSSQLSERVER1;Database=Proyecto1SLA_DB;Trusted_Connection=True;TrustServerCertificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -351,6 +352,9 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasColumnName("creado_en");
             entity.Property(e => e.CreadoPor).HasColumnName("creado_por");
+            entity.Property(e => e.EstadoCumplimientoSla)
+                .HasMaxLength(30)
+                .HasColumnName("estado_cumplimiento_sla");
             entity.Property(e => e.EstadoSolicitud)
                 .HasMaxLength(30)
                 .HasColumnName("estado_solicitud");
