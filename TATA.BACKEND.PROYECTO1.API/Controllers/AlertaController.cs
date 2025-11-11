@@ -23,7 +23,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return Ok(result);
         }
 
-        // GET: api/alerta/5
+        // GET: api/alerta/5 por
         [HttpGet("{id:int}")]
         public async Task<ActionResult<AlertaDto>> GetById(int id)
         {
