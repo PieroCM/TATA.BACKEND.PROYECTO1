@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 public partial class Proyecto1SlaDbContext : DbContext
 {
@@ -28,9 +26,11 @@ public partial class Proyecto1SlaDbContext : DbContext
 
     public virtual DbSet<Reporte> Reporte { get; set; }
 
+
     public virtual DbSet<RolRegistro> RolRegistro { get; set; }
 
     public virtual DbSet<RolesSistema> RolesSistema { get; set; }
+    //public virtual DbSet<RolPermisoEntity> RolPermisos { get; set; }
 
     public virtual DbSet<Solicitud> Solicitud { get; set; }
 
@@ -38,7 +38,7 @@ public partial class Proyecto1SlaDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=.;Database=Proyecto1SLA_DB;Integrated Security=True;TrustServerCertificate=True");
+         => optionsBuilder.UseSqlServer("Server=.;Database=Proyecto1SLA_DB;Integrated Security=True;TrustServerCertificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -203,6 +203,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasConstraintName("FK_personal_usuario");
         });
 
+
         modelBuilder.Entity<Reporte>(entity =>
         {
             entity.HasKey(e => e.IdReporte);
@@ -282,50 +283,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasColumnName("nombre_rol");
         });
 
-        modelBuilder.Entity<RolesSistema>(entity =>
-        {
-            entity.HasKey(e => e.IdRolSistema);
-
-            entity.ToTable("roles_sistema");
-
-            entity.HasIndex(e => e.EsActivo, "IX_roles_sistema_activo");
-
-            entity.HasIndex(e => e.Codigo, "UX_roles_sistema_codigo").IsUnique();
-
-            entity.Property(e => e.IdRolSistema).HasColumnName("id_rol_sistema");
-            entity.Property(e => e.Codigo)
-                .HasMaxLength(50)
-                .HasColumnName("codigo");
-            entity.Property(e => e.Descripcion)
-                .HasMaxLength(250)
-                .HasColumnName("descripcion");
-            entity.Property(e => e.EsActivo)
-                .HasDefaultValue(true)
-                .HasColumnName("es_activo");
-            entity.Property(e => e.Nombre)
-                .HasMaxLength(120)
-                .HasColumnName("nombre");
-
-            entity.HasMany(d => d.IdPermiso).WithMany(p => p.IdRolSistema)
-                .UsingEntity<Dictionary<string, object>>(
-                    "RolPermiso",
-                    r => r.HasOne<Permiso>().WithMany()
-                        .HasForeignKey("IdPermiso")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK_rol_permiso_perm"),
-                    l => l.HasOne<RolesSistema>().WithMany()
-                        .HasForeignKey("IdRolSistema")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK_rol_permiso_rol"),
-                    j =>
-                    {
-                        j.HasKey("IdRolSistema", "IdPermiso");
-                        j.ToTable("rol_permiso");
-                        j.HasIndex(new[] { "IdPermiso" }, "IX_rol_permiso_perm");
-                        j.IndexerProperty<int>("IdRolSistema").HasColumnName("id_rol_sistema");
-                        j.IndexerProperty<int>("IdPermiso").HasColumnName("id_permiso");
-                    });
-        });
+        modelBuilder.Entity<RolesSistema>(entity => { entity.HasKey(e => e.IdRolSistema); entity.ToTable("roles_sistema"); entity.HasIndex(e => e.EsActivo, "IX_roles_sistema_activo"); entity.HasIndex(e => e.Codigo, "UX_roles_sistema_codigo").IsUnique(); entity.Property(e => e.IdRolSistema).HasColumnName("id_rol_sistema"); entity.Property(e => e.Codigo).HasMaxLength(50).HasColumnName("codigo"); entity.Property(e => e.Descripcion).HasMaxLength(250).HasColumnName("descripcion"); entity.Property(e => e.EsActivo).HasDefaultValue(true).HasColumnName("es_activo"); entity.Property(e => e.Nombre).HasMaxLength(120).HasColumnName("nombre"); entity.HasMany(d => d.IdPermiso).WithMany(p => p.IdRolSistema).UsingEntity<Dictionary<string, object>>("RolPermiso", r => r.HasOne<Permiso>().WithMany().HasForeignKey("IdPermiso").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK_rol_permiso_perm"), l => l.HasOne<RolesSistema>().WithMany().HasForeignKey("IdRolSistema").OnDelete(DeleteBehavior.ClientSetNull).HasConstraintName("FK_rol_permiso_rol"), j => { j.HasKey("IdRolSistema", "IdPermiso"); j.ToTable("rol_permiso"); j.HasIndex(new[] { "IdPermiso" }, "IX_rol_permiso_perm"); j.IndexerProperty<int>("IdRolSistema").HasColumnName("id_rol_sistema"); j.IndexerProperty<int>("IdPermiso").HasColumnName("id_permiso"); }); });
 
         modelBuilder.Entity<Solicitud>(entity =>
         {
@@ -426,8 +384,13 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasForeignKey(d => d.IdRolSistema)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_usuario_rol");
-        });
 
+            ///////////////////////
+
+        });
+        ////////
+
+        
         OnModelCreatingPartial(modelBuilder);
     }
 
