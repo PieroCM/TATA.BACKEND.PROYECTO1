@@ -33,4 +33,6 @@ public partial class Usuario
     public virtual ICollection<Reporte> Reporte { get; set; } = new List<Reporte>();
 
     public virtual ICollection<Solicitud> Solicitud { get; set; } = new List<Solicitud>();
+
 }
+

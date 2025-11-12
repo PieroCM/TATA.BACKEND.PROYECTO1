@@ -2,6 +2,7 @@
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -107,6 +108,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             await _usuarioRepository.DeleteAsync(id);
             return true;
         }
+
+  
+
 
     }
 }

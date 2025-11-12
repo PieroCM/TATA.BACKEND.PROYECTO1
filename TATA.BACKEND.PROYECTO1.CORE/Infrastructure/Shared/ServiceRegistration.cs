@@ -44,6 +44,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
                 };
             });
+
+
         }
     }
 }
