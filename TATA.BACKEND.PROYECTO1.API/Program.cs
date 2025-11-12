@@ -4,10 +4,13 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
+using AutoMapper;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Mapping;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAutoMapper(typeof(LogSistemaProfile));
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -18,6 +21,10 @@ builder.Services.AddScoped<IRolPermisoService, RolPermisoService>();
 
 // ?? Configurar AutoMapper
 builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
+
+//Dependencias de Log_sistemas
+builder.Services.AddScoped<IRepositoryLogSistema, RepositoryLogSistema>();
+builder.Services.AddScoped<ILogSistemaService, LogSistemaService>();
 
 // ?? Base de datos
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
