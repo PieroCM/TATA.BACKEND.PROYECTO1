@@ -83,6 +83,16 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
             existing.ActualizadoEn = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            
+            // Recargar la entidad con sus relaciones para devolverla completa
+            await _context.Entry(existing).Reference(a => a.IdSolicitudNavigation).LoadAsync();
+            if (existing.IdSolicitudNavigation != null)
+            {
+                await _context.Entry(existing.IdSolicitudNavigation).Reference(s => s.IdPersonalNavigation).LoadAsync();
+                await _context.Entry(existing.IdSolicitudNavigation).Reference(s => s.IdRolRegistroNavigation).LoadAsync();
+                await _context.Entry(existing.IdSolicitudNavigation).Reference(s => s.IdSlaNavigation).LoadAsync();
+            }
+            
             return existing;
         }
 

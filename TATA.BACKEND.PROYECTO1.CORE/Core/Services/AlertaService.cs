@@ -145,18 +145,35 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             // 3) sacar el correo del destinatario
             var destinatario = alertaFull.IdSolicitudNavigation?.IdPersonalNavigation?.CorreoCorporativo;
 
-            // 4) AQUÍ se manda el correo
+            // 4) AQUÍ se manda el correo con manejo de errores
             if (!string.IsNullOrWhiteSpace(destinatario))
             {
-                var subject = $"[ALERTA SLA] {alertaFull.TipoAlerta} ({alertaFull.Nivel})";
-                var body = EmailTemplates.BuildAlertaBody(alertaFull);
+                try
+                {
+                    var subject = $"[ALERTA SLA] {alertaFull.TipoAlerta} ({alertaFull.Nivel})";
+                    var body = EmailTemplates.BuildAlertaBody(alertaFull);
 
-                await _emailService.SendAsync(destinatario, subject, body);
+                    await _emailService.SendAsync(destinatario, subject, body);
 
-                // 5) marcar como enviado en BD via UpdateAlertaAsync
-                alertaFull.EnviadoEmail = true;
-                alertaFull.ActualizadoEn = DateTime.UtcNow;
-                await _RepositoryAlerta.UpdateAlertaAsync(alertaFull.IdAlerta, alertaFull);
+                    // 5) marcar como enviado en BD via UpdateAlertaAsync
+                    alertaFull.EnviadoEmail = true;
+                    alertaFull.ActualizadoEn = DateTime.UtcNow;
+                    await _RepositoryAlerta.UpdateAlertaAsync(alertaFull.IdAlerta, alertaFull);
+                }
+                catch (Exception ex)
+                {
+                    // Log del error (podrías agregar un logger aquí)
+                    System.Diagnostics.Debug.WriteLine($"Error al enviar correo a {destinatario}: {ex.Message}");
+                    
+                    // La alerta se creó pero el correo falló - esto es informativo
+                    // No lanzamos excepción para no fallar toda la operación
+                    // EnviadoEmail queda en false
+                }
+            }
+            else
+            {
+                // Advertencia: no hay correo del destinatario
+                System.Diagnostics.Debug.WriteLine($"Advertencia: Alerta {alertaFull.IdAlerta} creada pero sin correo de destinatario para notificar.");
             }
 
             return new AlertaDto
@@ -211,21 +228,48 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var existing = await _RepositoryAlerta.GetAlertaByIdAsync(id);
             if (existing == null) return null;
 
+            // Detectar si hay cambios significativos que requieren notificación
+            bool hasSignificantChanges = false;
+
             // 2. aplicar solo lo que viene en el dto
-            if (!string.IsNullOrWhiteSpace(dto.TipoAlerta))
+            if (!string.IsNullOrWhiteSpace(dto.TipoAlerta) && dto.TipoAlerta != existing.TipoAlerta)
+            {
                 existing.TipoAlerta = dto.TipoAlerta;
+                hasSignificantChanges = true;
+            }
 
-            if (!string.IsNullOrWhiteSpace(dto.Nivel))
+            if (!string.IsNullOrWhiteSpace(dto.Nivel) && dto.Nivel != existing.Nivel)
+            {
                 existing.Nivel = dto.Nivel;
+                hasSignificantChanges = true;
+            }
 
-            if (!string.IsNullOrWhiteSpace(dto.Mensaje))
+            if (!string.IsNullOrWhiteSpace(dto.Mensaje) && dto.Mensaje != existing.Mensaje)
+            {
                 existing.Mensaje = dto.Mensaje;
+                hasSignificantChanges = true;
+            }
 
-            if (!string.IsNullOrWhiteSpace(dto.Estado))
+            if (!string.IsNullOrWhiteSpace(dto.Estado) && dto.Estado != existing.Estado)
+            {
                 existing.Estado = dto.Estado;
+                // Cambio de estado no siempre es significativo para notificar
+            }
 
+            // Lógica de envío de correo CORREGIDA (sin duplicación):
+            bool shouldSendEmail;
+            
             if (dto.EnviadoEmail.HasValue)
+            {
+                // El usuario especificó explícitamente si quiere enviar o no
+                shouldSendEmail = dto.EnviadoEmail.Value;
                 existing.EnviadoEmail = dto.EnviadoEmail.Value;
+            }
+            else
+            {
+                // No se especificó, usar lógica automática
+                shouldSendEmail = hasSignificantChanges && !existing.EnviadoEmail;
+            }
 
             existing.ActualizadoEn = DateTime.UtcNow;
 
@@ -233,49 +277,46 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var updated = await _RepositoryAlerta.UpdateAlertaAsync(id, existing);
             if (updated == null) return null;
 
-            // 4. devolver igual que en GetById
-            return new AlertaDto
+            // 4. si se debe enviar correo y hay destinatario
+            if (shouldSendEmail)
             {
-                IdAlerta = updated.IdAlerta,
-                IdSolicitud = updated.IdSolicitud,
-                TipoAlerta = updated.TipoAlerta,
-                Nivel = updated.Nivel,
-                Mensaje = updated.Mensaje,
-                Estado = updated.Estado,
-                EnviadoEmail = updated.EnviadoEmail,
-                FechaCreacion = updated.FechaCreacion,
-                FechaLectura = updated.FechaLectura,
-                ActualizadoEn = updated.ActualizadoEn,
-                Solicitud = updated.IdSolicitudNavigation == null ? null : new AlertaSolicitudInfoDto
+                var destinatario = updated.IdSolicitudNavigation?.IdPersonalNavigation?.CorreoCorporativo;
+                
+                if (string.IsNullOrWhiteSpace(destinatario))
                 {
-                    IdSolicitud = updated.IdSolicitudNavigation.IdSolicitud,
-                    FechaSolicitud = updated.IdSolicitudNavigation.FechaSolicitud,
-                    FechaIngreso = updated.IdSolicitudNavigation.FechaIngreso,
-                    NumDiasSla = updated.IdSolicitudNavigation.NumDiasSla,
-                    ResumenSla = updated.IdSolicitudNavigation.ResumenSla,
-                    EstadoSolicitud = updated.IdSolicitudNavigation.EstadoSolicitud,
-                    EstadoCumplimientoSla = updated.IdSolicitudNavigation.EstadoCumplimientoSla,
-                    Personal = updated.IdSolicitudNavigation.IdPersonalNavigation == null ? null : new AlertaSolicitudPersonalDto
-                    {
-                        IdPersonal = updated.IdSolicitudNavigation.IdPersonalNavigation.IdPersonal,
-                        Nombres = updated.IdSolicitudNavigation.IdPersonalNavigation.Nombres,
-                        Apellidos = updated.IdSolicitudNavigation.IdPersonalNavigation.Apellidos,
-                        CorreoCorporativo = updated.IdSolicitudNavigation.IdPersonalNavigation.CorreoCorporativo
-                    },
-                    RolRegistro = updated.IdSolicitudNavigation.IdRolRegistroNavigation == null ? null : new AlertaSolicitudRolDto
-                    {
-                        IdRolRegistro = updated.IdSolicitudNavigation.IdRolRegistroNavigation.IdRolRegistro,
-                        NombreRol = updated.IdSolicitudNavigation.IdRolRegistroNavigation.NombreRol
-                    },
-                    ConfigSla = updated.IdSolicitudNavigation.IdSlaNavigation == null ? null : new AlertaSolicitudSlaDto
-                    {
-                        IdSla = updated.IdSolicitudNavigation.IdSlaNavigation.IdSla,
-                        CodigoSla = updated.IdSolicitudNavigation.IdSlaNavigation.CodigoSla,
-                        DiasUmbral = updated.IdSolicitudNavigation.IdSlaNavigation.DiasUmbral,
-                        TipoSolicitud = updated.IdSolicitudNavigation.IdSlaNavigation.TipoSolicitud
-                    }
+                    // Advertencia: se pidió enviar email pero no hay correo válido
+                    System.Diagnostics.Debug.WriteLine($"Advertencia: Se solicitó enviar correo para alerta {id} pero no hay correo de destinatario.");
+                    throw new InvalidOperationException($"No se puede enviar el correo: el personal vinculado a la solicitud no tiene un correo corporativo registrado.");
                 }
-            };
+
+                try
+                {
+                    var subject = $"[ALERTA SLA ACTUALIZADA] {updated.TipoAlerta} ({updated.Nivel})";
+                    var body = EmailTemplates.BuildAlertaBody(updated);
+
+                    await _emailService.SendAsync(destinatario, subject, body);
+
+                    // marcar como enviado y persistir
+                    updated.EnviadoEmail = true;
+                    updated.ActualizadoEn = DateTime.UtcNow;
+                    await _RepositoryAlerta.UpdateAlertaAsync(updated.IdAlerta, updated);
+                }
+                catch (ArgumentException argEx)
+                {
+                    // Error de validación de correo (formato inválido, etc.)
+                    System.Diagnostics.Debug.WriteLine($"Error de validación al enviar correo a {destinatario}: {argEx.Message}");
+                    throw new InvalidOperationException($"El correo '{destinatario}' no es válido o no tiene el formato correcto.", argEx);
+                }
+                catch (Exception ex)
+                {
+                    // Error general de envío de correo (SMTP, red, etc.)
+                    System.Diagnostics.Debug.WriteLine($"Error al enviar correo a {destinatario}: {ex.Message}");
+                    throw new InvalidOperationException($"No se pudo enviar el correo a '{destinatario}'. Verifique que el correo existe y que el servidor SMTP está configurado correctamente.", ex);
+                }
+            }
+
+            // 5. devolver igual que en GetById (re-traer para obtener relaciones actualizadas)
+            return await GetByIdAsync(id);
         }
         // DELETE: puede ser lógico si tu repo lo hace así
         public async Task<bool> DeleteAsync(int id)

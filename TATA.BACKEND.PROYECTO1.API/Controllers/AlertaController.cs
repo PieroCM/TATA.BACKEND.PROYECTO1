@@ -23,13 +23,13 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return Ok(result);
         }
 
-        // GET: api/alerta/5 por
+        // GET: api/alerta/5
         [HttpGet("{id:int}")]
         public async Task<ActionResult<AlertaDto>> GetById(int id)
         {
             var alerta = await _alertaService.GetByIdAsync(id);
             if (alerta == null)
-                return NotFound();
+                return NotFound(new { mensaje = "Alerta no encontrada" });
 
             return Ok(alerta);
         }
@@ -41,10 +41,28 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var creada = await _alertaService.CreateAsync(dto);
+            try
+            {
+                var creada = await _alertaService.CreateAsync(dto);
 
-            // devuelve 201 con la ruta del GET by id
-            return CreatedAtAction(nameof(GetById), new { id = creada.IdAlerta }, creada);
+                // devuelve 201 con la ruta del GET by id
+                return CreatedAtAction(nameof(GetById), new { id = creada.IdAlerta }, creada);
+            }
+            catch (ArgumentException ex)
+            {
+                // Error de validación (FK solicitud no existe, etc.)
+                return BadRequest(new { mensaje = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Error de operación (correo inválido, etc.)
+                return BadRequest(new { mensaje = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Error inesperado
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
 
         // PUT: api/alerta/5
@@ -54,11 +72,29 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var updated = await _alertaService.UpdateAsync(id, dto);
-            if (updated == null)
-                return NotFound();
+            try
+            {
+                var updated = await _alertaService.UpdateAsync(id, dto);
+                if (updated == null)
+                    return NotFound(new { mensaje = "Alerta no encontrada" });
 
-            return Ok(updated);
+                return Ok(updated);
+            }
+            catch (ArgumentException ex)
+            {
+                // Error de validación
+                return BadRequest(new { mensaje = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Error de correo electrónico
+                return BadRequest(new { mensaje = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Error inesperado
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
 
         // DELETE: api/alerta/5
@@ -67,7 +103,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         {
             var ok = await _alertaService.DeleteAsync(id);
             if (!ok)
-                return NotFound();
+                return NotFound(new { mensaje = "Alerta no encontrada" });
 
             return NoContent();
         }
