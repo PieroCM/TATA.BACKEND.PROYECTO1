@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 
 public partial class ConfigSla
 {

@@ -4,8 +4,6 @@ using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
-
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class PersonalService : IPersonalService
