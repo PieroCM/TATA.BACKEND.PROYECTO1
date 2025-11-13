@@ -1,24 +1,33 @@
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddEndpointsApiExplorer();  // <-- NECESARIO
+var _config = builder.Configuration;
+var _cnx = _config.GetConnectionString("DevConnection");
+
+builder
+    .Services
+    .AddDbContext<Proyecto1SlaDbContext>(options =>
+        options.UseSqlServer(_cnx)
+    );
+
+// DI de interfaces (usando directivas using para formas cortas)
+builder.Services.AddTransient<IRolesSistemaRepository, RolesSistemaRepository>();
+
+builder.Services.AddTransient<IPermisoRepository, PermisoRepository>();
+
+builder.Services.AddTransient<IRolesSistemaService, RolesSistemaService>();
+
+builder.Services.AddTransient<IPermisoService, PermisoService>();
+
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
-// Register DbContext and repositories/services
-builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DevConnection")));
-
-builder.Services.AddScoped<TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRolesSistemaRepository, RolesSistemaRepository>();
-builder.Services.AddScoped<TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IPermisoRepository, PermisoRepository>();
-
-builder.Services.AddScoped<TATA.BACKEND.PROYECTO1.CORE.Core.Services.IRolesSistemaService, TATA.BACKEND.PROYECTO1.CORE.Core.Services.RolesSistemaService>();
-builder.Services.AddScoped<TATA.BACKEND.PROYECTO1.CORE.Core.Services.IPermisoService, TATA.BACKEND.PROYECTO1.CORE.Core.Services.PermisoService>();
 
 var app = builder.Build();
 
@@ -28,10 +37,6 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Keep using HTTP (no HTTPS redirection)
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
