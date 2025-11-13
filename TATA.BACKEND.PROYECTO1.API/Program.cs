@@ -16,16 +16,14 @@ builder
         options.UseSqlServer(_cnx)
     );
 
-// DI de interfaces (usando directivas using para formas cortas)
+
 builder.Services.AddTransient<IRolesSistemaRepository, RolesSistemaRepository>();
-
 builder.Services.AddTransient<IPermisoRepository, PermisoRepository>();
-
 builder.Services.AddTransient<IRolesSistemaService, RolesSistemaService>();
-
 builder.Services.AddTransient<IPermisoService, PermisoService>();
 
 builder.Services.AddControllers();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
