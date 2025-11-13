@@ -3,6 +3,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAutoMapper(typeof(LogSistemaProfile));
 // Add services to the container.
 var _config = builder.Configuration;
 var _cnx = _config.GetConnectionString("DevConnection");
@@ -32,8 +33,24 @@ builder.Services.AddScoped<
     TATA.BACKEND.PROYECTO1.CORE.Core.Services.RolRegistroService>();
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// ?? Inyección de dependencias
+builder.Services.AddScoped<IRepositoryRolPermiso, RepositoryRolPermiso>();
+builder.Services.AddScoped<IRolPermisoService, RolPermisoService>();
+
+// ?? Configurar AutoMapper
+builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
+
+//Dependencias de Log_sistemas
+builder.Services.AddScoped<IRepositoryLogSistema, RepositoryLogSistema>();
+builder.Services.AddScoped<ILogSistemaService, LogSistemaService>();
+
+// ?? Base de datos
+builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DevConnection")));
+
+builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 

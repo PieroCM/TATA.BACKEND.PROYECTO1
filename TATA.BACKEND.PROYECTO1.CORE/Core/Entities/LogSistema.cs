@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 public partial class LogSistema
 {
