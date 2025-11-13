@@ -12,5 +12,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<bool> DeleteAsync(int id);
 
 
+        //CAMBIAR CONTRASEÑA
+        Task<bool> ChangePasswordAsync(UsuarioChangePasswordDTO dto);
+
+
     }
 }

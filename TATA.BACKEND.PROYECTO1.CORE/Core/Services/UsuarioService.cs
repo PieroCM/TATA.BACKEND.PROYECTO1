@@ -109,8 +109,28 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             return true;
         }
 
-  
 
+        //LO DE RECUPERAR CONTRASEÑA
+        public async Task<bool> ChangePasswordAsync(UsuarioChangePasswordDTO dto)
+        {
+            // Buscar usuario por correo
+            var usuario = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+            if (usuario == null)
+                return false;
+
+            // Verificar contraseña actual
+            bool passwordOk = BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash);
+            if (!passwordOk)
+                return false;
+
+            // Hashear la nueva contraseña
+            usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
+            usuario.ActualizadoEn = DateTime.Now;
+
+            // Actualizar en base de datos
+            await _usuarioRepository.UpdateAsync(usuario);
+            return true;
+        }
 
     }
 }

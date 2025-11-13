@@ -77,5 +77,19 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return Ok(new { message = "Usuario eliminado correctamente" });
         }
 
+
+
+        //CAMBIAR CONTRASEÑAAA PEROO AHI NOMASS
+        [Authorize]
+        [HttpPut("cambiar-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] UsuarioChangePasswordDTO dto)
+        {
+            var success = await _usuarioService.ChangePasswordAsync(dto);
+            if (!success)
+                return BadRequest(new { message = "Contraseña actual incorrecta o usuario no encontrado" });
+
+            return Ok(new { message = "Contraseña actualizada correctamente" });
+        }
+
     }
 }
