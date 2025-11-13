@@ -8,41 +8,28 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ----------------------------------------------
-// ⚙️ CONFIGURACIÓN BASE
-// ----------------------------------------------
-var _config = builder.Configuration;
-var connectionString = _config.GetConnectionString("DevConnection");
 
-// ----------------------------------------------
-// 🧩 INYECCIÓN DE DEPENDENCIAS
-// ----------------------------------------------
+var _configuration = builder.Configuration;
+var connectionString = _configuration.GetConnectionString("DevConnection");
 
-// Repositorios
+
+
+
 builder.Services.AddTransient<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddTransient<IPersonalRepository, PersonalRepository>();
 
-// Servicios
+
 builder.Services.AddTransient<IUsuarioService, UsuarioService>();
+builder.Services.AddTransient<IPersonalService, PersonalService>();
 
-// JWT / Autenticación
-builder.Services.AddSharedInfrastructure(_config);
+builder.Services.AddSharedInfrastructure(_configuration);
 
-// Base de datos
+
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(
     options => options.UseSqlServer(connectionString)
 );
 
 
-builder.Services.AddScoped<IPersonalRepository, PersonalRepository>();
-builder.Services.AddScoped<IPersonalService, PersonalService>();
-
-
-
-
-
-// ----------------------------------------------
-// 🌐 CONFIGURACIÓN CORS
-// ----------------------------------------------
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -53,28 +40,30 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ----------------------------------------------
-// 🚀 CONTROLADORES
-// ----------------------------------------------
-builder.Services.AddControllers();
 
-// ----------------------------------------------
-// 🧱 CONSTRUCCIÓN DEL APP
-// ----------------------------------------------
+builder.Services.AddControllers();
+builder.Services.AddOpenApi(); 
+
+
 var app = builder.Build();
 
-// ----------------------------------------------
-// 🧭 PIPELINE DEL APP
-// ----------------------------------------------
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi(); 
+}
+
 app.UseHttpsRedirection();
 
-// Primero autenticación, luego autorización
+
 app.UseAuthentication();
 app.UseAuthorization();
 
+
 app.UseCors("AllowAll");
+
 
 app.MapControllers();
 
-app.Run();
 
+app.Run();
