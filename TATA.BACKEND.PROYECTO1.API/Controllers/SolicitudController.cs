@@ -14,7 +14,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         {
             _solicitudService = solicitudService;
         }
-        // GET: api/solicitud
+        // GET: api/solicitud GOD
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {

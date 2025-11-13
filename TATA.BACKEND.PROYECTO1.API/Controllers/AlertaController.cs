@@ -17,7 +17,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
         // GET: api/alerta
         [HttpGet]
-        public async Task<ActionResult<List<AlertaDto>>> GetAll()
+        public async Task<ActionResult<List<AlertaDTO>>> GetAll()
         {
             var result = await _alertaService.GetAllAsync();
             return Ok(result);
@@ -25,7 +25,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
         // GET: api/alerta/5
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<AlertaDto>> GetById(int id)
+        public async Task<ActionResult<AlertaDTO>> GetById(int id)
         {
             var alerta = await _alertaService.GetByIdAsync(id);
             if (alerta == null)
@@ -36,7 +36,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
         // POST: api/alerta
         [HttpPost]
-        public async Task<ActionResult<AlertaDto>> Create([FromBody] AlertaCreateDto dto)
+        public async Task<ActionResult<AlertaDTO>> Create([FromBody] AlertaCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -67,7 +67,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
         // PUT: api/alerta/5
         [HttpPut("{id:int}")]
-        public async Task<ActionResult<AlertaDto>> Update(int id, [FromBody] AlertaUpdateDto dto)
+        public async Task<ActionResult<AlertaDTO>> Update(int id, [FromBody] AlertaUpdateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);

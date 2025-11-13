@@ -1,4 +1,5 @@
-﻿using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+﻿
+using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {

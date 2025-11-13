@@ -4,11 +4,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
     public interface IAlertaService
     {
-        Task<AlertaDto> CreateAsync(AlertaCreateDto dto);
-        Task<List<AlertaDto>> GetAllAsync();
-        Task<AlertaDto?> GetByIdAsync(int id);
-        Task<AlertaDto?> UpdateAsync(int id, AlertaUpdateDto dto);
+        Task<AlertaDTO> CreateAsync(AlertaCreateDto dto);
+        Task<List<AlertaDTO>> GetAllAsync();
+        Task<AlertaDTO?> GetByIdAsync(int id);
+        Task<AlertaDTO?> UpdateAsync(int id, AlertaUpdateDto dto);
         Task<bool> DeleteAsync(int id);
-
     }
 }

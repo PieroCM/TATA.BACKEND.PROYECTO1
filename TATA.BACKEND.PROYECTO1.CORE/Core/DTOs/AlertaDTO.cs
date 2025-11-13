@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
     // =============== GET (alerta con detalles) ===============
-    public class AlertaDto
+    public class AlertaDTO
     {
         // datos propios de la alerta
         public int IdAlerta { get; set; }

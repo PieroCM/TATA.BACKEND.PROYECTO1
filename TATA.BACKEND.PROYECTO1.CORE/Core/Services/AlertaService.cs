@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
-
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -22,11 +20,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         // Get alerta 
-        public async Task<List<AlertaDto>> GetAllAsync()
+        public async Task<List<AlertaDTO>> GetAllAsync()
         {
             var entities = await _RepositoryAlerta.GetAlertasAsync();
 
-            return entities.Select(a => new AlertaDto
+            return entities.Select(a => new AlertaDTO
             {
                 IdAlerta = a.IdAlerta,
                 IdSolicitud = a.IdSolicitud,
@@ -71,12 +69,13 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 }
             }).ToList();
         }
-        public async Task<AlertaDto?> GetByIdAsync(int id)
+
+        public async Task<AlertaDTO?> GetByIdAsync(int id)
         {
             var a = await _RepositoryAlerta.GetAlertaByIdAsync(id);
             if (a == null) return null;
 
-            return new AlertaDto
+            return new AlertaDTO
             {
                 IdAlerta = a.IdAlerta,
                 IdSolicitud = a.IdSolicitud,
@@ -121,8 +120,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 }
             };
         }
+
         // ADD ALERTA with 
-        public async Task<AlertaDto> CreateAsync(AlertaCreateDto dto)
+        public async Task<AlertaDTO> CreateAsync(AlertaCreateDto dto)
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
 
@@ -176,7 +176,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 System.Diagnostics.Debug.WriteLine($"Advertencia: Alerta {alertaFull.IdAlerta} creada pero sin correo de destinatario para notificar.");
             }
 
-            return new AlertaDto
+            return new AlertaDTO
             {
                 IdAlerta = alertaFull.IdAlerta,
                 IdSolicitud = alertaFull.IdSolicitud,
@@ -218,11 +218,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     }
                 }
             };
-
-
         }
+
         // PUT: actualizar alerta
-        public async Task<AlertaDto?> UpdateAsync(int id, AlertaUpdateDto dto)
+        public async Task<AlertaDTO?> UpdateAsync(int id, AlertaUpdateDto dto)
         {
             // 1. traer la alerta actual
             var existing = await _RepositoryAlerta.GetAlertaByIdAsync(id);
@@ -318,6 +317,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             // 5. devolver igual que en GetById (re-traer para obtener relaciones actualizadas)
             return await GetByIdAsync(id);
         }
+
         // DELETE: puede ser lógico si tu repo lo hace así
         public async Task<bool> DeleteAsync(int id)
         {
@@ -325,10 +325,5 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var deleted = await _RepositoryAlerta.DeleteAlertaAsync(id);
             return deleted;
         }
-
-
-
-
-
     }
 }
