@@ -1,15 +1,35 @@
 using Microsoft.EntityFrameworkCore;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+
+using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+var _config = builder.Configuration;
+var _cnx = _config.GetConnectionString("DevConnection");
+
+builder
+    .Services
+    .AddDbContext<Proyecto1SlaDbContext>(options =>
+        options.UseSqlServer(_cnx)
+    );
+
+
+builder.Services.AddTransient<IRolesSistemaRepository, RolesSistemaRepository>();
+builder.Services.AddTransient<IPermisoRepository, PermisoRepository>();
+builder.Services.AddTransient<IRolesSistemaService, RolesSistemaService>();
+builder.Services.AddTransient<IPermisoService, PermisoService>();
+
+builder.Services.AddControllers();
+
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 var _configuration = builder.Configuration;
 var connectionString = _configuration.GetConnectionString("DevConnection");
 
@@ -72,6 +92,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseAuthorization();
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
@@ -80,5 +102,4 @@ app.UseAuthorization();
 app.UseCors("AllowAll");
 
 app.MapControllers();
-
 app.Run();
