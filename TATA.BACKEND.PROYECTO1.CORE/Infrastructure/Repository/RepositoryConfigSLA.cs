@@ -3,7 +3,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
+namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 {
     public class RepositoryConfigSLA : IRepositoryConfigSLA
     {
@@ -49,11 +49,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
             current.DiasUmbral = entity.DiasUmbral;
             current.TipoSolicitud = entity.TipoSolicitud;
             current.EsActivo = entity.EsActivo;
-            current.ActualizadoEn = entity.ActualizadoEn == default ? DateTime.UtcNow : entity.ActualizadoEn;
+
+            // Déjalo aquí para tener una sola fuente de verdad del timestamp
+            current.ActualizadoEn = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return true;
         }
+
 
         // ------- DELETE físico -------
         public async Task<bool> DeleteAsync(int id)

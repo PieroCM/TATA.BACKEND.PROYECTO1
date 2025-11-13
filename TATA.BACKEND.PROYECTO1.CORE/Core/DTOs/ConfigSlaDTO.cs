@@ -23,7 +23,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string? Descripcion { get; set; }
         public int DiasUmbral { get; set; }
         public string TipoSolicitud { get; set; } = default!;
-        public bool EsActivo { get; set; } = true;
     }
 
     public class ConfigSlaUpdateDTO

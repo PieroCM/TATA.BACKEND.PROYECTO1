@@ -51,7 +51,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 Descripcion = dto.Descripcion,
                 DiasUmbral = dto.DiasUmbral,
                 TipoSolicitud = dto.TipoSolicitud.Trim(),
-                EsActivo = dto.EsActivo,
                 CreadoEn = now,
                 ActualizadoEn = now
             };
@@ -62,19 +61,25 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         // -------- update --------
         public async Task<bool> UpdateAsync(int id, ConfigSlaUpdateDTO dto)
         {
+            if (dto is null) return false;
+            if (string.IsNullOrWhiteSpace(dto.CodigoSla)) return false;
+            if (string.IsNullOrWhiteSpace(dto.TipoSolicitud)) return false;
+
             var entity = new ConfigSla
             {
                 IdSla = id,
                 CodigoSla = dto.CodigoSla.Trim(),
-                Descripcion = dto.Descripcion,
+                Descripcion = dto.Descripcion,      // puede ir null
                 DiasUmbral = dto.DiasUmbral,
                 TipoSolicitud = dto.TipoSolicitud.Trim(),
                 EsActivo = dto.EsActivo,
+                // Centralizamos el timestamp en el repo -> opcional no setear aquí
                 ActualizadoEn = DateTime.UtcNow
             };
 
             return await _repo.UpdateAsync(entity);
         }
+
 
         // -------- delete --------
         public Task<bool> DeleteAsync(int id) => _repo.DeleteAsync(id);
