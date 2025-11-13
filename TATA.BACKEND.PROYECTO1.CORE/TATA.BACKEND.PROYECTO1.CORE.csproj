@@ -22,4 +22,9 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Core\Settings\" />
+    <Folder Include="Infrastructure\Shared\" />
+  </ItemGroup>
+
 </Project>
