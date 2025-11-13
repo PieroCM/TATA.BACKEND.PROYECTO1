@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
+
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +15,12 @@ var connectionString = _configuration.GetConnectionString("DevConnection");
 
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+
+//SOLICITUD
+builder.Services.AddTransient<IRepositorySolicitud, RepositorySolicitud>();
+builder.Services.AddTransient<ISolicitudService, SolicitudService>();
+
 
 // ConfigSLA
 builder.Services.AddTransient<IRepositoryConfigSLA, RepositoryConfigSLA>();
@@ -29,11 +38,14 @@ builder.Services.AddTransient<IRolPermisoService, RolPermisoService>();
 builder.Services.AddTransient<IRepositoryLogSistema, RepositoryLogSistema>();
 builder.Services.AddTransient<ILogSistemaService, LogSistemaService>();
 
+
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

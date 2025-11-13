@@ -7,18 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Core\Settings\**" />
-    <Compile Remove="NewFolder1\**" />
-    <Compile Remove="NewFolder2\**" />
-    <Compile Remove="NewFolder\**" />
-    <EmbeddedResource Remove="Core\Settings\**" />
-    <EmbeddedResource Remove="NewFolder1\**" />
-    <EmbeddedResource Remove="NewFolder2\**" />
-    <EmbeddedResource Remove="NewFolder\**" />
-    <None Remove="Core\Settings\**" />
-    <None Remove="NewFolder1\**" />
-    <None Remove="NewFolder2\**" />
-    <None Remove="NewFolder\**" />
+    <Compile Remove="Infrastructure\Shared\**" />
+    <EmbeddedResource Remove="Infrastructure\Shared\**" />
+    <None Remove="Infrastructure\Shared\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,6 +27,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Core\Settings\" />
   </ItemGroup>
 
 </Project>
