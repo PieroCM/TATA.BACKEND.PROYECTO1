@@ -33,3 +33,4 @@ public partial class Usuario
 
     public virtual ICollection<Solicitud> Solicitud { get; set; } = new List<Solicitud>();
 }
+

@@ -6,14 +6,39 @@ using System.Threading.Tasks;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
-    public class UsuarioDTO
+ 
+    public class SignInRequestDTO
     {
-        public int IdUsuario { get; set; }              // Identificador del usuario
-        public string Username { get; set; } = string.Empty; // Nombre del usuario
-        public string Correo { get; set; } = string.Empty;   // Correo electrónico
-        public int IdRolSistema { get; set; }           // Rol del usuario (Admin, etc.)
-        public string? Estado { get; set; }             // ACTIVO / INACTIVO
-        public DateTime? UltimoLogin { get; set; }      // Último inicio de sesión
+        public string Correo { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+    public class SignUpRequestDTO
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public int IdRolSistema { get; set; }
+    }
 
+    public class UsuarioResponseDTO
+    {
+        public int IdUsuario { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public int IdRolSistema { get; set; }
+        public string Estado { get; set; } = string.Empty;
+        public DateTime? UltimoLogin { get; set; }
+        public DateTime? CreadoEn { get; set; }
+        public DateTime? ActualizadoEn { get; set; }
+    }
+    public class UsuarioUpdateDTO
+    {
+        public string Estado { get; set; }
+    }
+    public class UsuarioChangePasswordDTO
+    {
+        public string Correo { get; set; } = null!;          // Para identificar al usuario
+        public string PasswordActual { get; set; } = null!;  // Contraseña actual
+        public string NuevaPassword { get; set; } = null!;   // Nueva contraseña
     }
 }

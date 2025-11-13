@@ -31,6 +31,8 @@ public partial class Solicitud
 
     public DateTime? ActualizadoEn { get; set; }
 
+    public string? EstadoCumplimientoSla { get; set; }
+
     public virtual ICollection<Alerta> Alerta { get; set; } = new List<Alerta>();
 
     public virtual Usuario CreadoPorNavigation { get; set; } = null!;
