@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
-
-
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 public partial class RolesSistema
@@ -22,8 +20,6 @@ public partial class RolesSistema
 
     public virtual ICollection<Permiso> IdPermiso { get; set; } = new List<Permiso>();
 
-    // ✅ Tu relación para RolPermisoEntity
     [NotMapped]
     public virtual ICollection<RolPermisoEntity> RolPermisos { get; set; } = new List<RolPermisoEntity>();
 }
-  

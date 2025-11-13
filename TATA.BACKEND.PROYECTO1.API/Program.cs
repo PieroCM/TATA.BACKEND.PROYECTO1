@@ -1,12 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
-
 using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
-
-
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,11 +15,9 @@ var connectionString = _configuration.GetConnectionString("DevConnection");
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-
-//SOLICITUD
+// SOLICITUD
 builder.Services.AddTransient<IRepositorySolicitud, RepositorySolicitud>();
 builder.Services.AddTransient<ISolicitudService, SolicitudService>();
-
 
 // ConfigSLA
 builder.Services.AddTransient<IRepositoryConfigSLA, RepositoryConfigSLA>();
@@ -39,14 +35,29 @@ builder.Services.AddTransient<IRolPermisoService, RolPermisoService>();
 builder.Services.AddTransient<IRepositoryLogSistema, RepositoryLogSistema>();
 builder.Services.AddTransient<ILogSistemaService, LogSistemaService>();
 
+// Usuario y Personal
+builder.Services.AddTransient<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddTransient<IPersonalRepository, PersonalRepository>();
+builder.Services.AddTransient<IUsuarioService, UsuarioService>();
+builder.Services.AddTransient<IPersonalService, PersonalService>();
+
+// Shared Infrastructure (JWT, etc.)
+builder.Services.AddSharedInfrastructure(_configuration);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
-
-
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -54,7 +65,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseHttpsRedirection();
+
+app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseCors("AllowAll");
 
 app.MapControllers();
 
