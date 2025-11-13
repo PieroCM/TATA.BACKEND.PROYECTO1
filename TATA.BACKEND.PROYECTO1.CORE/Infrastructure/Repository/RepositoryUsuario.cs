@@ -10,7 +10,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
 {
-    public class RepositoryUsuario : IRepositoryUsuario
+    public class RepositoryUsuario
     {
         private readonly Proyecto1SlaDbContext _context;
 

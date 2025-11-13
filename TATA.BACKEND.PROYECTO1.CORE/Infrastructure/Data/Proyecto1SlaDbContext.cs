@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 

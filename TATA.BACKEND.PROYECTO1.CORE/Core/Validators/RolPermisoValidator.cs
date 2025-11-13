@@ -1,4 +1,7 @@
-﻿using System;
+﻿using FluentValidation;
+using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
