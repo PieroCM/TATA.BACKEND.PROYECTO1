@@ -1,4 +1,6 @@
 ﻿
+using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
     public interface IPersonalRepository
