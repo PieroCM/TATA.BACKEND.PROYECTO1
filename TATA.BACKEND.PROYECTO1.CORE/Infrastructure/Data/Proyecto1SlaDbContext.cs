@@ -3,7 +3,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+
 
 
 public partial class Proyecto1SlaDbContext : DbContext

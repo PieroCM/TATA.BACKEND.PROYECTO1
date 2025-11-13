@@ -1,11 +1,12 @@
-﻿using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+﻿using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
+namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
     public interface IRolPermisoService
     {
         Task<IEnumerable<RolPermisoEntity>> GetAllAsync();
-        Task<IEnumerable<object>> GetAllWithNamesAsync();
+        Task<IEnumerable<RolPermisoDTO>> GetAllWithNamesAsync();
         Task<RolPermisoEntity?> GetByIdsAsync(int idRolSistema, int idPermiso);
         Task<bool> AddAsync(RolPermisoEntity entity);
         Task<bool> UpdateAsync(int idRolSistema, int idPermiso, RolPermisoEntity entity);

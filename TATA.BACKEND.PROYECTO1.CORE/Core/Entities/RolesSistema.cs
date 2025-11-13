@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+
 
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;

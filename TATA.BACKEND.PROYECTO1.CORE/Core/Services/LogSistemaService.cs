@@ -1,42 +1,56 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using AutoMapper;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class LogSistemaService : ILogSistemaService
     {
         private readonly IRepositoryLogSistema _repository;
-        private readonly IMapper _mapper;
 
-        public LogSistemaService(IRepositoryLogSistema repository, IMapper mapper)
+        public LogSistemaService(IRepositoryLogSistema repository)
         {
             _repository = repository;
-            _mapper = mapper;
         }
+
+        private static LogSistemaDTO ToDto(LogSistema entity) => new()
+        {
+            IdLog = entity.IdLog,
+            FechaHora = entity.FechaHora,
+            Nivel = entity.Nivel,
+            Mensaje = entity.Mensaje,
+            Detalles = entity.Detalles,
+            IdUsuario = entity.IdUsuario
+        };
+
+        private static LogSistema ToEntity(LogSistemaCreateDTO dto) => new()
+        {
+            FechaHora = DateTime.UtcNow,
+            Nivel = dto.Nivel,
+            Mensaje = dto.Mensaje,
+            Detalles = dto.Detalles,
+            IdUsuario = dto.IdUsuario
+        };
 
         public async Task<IEnumerable<LogSistemaDTO>> GetAllAsync()
         {
             var logs = await _repository.GetAllAsync();
-            return _mapper.Map<IEnumerable<LogSistemaDTO>>(logs);
+            return logs.Select(ToDto);
         }
 
         public async Task<LogSistemaDTO?> GetByIdAsync(long id)
         {
             var log = await _repository.GetByIdAsync(id);
-            return _mapper.Map<LogSistemaDTO>(log);
+            return log is null ? null : ToDto(log);
         }
 
         public async Task<bool> AddAsync(LogSistemaCreateDTO dto)
         {
-            var entity = _mapper.Map<LogSistema>(dto);
-            entity.FechaHora = DateTime.UtcNow; // Asignar automáticamente
+            var entity = ToEntity(dto);
             return await _repository.AddAsync(entity);
         }
 

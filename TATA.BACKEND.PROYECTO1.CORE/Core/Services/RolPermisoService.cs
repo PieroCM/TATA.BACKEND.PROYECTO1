@@ -1,12 +1,8 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -21,7 +17,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         public async Task<IEnumerable<RolPermisoEntity>> GetAllAsync() => await _repository.GetAllAsync();
 
-        public async Task<IEnumerable<object>> GetAllWithNamesAsync() => await _repository.GetAllWithNamesAsync();
+        public async Task<IEnumerable<RolPermisoDTO>> GetAllWithNamesAsync() => await _repository.GetAllWithNamesAsync();
 
         public async Task<RolPermisoEntity?> GetByIdsAsync(int idRolSistema, int idPermiso)
             => await _repository.GetByIdsAsync(idRolSistema, idPermiso);
@@ -35,6 +31,4 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         public async Task<bool> RemoveAsync(int idRolSistema, int idPermiso)
             => await _repository.RemoveAsync(idRolSistema, idPermiso);
     }
-
-
 }

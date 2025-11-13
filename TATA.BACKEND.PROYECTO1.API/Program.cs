@@ -1,56 +1,37 @@
 using Microsoft.EntityFrameworkCore;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddAutoMapper(typeof(LogSistemaProfile));
 // Add services to the container.
-var _config = builder.Configuration;
-var _cnx = _config.GetConnectionString("DevConnection");
+var _configuration = builder.Configuration;
+var connectionString = _configuration.GetConnectionString("DevConnection");
 
-builder
-    .Services
-    .AddDbContext<Proyecto1SlaDbContext>(options =>
-        options.UseSqlServer(_cnx)
-    );
+builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
-// DI de interfaces (nombres completamente calificados para evitar conflictos)
-builder.Services.AddScoped<
-    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRepositoryConfigSLA,
-    TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository.RepositoryConfigSLA>();
+// ConfigSLA
+builder.Services.AddTransient<IRepositoryConfigSLA, RepositoryConfigSLA>();
+builder.Services.AddTransient<IConfigSlaService, ConfigSlaService>();
 
-builder.Services.AddScoped<
-    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IConfigSlaService,
-    TATA.BACKEND.PROYECTO1.CORE.Core.Services.ConfigSlaService>();
+// RolRegistro
+builder.Services.AddTransient<IRepositoryRolRegistro, RepositoryRolRegistro>();
+builder.Services.AddTransient<IRolRegistroService, RolRegistroService>();
 
-// RolRegistro DI
-builder.Services.AddScoped<
-    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRepositoryRolRegistro,
-    TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository.RepositoryRolRegistro>();
+// RolPermiso
+builder.Services.AddTransient<IRepositoryRolPermiso, RepositoryRolPermiso>();
+builder.Services.AddTransient<IRolPermisoService, RolPermisoService>();
 
-builder.Services.AddScoped<
-    TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces.IRolRegistroService,
-    TATA.BACKEND.PROYECTO1.CORE.Core.Services.RolRegistroService>();
+// LogSistema
+builder.Services.AddTransient<IRepositoryLogSistema, RepositoryLogSistema>();
+builder.Services.AddTransient<ILogSistemaService, LogSistemaService>();
 
 builder.Services.AddControllers();
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
-// ?? Inyección de dependencias
-builder.Services.AddScoped<IRepositoryRolPermiso, RepositoryRolPermiso>();
-builder.Services.AddScoped<IRolPermisoService, RolPermisoService>();
-
-// ?? Configurar AutoMapper
-builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
-
-//Dependencias de Log_sistemas
-builder.Services.AddScoped<IRepositoryLogSistema, RepositoryLogSistema>();
-builder.Services.AddScoped<ILogSistemaService, LogSistemaService>();
-
-// ?? Base de datos
-builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DevConnection")));
-
-builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
@@ -61,5 +42,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthorization();
+
 app.MapControllers();
+
 app.Run();
