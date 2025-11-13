@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+
+namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+
+
 
 public partial class LogSistema
 {
