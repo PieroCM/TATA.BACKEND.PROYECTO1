@@ -3,6 +3,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
