@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
@@ -42,5 +43,6 @@ public partial class Solicitud
 
     public virtual ConfigSla IdSlaNavigation { get; set; } = null!;
 
-    public virtual ICollection<Reporte> IdReporte { get; set; } = new List<Reporte>();
+    //se borró esta línea porque no hay relación entre Solicitud y Reporte xD
+    //public virtual ICollection<Reporte> IdReporte { get; set; } = new List<Reporte>();
 }

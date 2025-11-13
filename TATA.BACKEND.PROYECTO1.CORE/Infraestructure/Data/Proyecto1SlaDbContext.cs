@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Data;
 
@@ -35,6 +36,10 @@ public partial class Proyecto1SlaDbContext : DbContext
     public virtual DbSet<Solicitud> Solicitud { get; set; }
 
     public virtual DbSet<Usuario> Usuario { get; set; }
+
+    //Para el reporte detalle
+    public virtual DbSet<ReporteDetalle> ReporteDetalle { get; set; }
+
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -234,25 +239,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_reporte_usuario");
 
-            entity.HasMany(d => d.IdSolicitud).WithMany(p => p.IdReporte)
-                .UsingEntity<Dictionary<string, object>>(
-                    "ReporteDetalle",
-                    r => r.HasOne<Solicitud>().WithMany()
-                        .HasForeignKey("IdSolicitud")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK_repdet_solicitud"),
-                    l => l.HasOne<Reporte>().WithMany()
-                        .HasForeignKey("IdReporte")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK_repdet_reporte"),
-                    j =>
-                    {
-                        j.HasKey("IdReporte", "IdSolicitud");
-                        j.ToTable("reporte_detalle");
-                        j.HasIndex(new[] { "IdSolicitud" }, "IX_repdet_solicitud");
-                        j.IndexerProperty<int>("IdReporte").HasColumnName("id_reporte");
-                        j.IndexerProperty<int>("IdSolicitud").HasColumnName("id_solicitud");
-                    });
+           
         });
 
         modelBuilder.Entity<RolRegistro>(entity =>
@@ -427,6 +414,27 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_usuario_rol");
         });
+
+        // Bloque agregado de ReporteDetalle para corregir el error de clave foránea xD
+        modelBuilder.Entity<ReporteDetalle>(entity =>
+        {
+            entity.ToTable("reporte_detalle");
+            entity.HasKey(x => new { x.IdReporte, x.IdSolicitud }).HasName("PK_reporte_detalle");
+
+            entity.Property(e => e.IdReporte).HasColumnName("id_reporte");
+            entity.Property(e => e.IdSolicitud).HasColumnName("id_solicitud");
+
+            // Índice que existe en tu script SQL (opcional, recomendado)
+            entity.HasIndex(e => e.IdSolicitud, "IX_repdet_solicitud");
+
+            // FK a Solicitud con el nombre de constraint de tu BD
+            entity.HasOne(d => d.Solicitud)
+                  .WithMany()                         // o .WithMany(s => s.Detalles) si agregas la colección en Solicitud
+                  .HasForeignKey(d => d.IdSolicitud)
+                  .OnDelete(DeleteBehavior.ClientSetNull)
+                  .HasConstraintName("FK_repdet_solicitud");
+        });
+
 
         OnModelCreatingPartial(modelBuilder);
     }
