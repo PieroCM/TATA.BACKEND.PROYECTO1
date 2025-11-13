@@ -8,9 +8,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class RolPermisoService : IRolPermisoService
     {
-        private readonly IRepositoryRolPermiso _repository;
+        private readonly IRolPermisoRepository _repository;
 
-        public RolPermisoService(IRepositoryRolPermiso repository)
+        public RolPermisoService(IRolPermisoRepository repository)
         {
             _repository = repository;
         }

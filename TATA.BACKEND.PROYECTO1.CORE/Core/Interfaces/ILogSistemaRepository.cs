@@ -1,9 +1,8 @@
 ﻿using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
-    public interface IRepositoryLogSistema
+    public interface ILogSistemaRepository
     {
         Task<bool> AddAsync(LogSistema entity);
         Task<IEnumerable<LogSistema>> GetAllAsync();

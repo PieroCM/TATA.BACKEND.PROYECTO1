@@ -13,11 +13,11 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 {
 
-    public class RepositoryRolPermiso : IRepositoryRolPermiso
+    public class RolPermisoRepository : IRolPermisoRepository
     {
         private readonly Proyecto1SlaDbContext _context;
 
-        public RepositoryRolPermiso(Proyecto1SlaDbContext context)
+        public RolPermisoRepository(Proyecto1SlaDbContext context)
         {
             _context = context;
         }

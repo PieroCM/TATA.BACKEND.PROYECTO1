@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 
-namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
+namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
     public interface IPermisoService
     {

@@ -12,9 +12,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class ConfigSlaService : IConfigSlaService
     {
-        private readonly IRepositoryConfigSLA _repo;
+        private readonly IConfigSLARepository _repo;
 
-        public ConfigSlaService(IRepositoryConfigSLA repo)
+        public ConfigSlaService(IConfigSLARepository repo)
         {
             _repo = repo;
         }

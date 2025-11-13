@@ -2,7 +2,7 @@
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
-    public interface IRepositoryConfigSLA
+    public interface IConfigSLARepository
     {
         IEnumerable<ConfigSla> GetAll();                // sync
         Task<IEnumerable<ConfigSla>> GetAllAsync();     // async

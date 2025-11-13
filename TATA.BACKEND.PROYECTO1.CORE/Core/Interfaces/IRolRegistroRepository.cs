@@ -4,7 +4,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
-    public interface IRepositoryRolRegistro
+    public interface IRolRegistroRepository
     {
         IEnumerable<RolRegistro> GetAll();
         Task<IEnumerable<RolRegistro>> GetAllAsync();

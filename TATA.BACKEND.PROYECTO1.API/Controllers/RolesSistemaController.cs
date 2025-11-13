@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {

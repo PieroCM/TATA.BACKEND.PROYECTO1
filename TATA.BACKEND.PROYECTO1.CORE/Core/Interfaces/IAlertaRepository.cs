@@ -3,7 +3,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
-    public interface IRepositoryAlerta
+    public interface IAlertaRepository
     {
         Task<Alerta> CreateAlertaAsync(Alerta alerta);
         Task<bool> DeleteAlertaAsync(int id);

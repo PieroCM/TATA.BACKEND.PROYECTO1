@@ -11,7 +11,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 {
-    public class RepositoryRolRegistro : IRepositoryRolRegistro
+    public class RepositoryRolRegistro : IRolRegistroRepository
     {
         private readonly Proyecto1SlaDbContext _context;
 

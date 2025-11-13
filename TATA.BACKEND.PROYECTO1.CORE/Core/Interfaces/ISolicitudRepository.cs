@@ -3,7 +3,7 @@
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
-    public interface IRepositorySolicitud
+    public interface ISolicitudRepository
     {
         Task<Solicitud> CreateSolicitudAsync(Solicitud solicitud);
         Task<bool> DeleteSolicitudAsync(int id, string deletedState = "ELIMINADO");

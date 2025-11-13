@@ -3,7 +3,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
-    public interface IRepositoryRolPermiso
+    public interface IRolPermisoRepository
     {
         Task<IEnumerable<RolPermisoEntity>> GetAllAsync();
         Task<IEnumerable<RolPermisoDTO>> GetAllWithNamesAsync();

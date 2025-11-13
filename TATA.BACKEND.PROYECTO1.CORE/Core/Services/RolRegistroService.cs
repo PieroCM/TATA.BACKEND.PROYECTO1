@@ -11,9 +11,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class RolRegistroService : IRolRegistroService
     {
-        private readonly IRepositoryRolRegistro _repo;
+        private readonly IRolRegistroRepository _repo;
 
-        public RolRegistroService(IRepositoryRolRegistro repo)
+        public RolRegistroService(IRolRegistroRepository repo)
         {
             _repo = repo;
         }

@@ -12,9 +12,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     public class SolicitudService : ISolicitudService
     {
         // instanciar interfaz de ISolicitudRepository
-        private readonly IRepositorySolicitud _solicitudRepository;
+        private readonly ISolicitudRepository _solicitudRepository;
 
-        public SolicitudService(IRepositorySolicitud solicitudRepository)
+        public SolicitudService(ISolicitudRepository solicitudRepository)
         {
             _solicitudRepository = solicitudRepository;
         }

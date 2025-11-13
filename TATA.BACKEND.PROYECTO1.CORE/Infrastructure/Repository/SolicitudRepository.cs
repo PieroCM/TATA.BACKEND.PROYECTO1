@@ -11,11 +11,11 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
 {
-    public class RepositorySolicitud : IRepositorySolicitud
+    public class SolicitudRepository : ISolicitudRepository
     {
         private readonly Proyecto1SlaDbContext _context;
 
-        public RepositorySolicitud(Proyecto1SlaDbContext context)
+        public SolicitudRepository(Proyecto1SlaDbContext context)
         {
             _context = context;
         }

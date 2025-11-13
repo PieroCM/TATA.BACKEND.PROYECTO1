@@ -10,10 +10,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class AlertaService : IAlertaService
     {
-        private readonly IRepositoryAlerta _RepositoryAlerta;
+        private readonly IAlertaRepository _RepositoryAlerta;
         private readonly IEmailService _emailService;
 
-        public AlertaService(IRepositoryAlerta repositoryAlerta, IEmailService emailService)
+        public AlertaService(IAlertaRepository repositoryAlerta, IEmailService emailService)
         {
             _RepositoryAlerta = repositoryAlerta;
             _emailService = emailService;

@@ -10,11 +10,11 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 {
-    public class RepositoryLogSistema : IRepositoryLogSistema
+    public class LogSistemaRepository : ILogSistemaRepository
     {
         private readonly Proyecto1SlaDbContext _context;
 
-        public RepositoryLogSistema(Proyecto1SlaDbContext context)
+        public LogSistemaRepository(Proyecto1SlaDbContext context)
         {
             _context = context;
         }

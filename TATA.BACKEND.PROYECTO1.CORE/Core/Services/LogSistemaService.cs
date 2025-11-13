@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class LogSistemaService : ILogSistemaService
     {
-        private readonly IRepositoryLogSistema _repository;
+        private readonly ILogSistemaRepository _repository;
 
-        public LogSistemaService(IRepositoryLogSistema repository)
+        public LogSistemaService(ILogSistemaRepository repository)
         {
             _repository = repository;
         }

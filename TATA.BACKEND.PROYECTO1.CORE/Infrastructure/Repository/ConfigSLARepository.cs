@@ -5,11 +5,11 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 {
-    public class RepositoryConfigSLA : IRepositoryConfigSLA
+    public class ConfigSLARepository : IConfigSLARepository
     {
         private readonly Proyecto1SlaDbContext _context;
 
-        public RepositoryConfigSLA(Proyecto1SlaDbContext context)
+        public ConfigSLARepository(Proyecto1SlaDbContext context)
         {
             _context = context;
         }
