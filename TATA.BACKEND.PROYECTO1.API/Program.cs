@@ -56,6 +56,12 @@ builder.Services.AddTransient<IPermisoRepository, PermisoRepository>();
 builder.Services.AddTransient<IRolesSistemaService, RolesSistemaService>();
 builder.Services.AddTransient<IPermisoService, PermisoService>();
 
+//Reporte y ReporteDetalle
+builder.Services.AddTransient<IReporteRepository, ReporteRepository>();
+builder.Services.AddTransient<IReporteService, ReporteService>();
+builder.Services.AddTransient<IReporteDetalleRepository, ReporteDetalleRepository>();
+builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
+
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
 

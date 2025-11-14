@@ -35,8 +35,10 @@ public partial class Proyecto1SlaDbContext : DbContext
     public virtual DbSet<Solicitud> Solicitud { get; set; }
 
     public virtual DbSet<Usuario> Usuario { get; set; }
+    //Para el reporte detalle
+    public virtual DbSet<ReporteDetalle> ReporteDetalle { get; set; }
 
-   
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Alerta>(entity =>
@@ -231,25 +233,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_reporte_usuario");
 
-            entity.HasMany(d => d.IdSolicitud).WithMany(p => p.IdReporte)
-                .UsingEntity<Dictionary<string, object>>(
-                    "ReporteDetalle",
-                    r => r.HasOne<Solicitud>().WithMany()
-                        .HasForeignKey("IdSolicitud")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK_repdet_solicitud"),
-                    l => l.HasOne<Reporte>().WithMany()
-                        .HasForeignKey("IdReporte")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("FK_repdet_reporte"),
-                    j =>
-                    {
-                        j.HasKey("IdReporte", "IdSolicitud");
-                        j.ToTable("reporte_detalle");
-                        j.HasIndex(new[] { "IdSolicitud" }, "IX_repdet_solicitud");
-                        j.IndexerProperty<int>("IdReporte").HasColumnName("id_reporte");
-                        j.IndexerProperty<int>("IdSolicitud").HasColumnName("id_solicitud");
-                    });
+            
         });
 
         modelBuilder.Entity<RolRegistro>(entity =>
@@ -427,6 +411,34 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_usuario_rol");
         });
+
+        // Configuración many-to-many entre Reporte y Solicitud usando la entidad explícita ReporteDetalle
+        modelBuilder.Entity<Reporte>()
+            .HasMany(r => r.Solicitudes)
+            .WithMany(s => s.IdReporte)
+            .UsingEntity<ReporteDetalle>(
+                // relación desde ReporteDetalle hacia Solicitud
+                j => j.HasOne(rd => rd.Solicitud)
+                      .WithMany() // no hay colección de ReporteDetalle en Solicitud
+                      .HasForeignKey(rd => rd.IdSolicitud)
+                      .OnDelete(DeleteBehavior.ClientSetNull)
+                      .HasConstraintName("FK_repdet_solicitud"),
+                // relación desde ReporteDetalle hacia Reporte
+                j => j.HasOne(rd => rd.Reporte)
+                      .WithMany(r => r.Detalles)
+                      .HasForeignKey(rd => rd.IdReporte)
+                      .OnDelete(DeleteBehavior.ClientSetNull)
+                      .HasConstraintName("FK_repdet_reporte"),
+                // configuración de la tabla de unión
+                j =>
+                {
+                    j.HasKey(rd => new { rd.IdReporte, rd.IdSolicitud }).HasName("PK_reporte_detalle");
+                    j.ToTable("reporte_detalle");
+                    j.HasIndex(rd => rd.IdSolicitud, "IX_repdet_solicitud");
+
+                    j.Property(rd => rd.IdReporte).HasColumnName("id_reporte");
+                    j.Property(rd => rd.IdSolicitud).HasColumnName("id_solicitud");
+                });
 
         OnModelCreatingPartial(modelBuilder);
     }

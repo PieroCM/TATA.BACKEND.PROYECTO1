@@ -43,5 +43,6 @@ public partial class Solicitud
 
     public virtual ConfigSla IdSlaNavigation { get; set; } = null!;
 
+    // Navegación hacia Reporte utilizada por el código existente
     public virtual ICollection<Reporte> IdReporte { get; set; } = new List<Reporte>();
 }
