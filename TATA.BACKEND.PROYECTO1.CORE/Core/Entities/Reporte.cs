@@ -22,5 +22,9 @@ public partial class Reporte
 
     public virtual Usuario GeneradoPorNavigation { get; set; } = null!;
 
-    public virtual ICollection<Solicitud> IdSolicitud { get; set; } = new List<Solicitud>();
+    // colección de filas en la tabla intermedia
+    public virtual ICollection<ReporteDetalle> Detalles { get; set; } = new List<ReporteDetalle>();
+
+    // skip-navigation many-to-many: solicitudes relacionadas
+    public virtual ICollection<Solicitud> Solicitudes { get; set; } = new List<Solicitud>();
 }
