@@ -63,14 +63,36 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
         // ============================================================
         public async Task<bool> UpdateAsync(int idRolSistema, int idPermiso, RolPermisoEntity entity)
         {
-            // ⚠️ Normalmente las relaciones N:M no se actualizan,
-            // pero si deseas cambiar el permiso asignado a un rol:
-            var query = @"
-                UPDATE rol_permiso
-                SET id_permiso = {2}
-                WHERE id_rol_sistema = {0} AND id_permiso = {1}";
+            // 1️⃣ Validar si el registro original existe
+            var exists = await GetByIdsAsync(idRolSistema, idPermiso);
+            if (exists == null)
+                return false; // No se encontró el registro a actualizar
 
-            var rows = await _context.Database.ExecuteSqlRawAsync(query, idRolSistema, idPermiso, entity.IdPermiso);
+            // 2️⃣ Validar si la nueva combinación YA existe (y no es la misma)
+            if (entity.IdPermiso != idPermiso)
+            {
+                var duplicate = await GetByIdsAsync(idRolSistema, entity.IdPermiso);
+                if (duplicate != null)
+                {
+                    // ❌ Ya existe un registro con esta PK → No se puede actualizar
+                    // Devuelve false y que el Service/Controller manejen el mensaje
+                    return false;
+                }
+            }
+
+            // 3️⃣ Realizar el UPDATE
+            var query = @"
+        UPDATE rol_permiso
+        SET id_permiso = {2}
+        WHERE id_rol_sistema = {0} AND id_permiso = {1}";
+
+            var rows = await _context.Database.ExecuteSqlRawAsync(
+                query,
+                idRolSistema,       // {0}
+                idPermiso,          // {1}
+                entity.IdPermiso    // {2}
+            );
+
             return rows > 0;
         }
 

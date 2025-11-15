@@ -48,12 +48,25 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return created ? Ok("Registro creado correctamente") : BadRequest("No se pudo crear el registro");
         }
 
-        // PUT: api/rolpermiso/{idRolSistema}/{idPermiso}
         [HttpPut("{idRolSistema}/{idPermiso}")]
         public async Task<IActionResult> Update(int idRolSistema, int idPermiso, [FromBody] RolPermisoEntity entity)
         {
             var updated = await _service.UpdateAsync(idRolSistema, idPermiso, entity);
-            return updated ? Ok("Registro actualizado correctamente") : NotFound("No se encontró el registro");
+
+            if (!updated)
+            {
+                // Verificar si el original existe
+                var exists = await _service.GetByIdsAsync(idRolSistema, idPermiso);
+                if (exists == null)
+                    return NotFound("❌ No se encontró el registro original a actualizar.");
+
+                // Verificar si la nueva combinación ya existe
+                var duplicate = await _service.GetByIdsAsync(entity.IdRolSistema, entity.IdPermiso);
+                if (duplicate != null)
+                    return BadRequest("❌ No se puede actualizar. Ya existe un permiso asignado con esta combinación.");
+            }
+
+            return Ok("✔ Registro actualizado correctamente.");
         }
 
         // DELETE: api/rolpermiso/{idRolSistema}/{idPermiso}
