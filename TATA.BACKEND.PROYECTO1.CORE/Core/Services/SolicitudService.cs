@@ -176,7 +176,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             // 3. determinar cumplimiento y compose message with codigo SLA
             var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
             var cumple = numDias <= configSla.DiasUmbral;
-            var estadoCumplimiento = cumple ? $"CUMPLE_{codigo}" : $"NO_CUMPLE_{codigo}";
+            var estadoCumplimiento = cumple ? $"CUMPLE {codigo}" : $"NO CUMPLE {codigo}";
 
             // 4. armar entidad (convertir DateTime -> DateOnly)
             var entity = new Solicitud
