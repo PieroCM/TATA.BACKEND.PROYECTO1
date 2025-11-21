@@ -31,7 +31,7 @@ builder.Services.AddTransient<IConfigSLARepository, ConfigSLARepository>();
 builder.Services.AddTransient<IConfigSlaService, ConfigSlaService>();
 
 // RolRegistro
-builder.Services.AddTransient<IRolRegistroRepository, RepositoryRolRegistro>();
+builder.Services.AddTransient<IRolRegistroRepository, RolRegistroRepository>();
 builder.Services.AddTransient<IRolRegistroService, RolRegistroService>();
 
 // RolPermiso
