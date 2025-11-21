@@ -62,6 +62,9 @@ builder.Services.AddTransient<IReporteService, ReporteService>();
 builder.Services.AddTransient<IReporteDetalleRepository, ReporteDetalleRepository>();
 builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 
+//Subida volumen
+builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
+
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
 
