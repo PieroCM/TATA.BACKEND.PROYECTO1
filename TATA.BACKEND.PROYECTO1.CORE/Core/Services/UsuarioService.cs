@@ -43,7 +43,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 Username = dto.Username,
                 Correo = dto.Correo,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                IdRolSistema = dto.IdRolSistema,
+                IdRolSistema = 1,
                 Estado = "ACTIVO",
                 CreadoEn = DateTime.Now
             };
