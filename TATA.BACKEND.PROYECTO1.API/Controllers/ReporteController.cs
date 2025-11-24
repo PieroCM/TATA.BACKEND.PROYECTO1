@@ -1,15 +1,16 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
-    //[Route("api/reportes")]             // Forzar plural en la URL 
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]                         // comentar si aún no hay JWT
+    //[Authorize] // Requiere JWT para todos los endpoints (ajusta si sólo quieres en generar)
     public class ReporteController : ControllerBase
     {
         private readonly IReporteService _reporteService;
@@ -39,6 +40,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         }
 
         // POST: api/reportes
+        [AllowAnonymous] // si aún necesitas crear sin JWT; quítalo cuando todo requiera token
         [HttpPost]
         public async Task<IActionResult> CreateReporte([FromBody] ReporteCreateRequest request)
         {
@@ -58,6 +60,29 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
             // CreatedAtAction arma la URL: GET api/reportes/{id}
             return CreatedAtAction(nameof(GetReporteById), new { id = entity.IdReporte }, MapToDto(entity));
+        }
+
+        // POST: api/reportes/generar
+        [HttpPost("generar")]
+        [Authorize]
+        public async Task<IActionResult> Generar([FromBody] GenerarReporteRequest request)
+        {
+            if (request == null || request.IdsSolicitudes == null || !request.IdsSolicitudes.Any())
+                return BadRequest("Debes enviar al menos una solicitud.");
+
+            // Obtener id usuario desde el JWT (claim "UserId")
+            var userIdClaim = User.FindFirst("UserId");
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var idUsuarioActual))
+            {
+                return Unauthorized("Token sin claim UserId válido.");
+            }
+
+            var reporte = await _reporteService.GenerarReporteAsync(request, idUsuarioActual);
+
+            var dto = MapToDto(reporte);
+            // set nombre desde claim Name si existe
+            dto.GeneradoPorNombre = User.FindFirst(ClaimTypes.Name)?.Value ?? "(sin_username)";
+            return Ok(dto);
         }
 
         // PUT: api/reportes/{id}
@@ -98,6 +123,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             FiltrosJson = r.FiltrosJson,
             RutaArchivo = r.RutaArchivo,
             GeneradoPor = r.GeneradoPor,
+            // GeneradoPorNombre se completa en el endpoint generar usando claims
             FechaGeneracion = r.FechaGeneracion,
             TotalSolicitudes = r.Detalles != null ? r.Detalles.Count : 0
         };
