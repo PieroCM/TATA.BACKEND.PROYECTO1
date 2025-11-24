@@ -29,6 +29,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public DateTime? UltimoLogin { get; set; }
         public DateTime? CreadoEn { get; set; }
         public DateTime? ActualizadoEn { get; set; }
+
+
     }
     public class UsuarioUpdateDTO
     {

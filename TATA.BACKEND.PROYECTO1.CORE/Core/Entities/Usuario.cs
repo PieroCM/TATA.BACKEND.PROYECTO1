@@ -23,6 +23,12 @@ public partial class Usuario
 
     public DateTime? ActualizadoEn { get; set; }
 
+    public string? token_recuperacion { get; set; }
+
+    public DateTime? expiracion_token { get; set; }
+
+
+
     public virtual RolesSistema IdRolSistemaNavigation { get; set; } = null!;
 
     public virtual ICollection<LogSistema> LogSistema { get; set; } = new List<LogSistema>();

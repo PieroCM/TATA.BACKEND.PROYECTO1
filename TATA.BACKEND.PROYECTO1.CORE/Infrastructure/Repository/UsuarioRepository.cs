@@ -55,5 +55,15 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
                 await _context.SaveChangesAsync();
             }
         }
+
+        // ===========================
+        // MÉTODO PARA RECUPERACIÓN DE CONTRASEÑA
+        // ===========================
+        public async Task<Usuario?> GetByRecoveryTokenAsync(string token)
+        {
+            return await _context.Usuario
+                .FirstOrDefaultAsync(u => u.token_recuperacion == token 
+                                       && u.expiracion_token > DateTime.UtcNow);
+        }
     }
 }

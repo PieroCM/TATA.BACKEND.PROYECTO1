@@ -1,8 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using System.Security.Cryptography;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -10,11 +13,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     {
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IJWTService _jwtService;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<UsuarioService> _logger;
 
-        public UsuarioService(IUsuarioRepository usuarioRepository, IJWTService jwtService)
+        public UsuarioService(
+            IUsuarioRepository usuarioRepository, 
+            IJWTService jwtService,
+            IEmailService emailService,
+            ILogger<UsuarioService> logger)
         {
             _usuarioRepository = usuarioRepository;
             _jwtService = jwtService;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         // LOGIN
@@ -109,28 +120,133 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             return true;
         }
 
-
-        //LO DE RECUPERAR CONTRASEÑA
+        //LO DE CAMBIAR CONTRASEÑA (usuario ya logueado)
         public async Task<bool> ChangePasswordAsync(UsuarioChangePasswordDTO dto)
         {
-            // Buscar usuario por correo
             var usuario = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
             if (usuario == null)
                 return false;
 
-            // Verificar contraseña actual
             bool passwordOk = BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash);
             if (!passwordOk)
                 return false;
 
-            // Hashear la nueva contraseña
             usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
             usuario.ActualizadoEn = DateTime.Now;
 
-            // Actualizar en base de datos
             await _usuarioRepository.UpdateAsync(usuario);
             return true;
         }
 
+        // ===========================
+        // SOLICITAR RECUPERACIÓN DE CONTRASEÑA
+        // ===========================
+        public async Task<bool> SolicitarRecuperacionPassword(SolicitarRecuperacionDTO request)
+        {
+            try
+            {
+                var usuario = await _usuarioRepository.GetByCorreoAsync(request.Email);
+                
+                if (usuario == null)
+                {
+                    _logger.LogWarning("Solicitud de recuperación para email no registrado: {Email}", request.Email);
+                    // Por seguridad, devuelve true aunque no exista el usuario
+                    return true;
+                }
+
+                // Generar token seguro de 32 bytes (64 caracteres hexadecimales)
+                var token = GenerateSecureToken();
+                
+                // Configurar token con expiración de 1 hora
+                usuario.token_recuperacion = token;
+                usuario.expiracion_token = DateTime.UtcNow.AddHours(1);
+                
+                await _usuarioRepository.UpdateAsync(usuario);
+
+                // Generar email usando el template
+                var emailBody = EmailTemplates.BuildRecuperacionPasswordBody(usuario.Username, token);
+                
+                // Enviar email
+                await _emailService.SendAsync(
+                    usuario.Correo,
+                    "Recuperación de Contraseña - Sistema SLA",
+                    emailBody
+                );
+
+                _logger.LogInformation("Token de recuperación enviado a {Email}", request.Email);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al procesar solicitud de recuperación para {Email}", request.Email);
+                return false;
+            }
+        }
+
+        // ===========================
+        // RESTABLECER CONTRASEÑA CON TOKEN
+        // ===========================
+        public async Task<bool> RestablecerPassword(RestablecerPasswordDTO request)
+        {
+            try
+            {
+                var usuario = await _usuarioRepository.GetByRecoveryTokenAsync(request.Token);
+                
+                if (usuario == null)
+                {
+                    _logger.LogWarning("Intento de restablecer con token inválido o expirado");
+                    return false;
+                }
+
+                // Verificar que el email coincida (seguridad adicional)
+                if (usuario.Correo != request.Email)
+                {
+                    _logger.LogWarning("Email no coincide con el token de recuperación");
+                    return false;
+                }
+
+                // Actualizar contraseña (hasheando con BCrypt)
+                usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NuevaPassword);
+                
+                // Limpiar token de recuperación
+                usuario.token_recuperacion = null;
+                usuario.expiracion_token = null;
+                usuario.ActualizadoEn = DateTime.UtcNow;
+                
+                await _usuarioRepository.UpdateAsync(usuario);
+
+                // Generar email de confirmación usando el template
+                var emailBody = EmailTemplates.BuildPasswordChangedBody(usuario.Username);
+                
+                // Enviar email de confirmación
+                await _emailService.SendAsync(
+                    usuario.Correo,
+                    "Contraseña Actualizada - Sistema SLA",
+                    emailBody
+                );
+
+                _logger.LogInformation("Contraseña restablecida exitosamente para {Email}", request.Email);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al restablecer contraseña para {Email}", request.Email);
+                return false;
+            }
+        }
+
+        // ===========================
+        // MÉTODO AUXILIAR PRIVADO
+        // ===========================
+        private static string GenerateSecureToken()
+        {
+            // Genera un token seguro de 32 bytes (64 caracteres hexadecimales)
+            var randomBytes = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+            return Convert.ToHexString(randomBytes);
+        }
     }
 }

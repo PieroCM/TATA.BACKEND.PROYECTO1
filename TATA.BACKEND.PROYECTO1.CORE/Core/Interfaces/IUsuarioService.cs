@@ -16,5 +16,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<bool> ChangePasswordAsync(UsuarioChangePasswordDTO dto);
 
 
+        // Métodos para recuperación de contraseña
+        Task<bool> SolicitarRecuperacionPassword(SolicitarRecuperacionDTO request);
+        Task<bool> RestablecerPassword(RestablecerPasswordDTO request);
     }
 }

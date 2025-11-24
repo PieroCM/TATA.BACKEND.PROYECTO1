@@ -17,7 +17,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             _usuarioService = usuarioService;
         }
 
-        // ⛔ Estos dos son públicos (no necesitan token)
+        // ⛔ Estos son públicos (no necesitan token)
         [AllowAnonymous] // 🔓 Esto se pone AQUÍ → a nivel de MÉTODO
         [HttpPost("signin")]
         public async Task<IActionResult> SignIn([FromBody] SignInRequestDTO dto)
@@ -38,6 +38,45 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 return BadRequest(new { message = "El correo ya está registrado" });
 
             return Ok(new { message = "Usuario registrado correctamente" });
+        }
+
+        // ===========================
+        // SOLICITAR RECUPERACIÓN DE CONTRASEÑA (POST /api/usuario/solicitar-recuperacion)
+        // ===========================
+        [AllowAnonymous]
+        [HttpPost("solicitar-recuperacion")]
+        public async Task<IActionResult> SolicitarRecuperacion([FromBody] SolicitarRecuperacionDTO request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+                return BadRequest(new { message = "El correo electrónico es obligatorio." });
+
+            var resultado = await _usuarioService.SolicitarRecuperacionPassword(request);
+            
+            // Por seguridad, siempre devuelve OK aunque el email no exista
+            return Ok(new { message = "Si el correo existe, recibirás un enlace de recuperación." });
+        }
+
+        // ===========================
+        // RESTABLECER CONTRASEÑA (POST /api/usuario/restablecer-password)
+        // ===========================
+        [AllowAnonymous]
+        [HttpPost("restablecer-password")]
+        public async Task<IActionResult> RestablecerPassword([FromBody] RestablecerPasswordDTO request)
+        {
+            if (request == null || 
+                string.IsNullOrWhiteSpace(request.Email) ||
+                string.IsNullOrWhiteSpace(request.Token) ||
+                string.IsNullOrWhiteSpace(request.NuevaPassword))
+            {
+                return BadRequest(new { message = "Email, token y nueva contraseña son obligatorios." });
+            }
+
+            var resultado = await _usuarioService.RestablecerPassword(request);
+            
+            if (!resultado)
+                return BadRequest(new { message = "Token inválido o expirado. Solicita uno nuevo." });
+
+            return Ok(new { message = "Contraseña actualizada exitosamente." });
         }
 
         // 🔒 Todo lo demás ya está protegido con el [Authorize] de arriba
@@ -67,7 +106,6 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return Ok(new { message = "Usuario actualizado correctamente" });
         }
 
-
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -77,9 +115,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return Ok(new { message = "Usuario eliminado correctamente" });
         }
 
-
-
-        //CAMBIAR CONTRASEÑAAA PEROO AHI NOMASS
+        //CAMBIAR CONTRASEÑA (usuario ya logueado)
         [Authorize]
         [HttpPut("cambiar-password")]
         public async Task<IActionResult> ChangePassword([FromBody] UsuarioChangePasswordDTO dto)
@@ -90,6 +126,5 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
             return Ok(new { message = "Contraseña actualizada correctamente" });
         }
-
     }
 }
