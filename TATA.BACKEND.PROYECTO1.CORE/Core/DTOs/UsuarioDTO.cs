@@ -6,12 +6,16 @@ using System.Threading.Tasks;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
- 
+    // ===========================
+    // AUTENTICACIÓN
+    // ===========================
+    
     public class SignInRequestDTO
     {
         public string Correo { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
+    
     public class SignUpRequestDTO
     {
         public string Username { get; set; } = string.Empty;
@@ -19,23 +23,49 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string Password { get; set; } = string.Empty;
     }
 
+    // ===========================
+    // GESTIÓN DE USUARIOS
+    // ===========================
+
     public class UsuarioResponseDTO
     {
         public int IdUsuario { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Correo { get; set; } = string.Empty;
         public int IdRolSistema { get; set; }
+        public string NombreRol { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
         public DateTime? UltimoLogin { get; set; }
         public DateTime? CreadoEn { get; set; }
         public DateTime? ActualizadoEn { get; set; }
-
-
     }
+
+    public class UsuarioCreateDTO
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Correo { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public int IdRolSistema { get; set; }
+        public string Estado { get; set; } = "ACTIVO"; // ACTIVO, INACTIVO
+    }
+
     public class UsuarioUpdateDTO
     {
-        public string Estado { get; set; }
+        public string? Username { get; set; }
+        public string? Correo { get; set; }
+        public int? IdRolSistema { get; set; }
+        public string? Estado { get; set; } // ACTIVO, INACTIVO
     }
+
+    public class UsuarioToggleEstadoDTO
+    {
+        public string Estado { get; set; } = null!; // ACTIVO o INACTIVO
+    }
+
+    // ===========================
+    // CONTRASEÑAS
+    // ===========================
+  
     public class UsuarioChangePasswordDTO
     {
         public string Correo { get; set; } = null!;          // Para identificar al usuario

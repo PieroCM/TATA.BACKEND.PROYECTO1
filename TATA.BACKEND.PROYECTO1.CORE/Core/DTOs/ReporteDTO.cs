@@ -16,6 +16,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string? FiltrosJson { get; set; }
         public string? RutaArchivo { get; set; }
         public int GeneradoPor { get; set; }                  // FK -> usuario
+        public string? GeneradoPorNombre { get; set; }         // nuevo: username del usuario
         public DateTime FechaGeneracion { get; set; }
         public int TotalSolicitudes { get; set; }
     }
@@ -54,6 +55,15 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 
         [Range(1, int.MaxValue)]
         public int GeneradoPor { get; set; }
+    }
+
+    // Nuevo contrato para generación: se elimina objeto Filtros y se usa directamente FiltrosJson dinámico
+    public class GenerarReporteRequest
+    {
+        public string TipoReporte { get; set; } = default!;         // "SLA_MENSUAL"
+        public string Formato { get; set; } = default!;             // "XLSX", "PDF", etc.
+        public List<int> IdsSolicitudes { get; set; } = new();      // [1,2,4,...]
+        public string? FiltrosJson { get; set; }                    // JSON arbitrario enviado por el front
     }
 
 }

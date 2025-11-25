@@ -49,7 +49,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         // ===========================
         // TEMPLATE: RECUPERACIÓN DE CONTRASEÑA
         // ===========================
-        public static string BuildRecuperacionPasswordBody(string username, string token)
+        public static string BuildRecuperacionPasswordBody(string username, string recoveryUrl)
         {
             var sb = new StringBuilder();
 
@@ -61,10 +61,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             sb.Append(".container { max-width: 600px; margin: 0 auto; padding: 20px; }");
             sb.Append(".header { background-color: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }");
             sb.Append(".content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 5px 5px; }");
-            sb.Append(".token-box { background-color: #fff; border: 2px solid #007bff; padding: 15px; margin: 20px 0; text-align: center; font-size: 16px; font-weight: bold; word-break: break-all; border-radius: 5px; }");
+            sb.Append(".button-box { text-align: center; margin: 30px 0; }");
+            sb.Append(".btn { display: inline-block; background-color: #007bff; color: white !important; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; }");
+            sb.Append(".btn:hover { background-color: #0056b3; }");
             sb.Append(".footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }");
-            sb.Append(".warning { color: #dc3545; font-weight: bold; margin-top: 15px; }");
-            sb.Append(".btn { display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px; }");
+            sb.Append(".warning { color: #dc3545; font-weight: bold; margin-top: 15px; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; }");
+            sb.Append(".info-box { background-color: #e7f3ff; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; }");
             sb.Append("</style>");
             sb.Append("</head>");
             sb.Append("<body>");
@@ -79,18 +81,25 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             sb.Append("<div class='content'>");
             sb.Append($"<h2>Hola {username},</h2>");
             sb.Append("<p>Hemos recibido una solicitud para restablecer tu contraseña en el <strong>Sistema de Gestión SLA</strong>.</p>");
-            sb.Append("<p>Para continuar con el proceso de recuperación, utiliza el siguiente token de verificación:</p>");
+            sb.Append("<p>Para continuar con el proceso de recuperación, haz clic en el siguiente botón:</p>");
             
-            // Token box
-            sb.Append("<div class='token-box'>");
-            sb.Append(token);
+            // Button with recovery link
+            sb.Append("<div class='button-box'>");
+            sb.Append($"<a href='{recoveryUrl}' class='btn'>Restablecer Contraseña</a>");
             sb.Append("</div>");
             
-            sb.Append("<p><strong>⏰ Este token expirará en 1 hora.</strong></p>");
-            sb.Append("<p>Por favor, copia este token y pégalo en el formulario de recuperación de contraseña.</p>");
+            sb.Append("<div class='info-box'>");
+            sb.Append("<p><strong>⏰ Este enlace expirará en 1 hora.</strong></p>");
+            sb.Append("<p>Por razones de seguridad, este enlace solo puede ser utilizado <strong>una vez</strong>.</p>");
+            sb.Append("</div>");
+            
+            sb.Append("<p style='font-size: 12px; color: #666; margin-top: 20px;'>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>");
+            sb.Append($"<p style='font-size: 11px; word-break: break-all; color: #007bff;'>{recoveryUrl}</p>");
             
             // Warning
-            sb.Append("<p class='warning'>⚠️ IMPORTANTE: Si no solicitaste este cambio, ignora este correo. Tu contraseña permanecerá segura.</p>");
+            sb.Append("<div class='warning'>");
+            sb.Append("<p style='margin: 0;'>⚠️ <strong>IMPORTANTE:</strong> Si no solicitaste este cambio, ignora este correo. Tu contraseña permanecerá segura.</p>");
+            sb.Append("</div>");
             
             sb.Append("</div>");
             
