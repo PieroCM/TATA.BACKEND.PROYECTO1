@@ -11,8 +11,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class SolicitudService : ISolicitudService
     {
-        // instanciar interfaz de ISolicitudRepository
         private readonly ISolicitudRepository _solicitudRepository;
+
+        // TimeZone de Perú para cálculo correcto de "hoy"
+        private static readonly TimeZoneInfo PeruTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
         public SolicitudService(ISolicitudRepository solicitudRepository)
         {
@@ -173,10 +175,21 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
             var numDias = (int)Math.Ceiling(dias);
 
-            // 3. determinar cumplimiento y compose message with codigo SLA
+            // 3. determinar cumplimiento y generar resumen con codigo SLA
             var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
             var cumple = numDias <= configSla.DiasUmbral;
-            var estadoCumplimiento = cumple ? $"CUMPLE {codigo}" : $"NO CUMPLE {codigo}";
+            var estadoCumplimiento = cumple ? $"CUMPLE_{codigo}" : $"NO_CUMPLE_{codigo}";
+            
+            // Generar resumen automático
+            var resumenSla = cumple 
+                ? $"Solicitud atendida dentro del SLA ({numDias} de {configSla.DiasUmbral} días)"
+                : $"Solicitud atendida fuera del SLA ({numDias} de {configSla.DiasUmbral} días)";
+
+            // Si el DTO trae un resumen personalizado, usarlo
+            if (!string.IsNullOrWhiteSpace(dto.ResumenSla))
+            {
+                resumenSla = dto.ResumenSla;
+            }
 
             // 4. armar entidad (convertir DateTime -> DateOnly)
             var entity = new Solicitud
@@ -188,7 +201,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 FechaSolicitud = DateOnly.FromDateTime(dto.FechaSolicitud),
                 FechaIngreso = DateOnly.FromDateTime(dto.FechaIngreso),
                 NumDiasSla = numDias,
-                ResumenSla = dto.ResumenSla,
+                ResumenSla = resumenSla,
                 OrigenDato = dto.OrigenDato,
                 EstadoSolicitud = dto.EstadoSolicitud ?? "ACTIVO",
                 EstadoCumplimientoSla = estadoCumplimiento,
@@ -223,6 +236,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var cumple = numDias <= configSla.DiasUmbral;
             var estadoCumplimiento = cumple ? $"CUMPLE_{codigo}" : $"NO_CUMPLE_{codigo}";
 
+            // Generar resumen automático
+            var resumenSla = cumple 
+                ? $"Solicitud atendida dentro del SLA ({numDias} de {configSla.DiasUmbral} días)"
+                : $"Solicitud atendida fuera del SLA ({numDias} de {configSla.DiasUmbral} días)";
+
+            // Si el DTO trae un resumen personalizado, usarlo
+            if (!string.IsNullOrWhiteSpace(dto.ResumenSla))
+            {
+                resumenSla = dto.ResumenSla;
+            }
+
             var entity = new Solicitud
             {
                 IdSolicitud = id,
@@ -233,7 +257,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 FechaSolicitud = DateOnly.FromDateTime(dto.FechaSolicitud),
                 FechaIngreso = DateOnly.FromDateTime(dto.FechaIngreso),
                 NumDiasSla = numDias,
-                ResumenSla = dto.ResumenSla,
+                ResumenSla = resumenSla,
                 OrigenDato = dto.OrigenDato,
                 EstadoSolicitud = dto.EstadoSolicitud,
                 EstadoCumplimientoSla = estadoCumplimiento,

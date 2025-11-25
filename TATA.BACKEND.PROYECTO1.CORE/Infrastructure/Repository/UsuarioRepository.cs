@@ -24,6 +24,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
             return await _context.Usuario.FirstOrDefaultAsync(u => u.Correo == correo);
         }
 
+        public async Task<Usuario?> GetByUsernameAsync(string username)
+        {
+            return await _context.Usuario.FirstOrDefaultAsync(u => u.Username == username);
+        }
+
         public async Task<Usuario?> GetByIdAsync(int id)
         {
             return await _context.Usuario.FindAsync(id);
