@@ -11,5 +11,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<Usuario?> GetByIdAsync(int id);
         Task<Usuario?> GetByUsernameAsync(string username);
         Task UpdateAsync(Usuario usuario);
+        
+        // Métodos para recuperación de contraseña
+        Task<Usuario?> GetByRecoveryTokenAsync(string token);
     }
 }
