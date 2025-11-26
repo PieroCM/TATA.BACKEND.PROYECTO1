@@ -65,11 +65,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 
         // --------------------- Solicitud --------------------
 
+        /// <summary>
+        /// Fecha de solicitud OBLIGATORIA, viene como string desde el Excel/JSON.
+        /// El servicio la parsea con DateTime.TryParse y, si falla, marca la fila con error.
+        /// </summary>
         [JsonPropertyName("sol_fecha_solicitud")]
-        public DateTime SolFechaSolicitud { get; set; }
+        public string SolFechaSolicitud { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Fecha de ingreso de la solicitud (OPCIONAL).
+        /// Viene como string; si está vacío, el servicio la toma como null.
+        /// </summary>
         [JsonPropertyName("sol_fecha_ingreso")]
-        public DateTime SolFechaIngreso { get; set; }
+        public string? SolFechaIngreso { get; set; }
 
         [JsonPropertyName("sol_resumen")]
         public string? SolResumen { get; set; }
@@ -102,24 +110,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
     /// </summary>
     public class BulkUploadResultDto
     {
-        /// <summary>
-        /// Número total de filas recibidas.
-        /// </summary>
         public int TotalFilas { get; set; }
-
-        /// <summary>
-        /// Número de filas procesadas exitosamente.
-        /// </summary>
         public int FilasExitosas { get; set; }
-
-        /// <summary>
-        /// Número de filas que tuvieron error.
-        /// </summary>
         public int FilasConError { get; set; }
-
-        /// <summary>
-        /// Lista de errores detallados por fila.
-        /// </summary>
         public List<BulkUploadErrorDto> Errores { get; set; } = new();
     }
 }
