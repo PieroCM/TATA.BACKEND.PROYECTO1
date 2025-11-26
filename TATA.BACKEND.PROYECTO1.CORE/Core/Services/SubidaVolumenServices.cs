@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using log4net;
+using System;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -17,6 +19,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     /// </summary>
     public class SubidaVolumenServices : ISubidaVolumenServices
     {
+        // 2. DECLARACIÓN ESTÁTICA DEL LOGGER
+        private static readonly ILog log = LogManager.GetLogger(typeof(SubidaVolumenServices));
+
         // Repositorios necesarios
         private readonly IRolesSistemaRepository _rolesSistemaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
@@ -24,6 +29,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IConfigSLARepository _configSlaRepository;
         private readonly IRolRegistroRepository _rolRegistroRepository;
         private readonly ISolicitudRepository _solicitudRepository;
+        private readonly ILogService _logService;
+
+        // TimeZone de Perú para cálculo correcto de "hoy"
+        private static readonly TimeZoneInfo PeruTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
         // TimeZone de Perú para cálculo correcto de "hoy"
         private static readonly TimeZoneInfo PeruTimeZone =
@@ -35,7 +45,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             IPersonalRepository personalRepository,
             IConfigSLARepository configSlaRepository,
             IRolRegistroRepository rolRegistroRepository,
-            ISolicitudRepository solicitudRepository)
+            ISolicitudRepository solicitudRepository,
+            ILogService logService)
         {
             _rolesSistemaRepository = rolesSistemaRepository;
             _usuarioRepository = usuarioRepository;
@@ -43,6 +54,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             _configSlaRepository = configSlaRepository;
             _rolRegistroRepository = rolRegistroRepository;
             _solicitudRepository = solicitudRepository;
+            _logService = logService;
         }
 
         /// <summary>
@@ -55,6 +67,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             IEnumerable<SubidaVolumenSolicitudRowDto> filas)
         {
             var result = new BulkUploadResultDto();
+
+            // Loguear el inicio de la operación
+            log.Info($"Iniciando procesamiento masivo de {filas?.Count() ?? 0} filas.");
+
 
             if (filas == null)
                 return result;
@@ -220,19 +236,75 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         fechaIngreso,
                         hoyPeru);
 
-                    await _solicitudRepository.CreateSolicitudAsync(solicitud);
+            return true;
+        }
 
                     result.FilasExitosas++;
+                    // Loguear cada fila exitosa (opcional, pero útil para depurar grandes cargas)
+                    log.Debug($"Fila {rowIndex} procesada exitosamente. Solicitud creada para documento: {row.PersonalDocumento}");
                 }
                 catch (Exception ex)
                 {
+                    // LOGUEAR EL ERROR CRÍTICO con la excepción para guardar detalles en la BD
+                    log.Error($"Error CRÍTICO en la fila {rowIndex}. Mensaje: {ex.Message}", ex);
+
                     RegistrarError(result, rowIndex, $"Error inesperado: {ex.Message}");
                 }
-
-                rowIndex++;
             }
 
-            return result;
+            // Crear nuevo usuario
+            var passwordRandom = GenerarPasswordSeguro(12);
+
+            usuario = new Usuario
+            {
+                Username = usernameCalculado,
+                Correo = correo,
+                PasswordHash = passwordRandom, // TODO: aplicar hashing real si es necesario
+                IdRolSistema = idRolSistema,
+                Estado = "INACTIVO",
+                CreadoEn = DateTime.UtcNow
+            };
+
+            await _usuarioRepository.AddAsync(usuario);
+            
+            // Agregar a ambos diccionarios
+            diccionarioCorreo[correo] = usuario;
+            diccionarioUsername[usernameCalculado] = usuario;
+
+            return usuario;
+        }
+
+        /// <summary>
+        /// Asegura que exista un Personal, creándolo si es necesario.
+        /// </summary>
+        private async Task<Personal> AsegurarPersonal(
+            string documento,
+            string nombres,
+            string apellidos,
+            string correo,
+            int idUsuario,
+            Dictionary<string, Personal> diccionario)
+        {
+            if (!diccionario.TryGetValue(documento, out var personal))
+            {
+                personal = new Personal
+                {
+                    Nombres = nombres.Trim(),
+                    Apellidos = apellidos.Trim(),
+                    Documento = documento,
+                    CorreoCorporativo = correo.Trim(),
+                    Estado = "INACTIVO",
+                    IdUsuario = idUsuario,
+                    CreadoEn = DateTime.UtcNow
+                };
+
+                await _personalRepository.AddAsync(personal);
+                diccionario[documento] = personal;
+            }
+            // Loguear el resultado final de la operación
+            log.Info($"Procesamiento masivo finalizado. Éxitos: {result.FilasExitosas}, Errores: {result.FilasConError}.");
+
+            return personal;
         }
 
         // ----------------- Métodos privados auxiliares -----------------

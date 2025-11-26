@@ -6,8 +6,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
     /// <summary>
     /// Converter personalizado para manejar DateTime nullable que puede venir
-    /// como null, string vacÌo o una fecha v·lida desde el JSON.
-    /// Esto evita errores 400 durante la deserializaciÛn cuando FechaIngreso est· vacÌa.
+    /// como null, string vac√≠o o una fecha v√°lida desde el JSON.
+    /// Esto evita errores 400 durante la deserializaci√≥n cuando FechaIngreso est√° vac√≠a.
     /// </summary>
     public class NullableDateTimeConverter : JsonConverter<DateTime?>
     {
@@ -24,7 +24,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
             {
                 var stringValue = reader.GetString();
                 
-                // Si es string vacÌo, devolver null
+                // Si es string vac√≠o, devolver null
                 if (string.IsNullOrWhiteSpace(stringValue))
                 {
                     return null;
@@ -36,7 +36,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
                     return date;
                 }
 
-                // Si no se puede parsear, devolver null en lugar de lanzar excepciÛn
+                // Si no se puede parsear, devolver null en lugar de lanzar excepci√≥n
                 return null;
             }
 
