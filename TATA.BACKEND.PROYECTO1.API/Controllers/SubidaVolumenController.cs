@@ -32,11 +32,18 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         /// y ejecuta la carga masiva de solicitudes SLA.
         /// </summary>
         /// <param name="filas">Colección de filas de carga masiva.</param>
+        /// <returns>
+        /// Siempre devuelve 200 OK con un objeto BulkUploadResultDto que contiene:
+        /// - Total de filas procesadas
+        /// - Filas exitosas
+        /// - Filas con error y sus detalles
+        /// Solo devuelve 400 si el request es inválido (sin cuerpo, formato incorrecto, etc.)
+        /// </returns>
         [HttpPost("solicitudes")]
         [ProducesResponseType(typeof(BulkUploadResultDto), 200)]
         [ProducesResponseType(400)]
         public async Task<ActionResult<BulkUploadResultDto>> CargarSolicitudes(
-            [FromBody] IEnumerable<SubidaVolumenSolicitudRowDto> filas)
+            [FromBody] IEnumerable<SubidaVolumenSolicitudRowDto>? filas)
         {
             // Loguear que se recibió la petición
             log.Info("Petición CargarSolicitudes recibida.");
@@ -62,6 +69,8 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             }
 
             var lista = filas.ToList();
+            
+            // Si no hay filas, devolver resultado vacío con éxito (no es un error de request)
             if (lista.Count == 0)
             {
                 log.Warn("Petición CargarSolicitudes recibida sin filas para procesar.");
@@ -73,8 +82,16 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     IdUsuario = null
                 });
                 return BadRequest("No se encontraron filas para procesar.");
+                return Ok(new BulkUploadResultDto
+                {
+                    TotalFilas = 0,
+                    FilasExitosas = 0,
+                    FilasConError = 0,
+                    Errores = new List<BulkUploadErrorDto>()
+                });
             }
 
+            // Procesar las filas y siempre devolver 200 OK con el resultado
             var resultado = await _subidaVolumenServices.ProcesarSolicitudesAsync(lista);
             log.Info($"Petición CargarSolicitudes finalizada. Filas procesadas: {resultado.TotalFilas}");
             await _logService.AddAsync(new LogSistemaCreateDTO

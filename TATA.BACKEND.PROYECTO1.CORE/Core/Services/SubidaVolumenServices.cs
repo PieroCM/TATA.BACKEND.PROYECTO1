@@ -35,6 +35,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private static readonly TimeZoneInfo PeruTimeZone =
             TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
+        // TimeZone de Perú para cálculo correcto de "hoy"
+        private static readonly TimeZoneInfo PeruTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
+
         public SubidaVolumenServices(
             IRolesSistemaRepository rolesSistemaRepository,
             IUsuarioRepository usuarioRepository,
@@ -232,7 +235,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         fechaIngreso,
                         hoyPeru);
 
-                    await _solicitudRepository.CreateSolicitudAsync(solicitud);
+            return true;
+        }
 
                     result.FilasExitosas++;
                     // Loguear cada fila exitosa (opcional, pero útil para depurar grandes cargas)
@@ -245,13 +249,61 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                     RegistrarError(result, rowIndex, $"Error inesperado: {ex.Message}");
                 }
+            }
 
-                rowIndex++;
+            // Crear nuevo usuario
+            var passwordRandom = GenerarPasswordSeguro(12);
+
+            usuario = new Usuario
+            {
+                Username = usernameCalculado,
+                Correo = correo,
+                PasswordHash = passwordRandom, // TODO: aplicar hashing real si es necesario
+                IdRolSistema = idRolSistema,
+                Estado = "INACTIVO",
+                CreadoEn = DateTime.UtcNow
+            };
+
+            await _usuarioRepository.AddAsync(usuario);
+            
+            // Agregar a ambos diccionarios
+            diccionarioCorreo[correo] = usuario;
+            diccionarioUsername[usernameCalculado] = usuario;
+
+            return usuario;
+        }
+
+        /// <summary>
+        /// Asegura que exista un Personal, creándolo si es necesario.
+        /// </summary>
+        private async Task<Personal> AsegurarPersonal(
+            string documento,
+            string nombres,
+            string apellidos,
+            string correo,
+            int idUsuario,
+            Dictionary<string, Personal> diccionario)
+        {
+            if (!diccionario.TryGetValue(documento, out var personal))
+            {
+                personal = new Personal
+                {
+                    Nombres = nombres.Trim(),
+                    Apellidos = apellidos.Trim(),
+                    Documento = documento,
+                    CorreoCorporativo = correo.Trim(),
+                    Estado = "INACTIVO",
+                    IdUsuario = idUsuario,
+                    CreadoEn = DateTime.UtcNow
+                };
+
+                await _personalRepository.AddAsync(personal);
+                diccionario[documento] = personal;
             }
             // Loguear el resultado final de la operación
             log.Info($"Procesamiento masivo finalizado. Éxitos: {result.FilasExitosas}, Errores: {result.FilasConError}.");
 
-            return result;
+            return personal;
         }
 
         // ----------------- Métodos privados auxiliares -----------------

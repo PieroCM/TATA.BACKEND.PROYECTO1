@@ -91,6 +91,7 @@ builder.Services.AddSharedInfrastructure(_configuration);
 builder.Services.AddTransient<ILogService, LogService>();
 
 
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowQuasarApp",

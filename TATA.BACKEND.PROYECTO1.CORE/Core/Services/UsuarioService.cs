@@ -69,12 +69,13 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         public async Task<bool> SignUpAsync(SignUpRequestDTO dto)
         {
-            var existing = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
-            if (existing != null) 
-            {
-                _logger.LogWarning("Intento de registro con correo existente: {Correo}", dto.Correo);
-                return false;
-            }
+            // Validar que el correo no exista
+            var existingByCorreo = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+            if (existingByCorreo != null) return false;
+
+            // Validar que el username no exista
+            var existingByUsername = await _usuarioRepository.GetByUsernameAsync(dto.Username);
+            if (existingByUsername != null) return false;
 
             var usuario = new Usuario
             {
