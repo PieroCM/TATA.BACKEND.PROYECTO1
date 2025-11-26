@@ -37,6 +37,10 @@ public partial class Proyecto1SlaDbContext : DbContext
     public virtual DbSet<Usuario> Usuario { get; set; }
     //Para el reporte detalle
     public virtual DbSet<ReporteDetalle> ReporteDetalle { get; set; }
+    
+    // Email Automation
+    public virtual DbSet<EmailConfig> EmailConfig { get; set; }
+    public virtual DbSet<EmailLog> EmailLog { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -439,6 +443,49 @@ public partial class Proyecto1SlaDbContext : DbContext
                     j.Property(rd => rd.IdReporte).HasColumnName("id_reporte");
                     j.Property(rd => rd.IdSolicitud).HasColumnName("id_solicitud");
                 });
+
+        // Configuración de EmailConfig
+        modelBuilder.Entity<EmailConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("email_config");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.EnvioInmediato).HasColumnName("envio_inmediato");
+            entity.Property(e => e.ResumenDiario).HasColumnName("resumen_diario");
+            entity.Property(e => e.HoraResumen).HasColumnName("hora_resumen");
+            entity.Property(e => e.EmailDestinatarioPrueba)
+                .HasMaxLength(190)
+                .HasColumnName("email_destinatario_prueba");
+            entity.Property(e => e.CreadoEn)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("creado_en");
+            entity.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en");
+        });
+
+        // Configuración de EmailLog
+        modelBuilder.Entity<EmailLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("email_log");
+
+            entity.HasIndex(e => e.FechaEjecucion, "IX_email_log_fecha").IsDescending();
+            entity.HasIndex(e => e.Tipo, "IX_email_log_tipo");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.FechaEjecucion)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("fecha_ejecucion");
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(20)
+                .HasColumnName("tipo");
+            entity.Property(e => e.CantidadEnviados).HasColumnName("cantidad_enviados");
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .HasColumnName("estado");
+            entity.Property(e => e.DetalleError).HasColumnName("detalle_error");
+            entity.Property(e => e.EjecutadoPor).HasColumnName("ejecutado_por");
+        });
 
         OnModelCreatingPartial(modelBuilder);
     }

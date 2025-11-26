@@ -9,10 +9,30 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
     public class AlertaController : ControllerBase
     {
         private readonly IAlertaService _alertaService;
+        private readonly IEmailAutomationService _emailAutomationService;
 
-        public AlertaController(IAlertaService alertaService)
+        public AlertaController(IAlertaService alertaService, IEmailAutomationService emailAutomationService)
         {
             _alertaService = alertaService;
+            _emailAutomationService = emailAutomationService;
+        }
+
+        // GET: api/alerta/dashboard
+        /// <summary>
+        /// Obtiene todas las alertas con cálculos de SLA para el dashboard
+        /// </summary>
+        [HttpGet("dashboard")]
+        public async Task<ActionResult<List<AlertaDashboardDto>>> GetDashboard()
+        {
+            try
+            {
+                var result = await _emailAutomationService.GetDashboardAlertsAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { mensaje = "Error al obtener dashboard", detalle = ex.Message });
+            }
         }
 
         // GET: api/alerta

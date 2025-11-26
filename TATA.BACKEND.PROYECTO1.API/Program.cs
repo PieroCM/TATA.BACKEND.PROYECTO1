@@ -22,6 +22,17 @@ builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<IAlertaRepository, AlertaRepository>();
 builder.Services.AddTransient<IAlertaService, AlertaService>();
 
+// EMAIL AUTOMATION
+builder.Services.AddTransient<IEmailConfigRepository, EmailConfigRepository>();
+builder.Services.AddTransient<IEmailLogRepository, EmailLogRepository>();
+builder.Services.AddTransient<IEmailAutomationService, EmailAutomationService>();
+
+// BACKGROUND WORKERS
+// Worker para resumen diario de alertas
+builder.Services.AddHostedService<DailyEmailResumeWorker>();
+// Worker para actualización automática de alertas de solicitudes existentes
+builder.Services.AddHostedService<DailyAlertUpdateWorker>();
+
 // SOLICITUD
 builder.Services.AddTransient<ISolicitudRepository, SolicitudRepository>();
 builder.Services.AddTransient<ISolicitudService, SolicitudService>();

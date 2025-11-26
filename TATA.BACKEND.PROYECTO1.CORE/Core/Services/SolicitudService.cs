@@ -3,21 +3,33 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Storage;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
     public class SolicitudService : ISolicitudService
     {
-        // instanciar interfaz de ISolicitudRepository
         private readonly ISolicitudRepository _solicitudRepository;
+        private readonly IAlertaRepository _alertaRepository;
+        private readonly IEmailService _emailService;
+        private readonly Proyecto1SlaDbContext _context;
 
-        public SolicitudService(ISolicitudRepository solicitudRepository)
+        public SolicitudService(
+            ISolicitudRepository solicitudRepository,
+            IAlertaRepository alertaRepository,
+            IEmailService emailService,
+            Proyecto1SlaDbContext context)
         {
             _solicitudRepository = solicitudRepository;
+            _alertaRepository = alertaRepository;
+            _emailService = emailService;
+            _context = context;
         }
+
         // Get all solicitudes with dtos
         // GET ALL
         public async Task<List<SolicitudDto>> GetAllAsync()
@@ -157,50 +169,157 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         }
         // POST
-        // POST: crear y calcular SLA
+        // POST: crear solicitud, alerta y enviar correo si es crítico
         public async Task<SolicitudDto> CreateAsync(SolicitudCreateDto dto)
         {
-            // 1. leer SLA
-            var configSla = await _solicitudRepository.GetConfigSlaByIdAsync(dto.IdSla);
-            if (configSla == null)
-                throw new ArgumentException($"No existe configuración SLA con Id={dto.IdSla}");
-
-            // 2. calcular días entre fechas (asegurar fechas en UTC date-only)
-            var fechaSolicitudDate = dto.FechaSolicitud.Date;
-            var fechaIngresoDate = dto.FechaIngreso.Date;
-            var dias = (fechaIngresoDate - fechaSolicitudDate).TotalDays;
-            if (dias < 0) throw new ArgumentException("FechaIngreso debe ser posterior o igual a FechaSolicitud");
-
-            var numDias = (int)Math.Ceiling(dias);
-
-            // 3. determinar cumplimiento y compose message with codigo SLA
-            var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
-            var cumple = numDias <= configSla.DiasUmbral;
-            var estadoCumplimiento = cumple ? $"CUMPLE {codigo}" : $"NO CUMPLE {codigo}";
-
-            // 4. armar entidad (convertir DateTime -> DateOnly)
-            var entity = new Solicitud
+            // Usar transacción para garantizar integridad de datos
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            
+            try
             {
-                IdPersonal = dto.IdPersonal,
-                IdSla = dto.IdSla,
-                IdRolRegistro = dto.IdRolRegistro,
-                CreadoPor = dto.CreadoPor,
-                FechaSolicitud = DateOnly.FromDateTime(dto.FechaSolicitud),
-                FechaIngreso = DateOnly.FromDateTime(dto.FechaIngreso),
-                NumDiasSla = numDias,
-                ResumenSla = dto.ResumenSla,
-                OrigenDato = dto.OrigenDato,
-                EstadoSolicitud = dto.EstadoSolicitud ?? "ACTIVO",
-                EstadoCumplimientoSla = estadoCumplimiento,
-                CreadoEn = DateTime.UtcNow
-            };
+                // 1. leer SLA
+                var configSla = await _solicitudRepository.GetConfigSlaByIdAsync(dto.IdSla);
+                if (configSla == null)
+                    throw new ArgumentException($"No existe configuración SLA con Id={dto.IdSla}");
 
-            // 5. guardar
-            var created = await _solicitudRepository.CreateSolicitudAsync(entity);
+                // 2. calcular días entre fechas
+                var fechaSolicitudDate = dto.FechaSolicitud.Date;
+                var fechaIngresoDate = dto.FechaIngreso.Date;
+                var dias = (fechaIngresoDate - fechaSolicitudDate).TotalDays;
+                if (dias < 0) throw new ArgumentException("FechaIngreso debe ser posterior o igual a FechaSolicitud");
 
-            // 6. devolver con includes
-            return await GetByIdAsync(created.IdSolicitud)
-                   ?? throw new Exception("No se pudo obtener la solicitud creada");
+                var numDias = (int)Math.Ceiling(dias);
+
+                // 3. determinar cumplimiento
+                var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
+                var cumple = numDias <= configSla.DiasUmbral;
+                var estadoCumplimiento = cumple ? $"CUMPLE {codigo}" : $"NO CUMPLE {codigo}";
+
+                // 4. crear solicitud
+                var entity = new Solicitud
+                {
+                    IdPersonal = dto.IdPersonal,
+                    IdSla = dto.IdSla,
+                    IdRolRegistro = dto.IdRolRegistro,
+                    CreadoPor = dto.CreadoPor,
+                    FechaSolicitud = DateOnly.FromDateTime(dto.FechaSolicitud),
+                    FechaIngreso = DateOnly.FromDateTime(dto.FechaIngreso),
+                    NumDiasSla = numDias,
+                    ResumenSla = dto.ResumenSla,
+                    OrigenDato = dto.OrigenDato,
+                    EstadoSolicitud = dto.EstadoSolicitud ?? "ACTIVO",
+                    EstadoCumplimientoSla = estadoCumplimiento,
+                    CreadoEn = DateTime.UtcNow
+                };
+
+                var created = await _solicitudRepository.CreateSolicitudAsync(entity);
+
+                // 5. CREAR ALERTA AUTOMÁTICAMENTE
+                var diasUmbral = configSla.DiasUmbral;
+                var diasRestantes = diasUmbral - numDias;
+                
+                // Determinar nivel de alerta según días restantes
+                string nivelAlerta;
+                bool esCritico = false;
+                
+                if (diasRestantes < 0)
+                {
+                    nivelAlerta = "CRITICO";
+                    esCritico = true;
+                }
+                else if (diasRestantes <= 2)
+                {
+                    nivelAlerta = "CRITICO";
+                    esCritico = true;
+                }
+                else if (diasRestantes <= 5)
+                {
+                    nivelAlerta = "ALTO";
+                }
+                else
+                {
+                    nivelAlerta = "MEDIO";
+                }
+
+                // Construir mensaje descriptivo
+                var mensaje = diasRestantes < 0
+                    ? $"⚠️ URGENTE: Solicitud #{created.IdSolicitud} VENCIDA. Se excedió el SLA por {Math.Abs(diasRestantes)} día(s)."
+                    : diasRestantes == 0
+                        ? $"⚠️ ATENCIÓN: Solicitud #{created.IdSolicitud} vence HOY. Requiere acción inmediata."
+                        : diasRestantes <= 2
+                            ? $"⚠️ CRÍTICO: Solicitud #{created.IdSolicitud} está cerca de vencer el SLA. Quedan solo {diasRestantes} día(s)."
+                            : $"Solicitud #{created.IdSolicitud} creada. Vencimiento en {diasRestantes} día(s) (SLA: {diasUmbral} días).";
+
+                var alerta = new Alerta
+                {
+                    IdSolicitud = created.IdSolicitud,
+                    TipoAlerta = "NUEVA_ASIGNACION",
+                    Nivel = nivelAlerta,
+                    Mensaje = mensaje,
+                    Estado = "NUEVA",
+                    EnviadoEmail = false,
+                    FechaCreacion = DateTime.UtcNow
+                };
+
+                var alertaCreada = await _alertaRepository.CreateAlertaAsync(alerta);
+
+                // 6. ENVIAR CORREO AUTOMÁTICAMENTE SI ES CRÍTICO
+                if (esCritico)
+                {
+                    // Obtener la alerta completa con todas las relaciones
+                    var alertaCompleta = await _alertaRepository.GetAlertaByIdAsync(alertaCreada.IdAlerta);
+                    
+                    if (alertaCompleta != null)
+                    {
+                        var destinatario = alertaCompleta.IdSolicitudNavigation?.IdPersonalNavigation?.CorreoCorporativo;
+
+                        if (!string.IsNullOrWhiteSpace(destinatario))
+                        {
+                            try
+                            {
+                                var subject = $"🚨 [ALERTA CRÍTICA SLA] Solicitud #{created.IdSolicitud} requiere atención URGENTE";
+                                var body = EmailTemplates.BuildAlertaBody(alertaCompleta);
+
+                                await _emailService.SendAsync(destinatario, subject, body);
+
+                                // Marcar como enviado
+                                alertaCompleta.EnviadoEmail = true;
+                                alertaCompleta.ActualizadoEn = DateTime.UtcNow;
+                                await _alertaRepository.UpdateAlertaAsync(alertaCompleta.IdAlerta, alertaCompleta);
+
+                                System.Diagnostics.Debug.WriteLine($"✅ Correo enviado exitosamente a {destinatario} para solicitud crítica #{created.IdSolicitud}");
+                            }
+                            catch (Exception ex)
+                            {
+                                // Log pero NO fallar la transacción
+                                System.Diagnostics.Debug.WriteLine($"⚠️ Error al enviar correo a {destinatario}: {ex.Message}");
+                                // La alerta se guarda pero EnviadoEmail queda en false
+                            }
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"⚠️ Alerta crítica {alertaCompleta.IdAlerta} creada pero sin correo de destinatario.");
+                        }
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"ℹ️ Alerta {nivelAlerta} creada para solicitud #{created.IdSolicitud}. Correo no enviado (solo se envían alertas CRÍTICAS automáticamente).");
+                }
+
+                // 7. Commit de la transacción si todo salió bien
+                await transaction.CommitAsync();
+
+                // 8. devolver con includes
+                return await GetByIdAsync(created.IdSolicitud)
+                       ?? throw new Exception("No se pudo obtener la solicitud creada");
+            }
+            catch (Exception)
+            {
+                // Rollback en caso de error
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
 
