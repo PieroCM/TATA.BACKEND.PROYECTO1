@@ -21,17 +21,28 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 
         public async Task<Usuario?> GetByCorreoAsync(string correo)
         {
-            return await _context.Usuario.FirstOrDefaultAsync(u => u.Correo == correo);
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .FirstOrDefaultAsync(u => u.Correo == correo);
+        }
+
+        public async Task<Usuario?> GetByUsernameAsync(string username)
+        {
+            return await _context.Usuario.FirstOrDefaultAsync(u => u.Username == username);
         }
 
         public async Task<Usuario?> GetByIdAsync(int id)
         {
-            return await _context.Usuario.FindAsync(id);
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .FirstOrDefaultAsync(u => u.IdUsuario == id);
         }
 
         public async Task<IEnumerable<Usuario>> GetAllAsync()
         {
-            return await _context.Usuario.ToListAsync();
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .ToListAsync();
         }
 
         public async Task AddAsync(Usuario usuario)
@@ -54,6 +65,13 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
                 _context.Usuario.Remove(usuario);
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<Usuario?> GetByRecoveryTokenAsync(string token)
+        {
+            return await _context.Usuario
+                .FirstOrDefaultAsync(u => u.token_recuperacion == token 
+                                       && u.expiracion_token > DateTime.UtcNow);
         }
     }
 }

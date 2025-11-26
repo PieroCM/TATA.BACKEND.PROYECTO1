@@ -57,9 +57,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public int IdRolRegistro { get; set; }
         public int CreadoPor { get; set; }
 
-        // obligatorias en el form
         public DateTime FechaSolicitud { get; set; }
-        public DateTime FechaIngreso { get; set; }
+        public DateTime? FechaIngreso { get; set; }
 
         public string? ResumenSla { get; set; }
         public string? OrigenDato { get; set; }
@@ -74,7 +73,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public int CreadoPor { get; set; }
 
         public DateTime FechaSolicitud { get; set; }
-        public DateTime FechaIngreso { get; set; }
+        public DateTime? FechaIngreso { get; set; }
 
         public string? ResumenSla { get; set; }
         public string? OrigenDato { get; set; }
