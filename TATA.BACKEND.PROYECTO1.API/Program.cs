@@ -68,14 +68,17 @@ builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
 
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
+    options.AddPolicy("AllowQuasarApp",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:9000")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
 });
 
 builder.Services.AddControllers();
@@ -91,10 +94,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowQuasarApp");
+
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseCors("AllowAll");
 
 app.MapControllers();
 

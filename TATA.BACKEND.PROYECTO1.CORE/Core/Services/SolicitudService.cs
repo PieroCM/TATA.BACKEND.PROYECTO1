@@ -167,29 +167,13 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             if (configSla == null)
                 throw new ArgumentException($"No existe configuración SLA con Id={dto.IdSla}");
 
-            // 2. calcular días entre fechas (asegurar fechas en UTC date-only)
-            var fechaSolicitudDate = dto.FechaSolicitud.Date;
-            var fechaIngresoDate = dto.FechaIngreso.Date;
-            var dias = (fechaIngresoDate - fechaSolicitudDate).TotalDays;
-            if (dias < 0) throw new ArgumentException("FechaIngreso debe ser posterior o igual a FechaSolicitud");
+            // Llamar al calculador común
+            var hoyPeru = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PeruTimeZone).Date;
+            var calc = CalcularSlaYResumen(dto.FechaSolicitud.Date, dto.FechaIngreso?.Date, configSla, hoyPeru);
 
-            var numDias = (int)Math.Ceiling(dias);
-
-            // 3. determinar cumplimiento y generar resumen con codigo SLA
-            var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
-            var cumple = numDias <= configSla.DiasUmbral;
-            var estadoCumplimiento = cumple ? $"CUMPLE_{codigo}" : $"NO_CUMPLE_{codigo}";
-            
-            // Generar resumen automático
-            var resumenSla = cumple 
-                ? $"Solicitud atendida dentro del SLA ({numDias} de {configSla.DiasUmbral} días)"
-                : $"Solicitud atendida fuera del SLA ({numDias} de {configSla.DiasUmbral} días)";
-
-            // Si el DTO trae un resumen personalizado, usarlo
-            if (!string.IsNullOrWhiteSpace(dto.ResumenSla))
-            {
-                resumenSla = dto.ResumenSla;
-            }
+            // Si DTO trae resumen personalizado, respetarlo
+            var resumenFinal = string.IsNullOrWhiteSpace(dto.ResumenSla) ? calc.resumenSla : dto.ResumenSla;
+            var estadoSolicitudFinal = string.IsNullOrWhiteSpace(dto.EstadoSolicitud) ? calc.estadoSolicitud : dto.EstadoSolicitud;
 
             // 4. armar entidad (convertir DateTime -> DateOnly)
             var entity = new Solicitud
@@ -199,12 +183,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 IdRolRegistro = dto.IdRolRegistro,
                 CreadoPor = dto.CreadoPor,
                 FechaSolicitud = DateOnly.FromDateTime(dto.FechaSolicitud),
-                FechaIngreso = DateOnly.FromDateTime(dto.FechaIngreso),
-                NumDiasSla = numDias,
-                ResumenSla = resumenSla,
+                FechaIngreso = dto.FechaIngreso.HasValue ? DateOnly.FromDateTime(dto.FechaIngreso.Value) : null,
+                NumDiasSla = calc.numDiasSla,
+                ResumenSla = resumenFinal,
                 OrigenDato = dto.OrigenDato,
-                EstadoSolicitud = dto.EstadoSolicitud ?? "ACTIVO",
-                EstadoCumplimientoSla = estadoCumplimiento,
+                EstadoSolicitud = estadoSolicitudFinal,
+                EstadoCumplimientoSla = calc.estadoCumplimientoSla,
                 CreadoEn = DateTime.UtcNow
             };
 
@@ -225,27 +209,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             if (configSla == null)
                 throw new ArgumentException($"No existe configuración SLA con Id={dto.IdSla}");
 
-            var fechaSolicitudDate = dto.FechaSolicitud.Date;
-            var fechaIngresoDate = dto.FechaIngreso.Date;
-            var dias = (fechaIngresoDate - fechaSolicitudDate).TotalDays;
-            if (dias < 0) throw new ArgumentException("FechaIngreso debe ser posterior o igual a FechaSolicitud");
+            var hoyPeru = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PeruTimeZone).Date;
+            var calc = CalcularSlaYResumen(dto.FechaSolicitud.Date, dto.FechaIngreso?.Date, configSla, hoyPeru);
 
-            var numDias = (int)Math.Ceiling(dias);
-
-            var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
-            var cumple = numDias <= configSla.DiasUmbral;
-            var estadoCumplimiento = cumple ? $"CUMPLE_{codigo}" : $"NO_CUMPLE_{codigo}";
-
-            // Generar resumen automático
-            var resumenSla = cumple 
-                ? $"Solicitud atendida dentro del SLA ({numDias} de {configSla.DiasUmbral} días)"
-                : $"Solicitud atendida fuera del SLA ({numDias} de {configSla.DiasUmbral} días)";
-
-            // Si el DTO trae un resumen personalizado, usarlo
-            if (!string.IsNullOrWhiteSpace(dto.ResumenSla))
-            {
-                resumenSla = dto.ResumenSla;
-            }
+            var resumenFinal = string.IsNullOrWhiteSpace(dto.ResumenSla) ? calc.resumenSla : dto.ResumenSla;
 
             var entity = new Solicitud
             {
@@ -255,12 +222,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 IdRolRegistro = dto.IdRolRegistro,
                 CreadoPor = dto.CreadoPor,
                 FechaSolicitud = DateOnly.FromDateTime(dto.FechaSolicitud),
-                FechaIngreso = DateOnly.FromDateTime(dto.FechaIngreso),
-                NumDiasSla = numDias,
-                ResumenSla = resumenSla,
+                FechaIngreso = dto.FechaIngreso.HasValue ? DateOnly.FromDateTime(dto.FechaIngreso.Value) : null,
+                NumDiasSla = calc.numDiasSla,
+                ResumenSla = resumenFinal,
                 OrigenDato = dto.OrigenDato,
-                EstadoSolicitud = dto.EstadoSolicitud,
-                EstadoCumplimientoSla = estadoCumplimiento,
+                EstadoSolicitud = dto.EstadoSolicitud ?? calc.estadoSolicitud,
+                EstadoCumplimientoSla = calc.estadoCumplimientoSla,
                 ActualizadoEn = DateTime.UtcNow
             };
 
@@ -278,6 +245,64 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         public async Task<bool> DeleteAsync(int id)
         {
             return await _solicitudRepository.DeleteSolicitudAsync(id, "ELIMINADO");
+        }
+
+        // Método privado que encapsula la lógica de SLA usada en SubidaVolumenServices
+        private (int numDiasSla, string estadoCumplimientoSla, string estadoSolicitud, string resumenSla) CalcularSlaYResumen(
+            DateTime fechaSolicitud, DateTime? fechaIngreso, ConfigSla configSla, DateTime hoyPeru)
+        {
+            int numDiasSla;
+            string estadoCumplimiento;
+            string estadoSolicitud;
+            string resumenSla;
+
+            var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla) ? $"SLA{configSla.IdSla}" : configSla.CodigoSla;
+
+            // Caso A: Sin fecha de ingreso (pendiente/en proceso)
+            if (!fechaIngreso.HasValue)
+            {
+                var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
+                numDiasSla = diasTranscurridos;
+
+                if (diasTranscurridos > configSla.DiasUmbral)
+                {
+                    // Ya venció el SLA
+                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    estadoSolicitud = "VENCIDO";
+                    resumenSla = $"Solicitud INCUMPLIDA: se excedió el umbral del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
+                }
+                else
+                {
+                    // Aún dentro del plazo
+                    estadoCumplimiento = $"EN_PROCESO_{codigo}";
+                    estadoSolicitud = "EN_PROCESO";
+                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
+                }
+            }
+            // Caso B: Con fecha de ingreso (ya cerrada)
+            else
+            {
+                if (fechaIngreso.Value < fechaSolicitud)
+                    throw new ArgumentException("FechaIngreso debe ser posterior o igual a FechaSolicitud");
+
+                var dias = (int)Math.Floor((fechaIngreso.Value - fechaSolicitud).TotalDays);
+                numDiasSla = dias;
+
+                if (dias <= configSla.DiasUmbral)
+                {
+                    estadoCumplimiento = $"CUMPLE_{codigo}";
+                    resumenSla = $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días)";
+                }
+                else
+                {
+                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    resumenSla = $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días)";
+                }
+
+                estadoSolicitud = "CERRADO";
+            }
+
+            return (numDiasSla, estadoCumplimiento, estadoSolicitud, resumenSla);
         }
 
     }
