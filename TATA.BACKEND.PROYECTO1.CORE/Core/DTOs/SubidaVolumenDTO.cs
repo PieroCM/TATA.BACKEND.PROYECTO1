@@ -68,8 +68,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         [JsonPropertyName("sol_fecha_solicitud")]
         public DateTime SolFechaSolicitud { get; set; }
 
+        /// <summary>
+        /// Fecha de ingreso de la solicitud (OPCIONAL).
+        /// Si está vacía en el Excel, se considera como solicitud "en proceso".
+        /// Usa un converter personalizado para manejar null, string vacío o fechas válidas.
+        /// </summary>
         [JsonPropertyName("sol_fecha_ingreso")]
-        public DateTime SolFechaIngreso { get; set; }
+        [JsonConverter(typeof(NullableDateTimeConverter))]
+        public DateTime? SolFechaIngreso { get; set; }
 
         [JsonPropertyName("sol_resumen")]
         public string? SolResumen { get; set; }

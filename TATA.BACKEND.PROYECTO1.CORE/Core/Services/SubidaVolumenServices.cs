@@ -13,6 +13,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     /// <summary>
     /// Servicio de dominio para carga masiva de Solicitudes SLA
     /// a partir de filas que provienen de un Excel.
+    /// Optimizado para soportar 100, 1,000, 10,000+ filas.
     /// </summary>
     public class SubidaVolumenServices : ISubidaVolumenServices
     {
@@ -23,6 +24,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IConfigSLARepository _configSlaRepository;
         private readonly IRolRegistroRepository _rolRegistroRepository;
         private readonly ISolicitudRepository _solicitudRepository;
+
+        // TimeZone de Perú para cálculo correcto de "hoy"
+        private static readonly TimeZoneInfo PeruTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
         public SubidaVolumenServices(
             IRolesSistemaRepository rolesSistemaRepository,
@@ -44,6 +48,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         /// Procesa un conjunto de filas de carga masiva, creando/asegurando
         /// datos maestros (RolesSistema, Usuario, Personal, ConfigSla, RolRegistro)
         /// y finalmente insertando la Solicitud correspondiente.
+        /// Optimizado para rendimiento O(n) con grandes volúmenes.
         /// </summary>
         public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
             IEnumerable<SubidaVolumenSolicitudRowDto> filas)
@@ -53,6 +58,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             if (filas == null)
                 return result;
 
+            var filasLista = filas.ToList();
+            result.TotalFilas = filasLista.Count;
+
+            if (result.TotalFilas == 0)
+                return result;
+
             // 1) Cargar catálogos existentes en memoria para evitar repetir queries
             var rolesSistemaList = await _rolesSistemaRepository.GetAll();
             var configSlaList = (await _configSlaRepository.GetAllAsync()).ToList();
@@ -60,7 +71,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var usuariosList = (await _usuarioRepository.GetAllAsync()).ToList();
             var personalList = (await _personalRepository.GetAllAsync()).ToList();
 
-            // Diccionarios para búsquedas rápidas (case-insensitive donde aplica)
+            // Diccionarios para búsquedas rápidas O(1) - case-insensitive
             var rolesSistemaByCodigo = rolesSistemaList
                 .Where(r => !string.IsNullOrWhiteSpace(r.Codigo))
                 .ToDictionary(r => r.Codigo.Trim(), StringComparer.OrdinalIgnoreCase);
@@ -73,18 +84,24 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 .Where(r => !string.IsNullOrWhiteSpace(r.NombreRol))
                 .ToDictionary(r => r.NombreRol.Trim(), StringComparer.OrdinalIgnoreCase);
 
+            // Diccionario por CORREO (clave principal de negocio)
             var usuarioByCorreo = usuariosList
                 .Where(u => !string.IsNullOrWhiteSpace(u.Correo))
                 .ToDictionary(u => u.Correo.Trim(), StringComparer.OrdinalIgnoreCase);
+
+            // Diccionario por USERNAME (para evitar duplicados de username)
+            var usuarioByUsername = usuariosList
+                .Where(u => !string.IsNullOrWhiteSpace(u.Username))
+                .ToDictionary(u => u.Username.Trim(), StringComparer.OrdinalIgnoreCase);
 
             var personalByDocumento = personalList
                 .Where(p => !string.IsNullOrWhiteSpace(p.Documento))
                 .ToDictionary(p => p.Documento.Trim(), StringComparer.OrdinalIgnoreCase);
 
-            // 2) Recorrer filas
-            var filasLista = filas.ToList();
-            result.TotalFilas = filasLista.Count;
+            // Obtener fecha actual en zona horaria de Perú
+            var hoyPeru = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PeruTimeZone).Date;
 
+            // 2) Recorrer filas
             int rowIndex = 1; // 1-based, parecido a Excel
 
             foreach (var row in filasLista)
@@ -92,175 +109,81 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 try
                 {
                     // Validaciones mínimas de campos obligatorios
-                    if (row == null ||
-                        string.IsNullOrWhiteSpace(row.RolSistemaCodigo) ||
-                        string.IsNullOrWhiteSpace(row.UsuarioCorreo) ||
-                        string.IsNullOrWhiteSpace(row.PersonalDocumento) ||
-                        string.IsNullOrWhiteSpace(row.PersonalNombres) ||
-                        string.IsNullOrWhiteSpace(row.PersonalApellidos) ||
-                        string.IsNullOrWhiteSpace(row.ConfigSlaCodigo) ||
-                        string.IsNullOrWhiteSpace(row.RolRegistroNombre))
+                    if (!ValidarCamposObligatorios(row, result, rowIndex))
                     {
-                        RegistrarError(result, rowIndex, "Campos obligatorios faltantes en la fila.");
                         rowIndex++;
                         continue;
                     }
 
-                    // Validación de fechas coherentes
-                    if (row.SolFechaIngreso < row.SolFechaSolicitud)
-                    {
-                        RegistrarError(result, rowIndex, "La fecha de ingreso es menor que la fecha de solicitud.");
-                        rowIndex++;
-                        continue;
-                    }
-
-                    // Normalizar algunos valores (trim)
+                    // Normalizar valores (trim)
                     string rolSistemaCodigo = row.RolSistemaCodigo.Trim();
                     string usuarioCorreo = row.UsuarioCorreo.Trim();
                     string personalDocumento = row.PersonalDocumento.Trim();
                     string configSlaCodigo = row.ConfigSlaCodigo.Trim();
                     string rolRegistroNombre = row.RolRegistroNombre.Trim();
 
-                    // 2.1) Asegurar RolesSistema
-                    if (!rolesSistemaByCodigo.TryGetValue(rolSistemaCodigo, out var rolSistema))
+                    // Determinar si hay fecha de ingreso válida
+                    var tieneFechaIngreso = TieneFechaIngresoValida(row.SolFechaIngreso);
+
+                    DateTime fechaSolicitud = row.SolFechaSolicitud.Date;
+                    DateTime? fechaIngreso = tieneFechaIngreso ? row.SolFechaIngreso!.Value.Date : null;
+
+                    // Validar lógica de fechas
+                    if (!ValidarFechas(fechaSolicitud, fechaIngreso, hoyPeru, result, rowIndex))
                     {
-                        rolSistema = new RolesSistema
-                        {
-                            Codigo = rolSistemaCodigo,
-                            Nombre = string.IsNullOrWhiteSpace(row.RolSistemaNombre)
-                                ? rolSistemaCodigo
-                                : row.RolSistemaNombre!.Trim(),
-                            Descripcion = row.RolSistemaDescripcion?.Trim(),
-                            EsActivo = true
-                        };
-
-                        await _rolesSistemaRepository.Add(rolSistema);
-                        rolesSistemaByCodigo[rolSistemaCodigo] = rolSistema;
-                    }
-
-                    // 2.2) Asegurar Usuario (por correo)
-                    if (!usuarioByCorreo.TryGetValue(usuarioCorreo, out var usuario))
-                    {
-                        var passwordRandom = GenerarPasswordSeguro(12);
-
-                        usuario = new Usuario
-                        {
-                            Username = string.IsNullOrWhiteSpace(row.UsuarioUsername)
-                                ? usuarioCorreo.Split('@')[0]
-                                : row.UsuarioUsername!.Trim(),
-                            Correo = usuarioCorreo,
-                            // TODO: aplicar hashing real; por ahora se guarda tal cual
-                            PasswordHash = passwordRandom,
-                            IdRolSistema = rolSistema.IdRolSistema,
-                            Estado = "INACTIVO",
-                            CreadoEn = DateTime.UtcNow
-                        };
-
-                        await _usuarioRepository.AddAsync(usuario);
-                        usuarioByCorreo[usuarioCorreo] = usuario;
-                    }
-
-                    // 2.3) Asegurar Personal (por documento)
-                    if (!personalByDocumento.TryGetValue(personalDocumento, out var personal))
-                    {
-                        personal = new Personal
-                        {
-                            Nombres = row.PersonalNombres.Trim(),
-                            Apellidos = row.PersonalApellidos.Trim(),
-                            Documento = personalDocumento,
-                            CorreoCorporativo = row.PersonalCorreo.Trim(),
-                            Estado = "INACTIVO",
-                            IdUsuario = usuario.IdUsuario,
-                            CreadoEn = DateTime.UtcNow
-                        };
-
-                        await _personalRepository.AddAsync(personal);
-                        personalByDocumento[personalDocumento] = personal;
-                    }
-
-                    // 2.4) Asegurar ConfigSla (por CodigoSla)
-                    if (!configSlaByCodigo.TryGetValue(configSlaCodigo, out var configSla))
-                    {
-                        configSla = new ConfigSla
-                        {
-                            CodigoSla = configSlaCodigo,
-                            Descripcion = row.ConfigSlaDescripcion?.Trim(),
-                            DiasUmbral = row.ConfigSlaDiasUmbral,
-                            TipoSolicitud = row.ConfigSlaTipoSolicitud.Trim(),
-                            EsActivo = true,
-                            CreadoEn = DateTime.UtcNow,
-                            ActualizadoEn = DateTime.UtcNow
-                        };
-
-                        var idNuevo = await _configSlaRepository.InsertAsync(configSla);
-                        configSla.IdSla = idNuevo;
-                        configSlaByCodigo[configSlaCodigo] = configSla;
-                    }
-
-                    // 2.5) Asegurar RolRegistro (por NombreRol)
-                    if (!rolRegistroByNombre.TryGetValue(rolRegistroNombre, out var rolRegistro))
-                    {
-                        rolRegistro = new RolRegistro
-                        {
-                            NombreRol = rolRegistroNombre,
-                            BloqueTech = row.RolRegistroBloqueTech.Trim(),
-                            Descripcion = row.RolRegistroDescripcion?.Trim(),
-                            EsActivo = true
-                        };
-
-                        var idRol = await _rolRegistroRepository.InsertAsync(rolRegistro);
-                        rolRegistro.IdRolRegistro = idRol;
-                        rolRegistroByNombre[rolRegistroNombre] = rolRegistro;
-                    }
-
-                    // 2.6) Crear Solicitud
-
-                    var origenDato = string.IsNullOrWhiteSpace(row.SolOrigenDato)
-                        ? "IMPORT"
-                        : row.SolOrigenDato!.Trim();
-
-                    var estadoSolicitud = string.IsNullOrWhiteSpace(row.SolEstado)
-                        ? "ACTIVO"
-                        : row.SolEstado!.Trim();
-
-                    var fechaSolicitudDate = row.SolFechaSolicitud.Date;
-                    var fechaIngresoDate = row.SolFechaIngreso.Date;
-
-                    var dias = (fechaIngresoDate - fechaSolicitudDate).TotalDays;
-                    if (dias < 0)
-                    {
-                        RegistrarError(result, rowIndex, "La fecha de ingreso es menor que la fecha de solicitud.");
                         rowIndex++;
                         continue;
                     }
 
-                    var numDias = (int)Math.Ceiling(dias);
+                    // 2.1) Asegurar RolesSistema
+                    var rolSistema = await AsegurarRolSistema(
+                        rolSistemaCodigo, 
+                        row.RolSistemaNombre, 
+                        row.RolSistemaDescripcion,
+                        rolesSistemaByCodigo);
 
-                    var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla)
-                        ? $"SLA{configSla.IdSla}"
-                        : configSla.CodigoSla;
+                    // 2.2) Asegurar Usuario (por correo, validando también username)
+                    var usuario = await AsegurarUsuario(
+                        usuarioCorreo,
+                        row.UsuarioUsername,
+                        rolSistema.IdRolSistema,
+                        usuarioByCorreo,
+                        usuarioByUsername);
 
-                    var cumple = numDias <= configSla.DiasUmbral;
-                    var estadoCumplimiento = cumple
-                        ? $"CUMPLE_{codigo}"
-                        : $"NO_CUMPLE_{codigo}";
+                    // 2.3) Asegurar Personal (por documento)
+                    var personal = await AsegurarPersonal(
+                        personalDocumento,
+                        row.PersonalNombres,
+                        row.PersonalApellidos,
+                        row.PersonalCorreo,
+                        usuario.IdUsuario,
+                        personalByDocumento);
 
-                    var solicitud = new Solicitud
-                    {
-                        IdPersonal = personal.IdPersonal,
-                        IdSla = configSla.IdSla,
-                        IdRolRegistro = rolRegistro.IdRolRegistro,
-                        CreadoPor = usuario.IdUsuario,
-                        FechaSolicitud = DateOnly.FromDateTime(fechaSolicitudDate),
-                        FechaIngreso = DateOnly.FromDateTime(fechaIngresoDate),
-                        NumDiasSla = numDias,
-                        ResumenSla = row.SolResumen?.Trim() ?? string.Empty,
-                        OrigenDato = origenDato,
-                        EstadoSolicitud = estadoSolicitud,
-                        EstadoCumplimientoSla = estadoCumplimiento,
-                        CreadoEn = DateTime.UtcNow,
-                        ActualizadoEn = DateTime.UtcNow
-                    };
+                    // 2.4) Asegurar ConfigSla (por CodigoSla)
+                    var configSla = await AsegurarConfigSla(
+                        configSlaCodigo,
+                        row.ConfigSlaDescripcion,
+                        row.ConfigSlaDiasUmbral,
+                        row.ConfigSlaTipoSolicitud,
+                        configSlaByCodigo);
+
+                    // 2.5) Asegurar RolRegistro (por NombreRol)
+                    var rolRegistro = await AsegurarRolRegistro(
+                        rolRegistroNombre,
+                        row.RolRegistroBloqueTech,
+                        row.RolRegistroDescripcion,
+                        rolRegistroByNombre);
+
+                    // 2.6) Calcular SLA y crear Solicitud
+                    var solicitud = CrearSolicitud(
+                        row,
+                        personal.IdPersonal,
+                        configSla,
+                        rolRegistro.IdRolRegistro,
+                        usuario.IdUsuario,
+                        fechaSolicitud,
+                        fechaIngreso,
+                        hoyPeru);
 
                     await _solicitudRepository.CreateSolicitudAsync(solicitud);
 
@@ -268,7 +191,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    RegistrarError(result, rowIndex, ex.Message);
+                    RegistrarError(result, rowIndex, $"Error inesperado: {ex.Message}");
                 }
 
                 rowIndex++;
@@ -277,8 +200,376 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             return result;
         }
 
-        // ----------------- helpers privados -----------------
+        // ----------------- Métodos privados auxiliares -----------------
 
+        /// <summary>
+        /// Valida que todos los campos obligatorios estén presentes.
+        /// </summary>
+        private bool ValidarCamposObligatorios(SubidaVolumenSolicitudRowDto row, BulkUploadResultDto result, int rowIndex)
+        {
+            // Lista de campos faltantes para mensaje más descriptivo
+            var camposFaltantes = new List<string>();
+
+            if (row == null)
+            {
+                RegistrarError(result, rowIndex, "La fila no contiene datos válidos.");
+                return false;
+            }
+
+            // Validar campos de texto obligatorios
+            if (string.IsNullOrWhiteSpace(row.RolSistemaCodigo))
+                camposFaltantes.Add("RolSistemaCodigo");
+            
+            if (string.IsNullOrWhiteSpace(row.UsuarioCorreo))
+                camposFaltantes.Add("UsuarioCorreo");
+            
+            if (string.IsNullOrWhiteSpace(row.PersonalDocumento))
+                camposFaltantes.Add("PersonalDocumento");
+            
+            if (string.IsNullOrWhiteSpace(row.PersonalNombres))
+                camposFaltantes.Add("PersonalNombres");
+            
+            if (string.IsNullOrWhiteSpace(row.PersonalApellidos))
+                camposFaltantes.Add("PersonalApellidos");
+            
+            if (string.IsNullOrWhiteSpace(row.PersonalCorreo))
+                camposFaltantes.Add("PersonalCorreo");
+            
+            if (string.IsNullOrWhiteSpace(row.ConfigSlaCodigo))
+                camposFaltantes.Add("ConfigSlaCodigo");
+            
+            if (string.IsNullOrWhiteSpace(row.ConfigSlaTipoSolicitud))
+                camposFaltantes.Add("ConfigSlaTipoSolicitud");
+            
+            if (string.IsNullOrWhiteSpace(row.RolRegistroNombre))
+                camposFaltantes.Add("RolRegistroNombre");
+            
+            if (string.IsNullOrWhiteSpace(row.RolRegistroBloqueTech))
+                camposFaltantes.Add("RolRegistroBloqueTech");
+
+            // Validar SolFechaSolicitud (obligatoria)
+            if (row.SolFechaSolicitud == DateTime.MinValue || row.SolFechaSolicitud == default)
+                camposFaltantes.Add("SolFechaSolicitud");
+
+            // Si hay campos faltantes, registrar error con detalle
+            if (camposFaltantes.Count > 0)
+            {
+                var mensaje = $"Campos obligatorios faltantes: {string.Join(", ", camposFaltantes)}";
+                RegistrarError(result, rowIndex, mensaje);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Determina si la fecha de ingreso es válida (no null y no DateTime.MinValue).
+        /// </summary>
+        private bool TieneFechaIngresoValida(DateTime? fecha)
+        {
+            if (!fecha.HasValue) return false;
+            if (fecha.Value == DateTime.MinValue) return false;
+            if (fecha.Value.Year == 1) return false; // 0001-01-01
+            return true;
+        }
+
+        /// <summary>
+        /// Valida la lógica de fechas según las reglas del negocio.
+        /// </summary>
+        private bool ValidarFechas(DateTime fechaSolicitud, DateTime? fechaIngreso, DateTime hoyPeru, 
+            BulkUploadResultDto result, int rowIndex)
+        {
+            // Validar que fecha de solicitud no esté en el futuro
+            if (fechaSolicitud > hoyPeru)
+            {
+                RegistrarError(result, rowIndex, "La fecha de solicitud está en el futuro respecto a la fecha actual.");
+                return false;
+            }
+
+            // Si hay fecha de ingreso, validar que no sea menor a fecha de solicitud
+            if (fechaIngreso.HasValue && fechaIngreso.Value < fechaSolicitud)
+            {
+                RegistrarError(result, rowIndex, "La fecha de ingreso es menor que la fecha de solicitud.");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Asegura que exista un RolSistema, creándolo si es necesario.
+        /// </summary>
+        private async Task<RolesSistema> AsegurarRolSistema(
+            string codigo,
+            string? nombre,
+            string? descripcion,
+            Dictionary<string, RolesSistema> diccionario)
+        {
+            if (!diccionario.TryGetValue(codigo, out var rolSistema))
+            {
+                rolSistema = new RolesSistema
+                {
+                    Codigo = codigo,
+                    Nombre = string.IsNullOrWhiteSpace(nombre) ? codigo : nombre.Trim(),
+                    Descripcion = descripcion?.Trim(),
+                    EsActivo = true
+                };
+
+                await _rolesSistemaRepository.Add(rolSistema);
+                diccionario[codigo] = rolSistema;
+            }
+
+            return rolSistema;
+        }
+
+        /// <summary>
+        /// Asegura que exista un Usuario, creándolo si es necesario.
+        /// Valida tanto por correo como por username para evitar duplicados.
+        /// </summary>
+        private async Task<Usuario> AsegurarUsuario(
+            string correo,
+            string? username,
+            int idRolSistema,
+            Dictionary<string, Usuario> diccionarioCorreo,
+            Dictionary<string, Usuario> diccionarioUsername)
+        {
+            // Primero buscar por correo (es la clave principal de negocio)
+            if (diccionarioCorreo.TryGetValue(correo, out var usuario))
+            {
+                return usuario;
+            }
+
+            // Determinar el username a usar
+            string usernameCalculado = string.IsNullOrWhiteSpace(username)
+                ? correo.Split('@')[0]
+                : username.Trim();
+
+            // Verificar si el username ya existe en otro usuario
+            if (diccionarioUsername.TryGetValue(usernameCalculado, out var usuarioExistentePorUsername))
+            {
+                // El username ya existe pero con diferente correo
+                // Generamos un username único agregando un sufijo numérico
+                int contador = 1;
+                string usernameBase = usernameCalculado;
+                
+                while (diccionarioUsername.ContainsKey(usernameCalculado))
+                {
+                    usernameCalculado = $"{usernameBase}{contador}";
+                    contador++;
+                }
+            }
+
+            // Crear nuevo usuario
+            var passwordRandom = GenerarPasswordSeguro(12);
+
+            usuario = new Usuario
+            {
+                Username = usernameCalculado,
+                Correo = correo,
+                PasswordHash = passwordRandom, // TODO: aplicar hashing real si es necesario
+                IdRolSistema = idRolSistema,
+                Estado = "INACTIVO",
+                CreadoEn = DateTime.UtcNow
+            };
+
+            await _usuarioRepository.AddAsync(usuario);
+            
+            // Agregar a ambos diccionarios
+            diccionarioCorreo[correo] = usuario;
+            diccionarioUsername[usernameCalculado] = usuario;
+
+            return usuario;
+        }
+
+        /// <summary>
+        /// Asegura que exista un Personal, creándolo si es necesario.
+        /// </summary>
+        private async Task<Personal> AsegurarPersonal(
+            string documento,
+            string nombres,
+            string apellidos,
+            string correo,
+            int idUsuario,
+            Dictionary<string, Personal> diccionario)
+        {
+            if (!diccionario.TryGetValue(documento, out var personal))
+            {
+                personal = new Personal
+                {
+                    Nombres = nombres.Trim(),
+                    Apellidos = apellidos.Trim(),
+                    Documento = documento,
+                    CorreoCorporativo = correo.Trim(),
+                    Estado = "INACTIVO",
+                    IdUsuario = idUsuario,
+                    CreadoEn = DateTime.UtcNow
+                };
+
+                await _personalRepository.AddAsync(personal);
+                diccionario[documento] = personal;
+            }
+
+            return personal;
+        }
+
+        /// <summary>
+        /// Asegura que exista un ConfigSla, creándolo si es necesario.
+        /// </summary>
+        private async Task<ConfigSla> AsegurarConfigSla(
+            string codigo,
+            string? descripcion,
+            int diasUmbral,
+            string tipoSolicitud,
+            Dictionary<string, ConfigSla> diccionario)
+        {
+            if (!diccionario.TryGetValue(codigo, out var configSla))
+            {
+                configSla = new ConfigSla
+                {
+                    CodigoSla = codigo,
+                    Descripcion = descripcion?.Trim(),
+                    DiasUmbral = diasUmbral,
+                    TipoSolicitud = tipoSolicitud.Trim(),
+                    EsActivo = true,
+                    CreadoEn = DateTime.UtcNow,
+                    ActualizadoEn = DateTime.UtcNow
+                };
+
+                var idNuevo = await _configSlaRepository.InsertAsync(configSla);
+                configSla.IdSla = idNuevo;
+                diccionario[codigo] = configSla;
+            }
+
+            return configSla;
+        }
+
+        /// <summary>
+        /// Asegura que exista un RolRegistro, creándolo si es necesario.
+        /// </summary>
+        private async Task<RolRegistro> AsegurarRolRegistro(
+            string nombre,
+            string bloqueTech,
+            string? descripcion,
+            Dictionary<string, RolRegistro> diccionario)
+        {
+            if (!diccionario.TryGetValue(nombre, out var rolRegistro))
+            {
+                rolRegistro = new RolRegistro
+                {
+                    NombreRol = nombre,
+                    BloqueTech = bloqueTech.Trim(),
+                    Descripcion = descripcion?.Trim(),
+                    EsActivo = true
+                };
+
+                var idRol = await _rolRegistroRepository.InsertAsync(rolRegistro);
+                rolRegistro.IdRolRegistro = idRol;
+                diccionario[nombre] = rolRegistro;
+            }
+
+            return rolRegistro;
+        }
+
+        /// <summary>
+        /// Crea la entidad Solicitud con el cálculo de SLA según las reglas de negocio.
+        /// </summary>
+        private Solicitud CrearSolicitud(
+            SubidaVolumenSolicitudRowDto row,
+            int idPersonal,
+            ConfigSla configSla,
+            int idRolRegistro,
+            int creadoPor,
+            DateTime fechaSolicitud,
+            DateTime? fechaIngreso,
+            DateTime hoyPeru)
+        {
+            int numDiasSla;
+            string estadoCumplimiento;
+            string estadoSolicitud;
+            string resumenSla;
+
+            var codigo = string.IsNullOrWhiteSpace(configSla.CodigoSla)
+                ? $"SLA{configSla.IdSla}"
+                : configSla.CodigoSla;
+
+            // Caso A: Sin fecha de ingreso (pendiente/en proceso)
+            if (!fechaIngreso.HasValue)
+            {
+                var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
+                numDiasSla = diasTranscurridos;
+
+                if (diasTranscurridos > configSla.DiasUmbral)
+                {
+                    // Ya venció el SLA
+                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    estadoSolicitud = "VENCIDO";
+                    resumenSla = $"Solicitud INCUMPLIDA: se excedió el umbral del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
+                }
+                else
+                {
+                    // Aún dentro del plazo
+                    estadoCumplimiento = $"EN_PROCESO_{codigo}";
+                    estadoSolicitud = "EN_PROCESO";
+                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
+                }
+            }
+            // Caso B: Con fecha de ingreso (ya cerrada)
+            else
+            {
+                var dias = (int)Math.Floor((fechaIngreso.Value - fechaSolicitud).TotalDays);
+                numDiasSla = dias;
+
+                if (dias <= configSla.DiasUmbral)
+                {
+                    estadoCumplimiento = $"CUMPLE_{codigo}";
+                    resumenSla = $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días)";
+                }
+                else
+                {
+                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    resumenSla = $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días)";
+                }
+
+                estadoSolicitud = "CERRADO";
+            }
+
+            // Sobrescribir con datos del Excel si vienen
+            var origenDato = string.IsNullOrWhiteSpace(row.SolOrigenDato)
+                ? "IMPORT"
+                : row.SolOrigenDato.Trim();
+
+            if (!string.IsNullOrWhiteSpace(row.SolEstado))
+            {
+                estadoSolicitud = row.SolEstado.Trim();
+            }
+
+            // Permitir sobrescribir resumen si viene en el Excel
+            if (!string.IsNullOrWhiteSpace(row.SolResumen))
+            {
+                resumenSla = row.SolResumen.Trim();
+            }
+
+            return new Solicitud
+            {
+                IdPersonal = idPersonal,
+                IdSla = configSla.IdSla,
+                IdRolRegistro = idRolRegistro,
+                CreadoPor = creadoPor,
+                FechaSolicitud = DateOnly.FromDateTime(fechaSolicitud),
+                FechaIngreso = fechaIngreso.HasValue ? DateOnly.FromDateTime(fechaIngreso.Value) : null,
+                NumDiasSla = numDiasSla,
+                ResumenSla = resumenSla,
+                OrigenDato = origenDato,
+                EstadoSolicitud = estadoSolicitud,
+                EstadoCumplimientoSla = estadoCumplimiento,
+                CreadoEn = DateTime.UtcNow,
+                ActualizadoEn = DateTime.UtcNow
+            };
+        }
+
+        /// <summary>
+        /// Registra un error en el resultado de la carga masiva.
+        /// </summary>
         private static void RegistrarError(BulkUploadResultDto result, int rowIndex, string mensaje)
         {
             result.FilasConError++;
@@ -296,7 +587,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         /// </summary>
         private static string GenerarPasswordSeguro(int longitud)
         {
-            const string alfabeto = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            const string alfabeto = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
             var bytes = new byte[longitud];
             using var rng = RandomNumberGenerator.Create();
             rng.GetBytes(bytes);
