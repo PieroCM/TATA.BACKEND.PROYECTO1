@@ -23,7 +23,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
             if (reader.TokenType == JsonTokenType.String)
             {
                 var stringValue = reader.GetString();
-                
+
                 // Si es string vacío, devolver null
                 if (string.IsNullOrWhiteSpace(stringValue))
                 {

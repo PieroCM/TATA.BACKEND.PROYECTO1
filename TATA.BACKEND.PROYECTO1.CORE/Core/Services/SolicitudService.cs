@@ -12,13 +12,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     public class SolicitudService : ISolicitudService
     {
         private readonly ISolicitudRepository _solicitudRepository;
+        private readonly IAlertaRepository _alertaRepository;
 
         // TimeZone de Perú para cálculo correcto de "hoy"
         private static readonly TimeZoneInfo PeruTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
-        public SolicitudService(ISolicitudRepository solicitudRepository)
+        public SolicitudService(
+            ISolicitudRepository solicitudRepository,
+            IAlertaRepository alertaRepository)
         {
             _solicitudRepository = solicitudRepository;
+            _alertaRepository = alertaRepository;
         }
         // Get all solicitudes with dtos
         // GET ALL
@@ -192,8 +196,32 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 CreadoEn = DateTime.UtcNow
             };
 
-            // 5. guardar
-            var created = await _solicitudRepository.CreateSolicitudAsync(entity);
+            // 5. TRANSACCIÓN: Guardar solicitud y crear alerta inicial
+            Solicitud created;
+            try
+            {
+                // Guardar la solicitud
+                created = await _solicitudRepository.CreateSolicitudAsync(entity);
+
+                // Crear alerta inicial vinculada
+                var alertaInicial = new Alerta
+                {
+                    IdSolicitud = created.IdSolicitud,
+                    TipoAlerta = "NUEVA",
+                    Nivel = "INFO",
+                    Mensaje = "Nueva solicitud creada",
+                    Estado = "ACTIVA",
+                    EnviadoEmail = false,
+                    FechaCreacion = DateTime.UtcNow
+                };
+
+                await _alertaRepository.CreateAlertaAsync(alertaInicial);
+            }
+            catch (Exception ex)
+            {
+                // Si falla algo, propagar el error
+                throw new Exception($"Error al crear solicitud con alerta: {ex.Message}", ex);
+            }
 
             // 6. devolver con includes
             return await GetByIdAsync(created.IdSolicitud)

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Workers;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
@@ -21,6 +22,10 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpS
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<IAlertaRepository, AlertaRepository>();
 builder.Services.AddTransient<IAlertaService, AlertaService>();
+
+// EMAIL AUTOMATION (NUEVOS SERVICIOS)
+builder.Services.AddTransient<IEmailAutomationService, EmailAutomationService>();
+builder.Services.AddTransient<IEmailConfigService, EmailConfigService>();
 
 // SOLICITUD
 builder.Services.AddTransient<ISolicitudRepository, SolicitudRepository>();
@@ -64,6 +69,9 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
+
+// BACKGROUND WORKER - Resumen diario automático
+builder.Services.AddHostedService<DailySummaryWorker>();
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);

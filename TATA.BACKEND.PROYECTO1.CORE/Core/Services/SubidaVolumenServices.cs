@@ -137,8 +137,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                     // 2.1) Asegurar RolesSistema
                     var rolSistema = await AsegurarRolSistema(
-                        rolSistemaCodigo, 
-                        row.RolSistemaNombre, 
+                        rolSistemaCodigo,
+                        row.RolSistemaNombre,
                         row.RolSistemaDescripcion,
                         rolesSistemaByCodigo);
 
@@ -219,31 +219,31 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             // Validar campos de texto obligatorios
             if (string.IsNullOrWhiteSpace(row.RolSistemaCodigo))
                 camposFaltantes.Add("RolSistemaCodigo");
-            
+
             if (string.IsNullOrWhiteSpace(row.UsuarioCorreo))
                 camposFaltantes.Add("UsuarioCorreo");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalDocumento))
                 camposFaltantes.Add("PersonalDocumento");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalNombres))
                 camposFaltantes.Add("PersonalNombres");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalApellidos))
                 camposFaltantes.Add("PersonalApellidos");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalCorreo))
                 camposFaltantes.Add("PersonalCorreo");
-            
+
             if (string.IsNullOrWhiteSpace(row.ConfigSlaCodigo))
                 camposFaltantes.Add("ConfigSlaCodigo");
-            
+
             if (string.IsNullOrWhiteSpace(row.ConfigSlaTipoSolicitud))
                 camposFaltantes.Add("ConfigSlaTipoSolicitud");
-            
+
             if (string.IsNullOrWhiteSpace(row.RolRegistroNombre))
                 camposFaltantes.Add("RolRegistroNombre");
-            
+
             if (string.IsNullOrWhiteSpace(row.RolRegistroBloqueTech))
                 camposFaltantes.Add("RolRegistroBloqueTech");
 
@@ -276,7 +276,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         /// <summary>
         /// Valida la lógica de fechas según las reglas del negocio.
         /// </summary>
-        private bool ValidarFechas(DateTime fechaSolicitud, DateTime? fechaIngreso, DateTime hoyPeru, 
+        private bool ValidarFechas(DateTime fechaSolicitud, DateTime? fechaIngreso, DateTime hoyPeru,
             BulkUploadResultDto result, int rowIndex)
         {
             // Validar que fecha de solicitud no esté en el futuro
@@ -351,7 +351,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 // Generamos un username único agregando un sufijo numérico
                 int contador = 1;
                 string usernameBase = usernameCalculado;
-                
+
                 while (diccionarioUsername.ContainsKey(usernameCalculado))
                 {
                     usernameCalculado = $"{usernameBase}{contador}";
@@ -373,7 +373,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             };
 
             await _usuarioRepository.AddAsync(usuario);
-            
+
             // Agregar a ambos diccionarios
             diccionarioCorreo[correo] = usuario;
             diccionarioUsername[usernameCalculado] = usuario;
@@ -472,6 +472,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         /// <summary>
         /// Crea la entidad Solicitud con el cálculo de SLA según las reglas de negocio.
+        /// Reglas:
+        /// - ACTIVA: sin fechaIngreso, dentro del umbral (EN_PROCESO_{codigo}).
+        /// - INACTIVA: con fechaIngreso, cumpla o no el umbral.
+        /// - VENCIDA: sin fechaIngreso, pero el SLA ya se venció. Se autocierra
+        ///            usando fechaIngreso = fechaSolicitud + DiasUmbral y NO_CUMPLE_{codigo}.
         /// </summary>
         private Solicitud CrearSolicitud(
             SubidaVolumenSolicitudRowDto row,
@@ -492,58 +497,67 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 ? $"SLA{configSla.IdSla}"
                 : configSla.CodigoSla;
 
-            // Caso A: Sin fecha de ingreso (pendiente/en proceso)
-            if (!fechaIngreso.HasValue)
-            {
-                var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
-                numDiasSla = diasTranscurridos;
-
-                if (diasTranscurridos > configSla.DiasUmbral)
-                {
-                    // Ya venció el SLA
-                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
-                    estadoSolicitud = "VENCIDO";
-                    resumenSla = $"Solicitud INCUMPLIDA: se excedió el umbral del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
-                }
-                else
-                {
-                    // Aún dentro del plazo
-                    estadoCumplimiento = $"EN_PROCESO_{codigo}";
-                    estadoSolicitud = "EN_PROCESO";
-                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
-                }
-            }
-            // Caso B: Con fecha de ingreso (ya cerrada)
-            else
+            // === CASOS DE NEGOCIO ===
+            // 1) Con fechaIngreso explícita -> INACTIVA (cumpla o no el SLA)
+            if (fechaIngreso.HasValue)
             {
                 var dias = (int)Math.Floor((fechaIngreso.Value - fechaSolicitud).TotalDays);
                 numDiasSla = dias;
 
                 if (dias <= configSla.DiasUmbral)
                 {
+                    // Cumple SLA
                     estadoCumplimiento = $"CUMPLE_{codigo}";
-                    resumenSla = $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días)";
+                    resumenSla = $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días).";
                 }
                 else
                 {
+                    // Incumple SLA
                     estadoCumplimiento = $"NO_CUMPLE_{codigo}";
-                    resumenSla = $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días)";
+                    resumenSla = $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días).";
                 }
 
-                estadoSolicitud = "CERRADO";
+                estadoSolicitud = "INACTIVA";
+            }
+            // 2) Sin fechaIngreso -> puede ser ACTIVA (en proceso) o VENCIDA (autocierre)
+            else
+            {
+                var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
+                numDiasSla = diasTranscurridos;
+
+                // ACTIVA: todavía dentro del umbral
+                if (diasTranscurridos <= configSla.DiasUmbral)
+                {
+                    estadoCumplimiento = $"EN_PROCESO_{codigo}";
+                    estadoSolicitud = "ACTIVA";
+                    if (numDiasSla < 0) numDiasSla = 0; // por seguridad
+                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({numDiasSla} de {configSla.DiasUmbral} días).";
+                }
+                // VENCIDA: se pasó el umbral sin registrar fechaIngreso -> autocerrar
+                else
+                {
+                    // Fecha límite de SLA
+                    var fechaIngresoAuto = fechaSolicitud.AddDays(configSla.DiasUmbral);
+
+                    fechaIngreso = fechaIngresoAuto;
+                    numDiasSla = configSla.DiasUmbral;
+
+                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    estadoSolicitud = "VENCIDA";
+                    resumenSla =
+                        $"Solicitud VENCIDA: no se registró fecha de ingreso y se superó el umbral del SLA " +
+                        $"({diasTranscurridos} de {configSla.DiasUmbral} días). " +
+                        $"Se cerró automáticamente en la fecha límite del SLA.";
+                }
             }
 
-            // Sobrescribir con datos del Excel si vienen
+            // Sobrescribir origen si viene desde Excel, sino usar IMPORT
             var origenDato = string.IsNullOrWhiteSpace(row.SolOrigenDato)
                 ? "IMPORT"
                 : row.SolOrigenDato.Trim();
 
-            if (!string.IsNullOrWhiteSpace(row.SolEstado))
-            {
-                estadoSolicitud = row.SolEstado.Trim();
-            }
-
-            // Permitir sobrescribir resumen si viene en el Excel
+            // NO permitir que Excel cambie el EstadoSolicitud calculado por dominio.
+            // Solo se permite sobrescribir el resumen si viene en el Excel.
             if (!string.IsNullOrWhiteSpace(row.SolResumen))
             {
                 resumenSla = row.SolResumen.Trim();
@@ -560,8 +574,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 NumDiasSla = numDiasSla,
                 ResumenSla = resumenSla,
                 OrigenDato = origenDato,
-                EstadoSolicitud = estadoSolicitud,
-                EstadoCumplimientoSla = estadoCumplimiento,
+                EstadoSolicitud = estadoSolicitud,            // ACTIVA / INACTIVA / VENCIDA
+                EstadoCumplimientoSla = estadoCumplimiento,   // EN_PROCESO_, CUMPLE_, NO_CUMPLE_*
                 CreadoEn = DateTime.UtcNow,
                 ActualizadoEn = DateTime.UtcNow
             };
