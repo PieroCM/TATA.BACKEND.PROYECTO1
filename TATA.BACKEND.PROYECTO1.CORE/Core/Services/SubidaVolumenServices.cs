@@ -26,7 +26,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly ISolicitudRepository _solicitudRepository;
 
         // TimeZone de Perú para cálculo correcto de "hoy"
-        private static readonly TimeZoneInfo PeruTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
+        private static readonly TimeZoneInfo PeruTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
         public SubidaVolumenServices(
             IRolesSistemaRepository rolesSistemaRepository,
@@ -108,37 +109,71 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 try
                 {
-                    // Validaciones mínimas de campos obligatorios
+                    // Validaciones mínimas de campos obligatorios (excepto fechas)
                     if (!ValidarCamposObligatorios(row, result, rowIndex))
                     {
                         rowIndex++;
                         continue;
                     }
 
-                    // Normalizar valores (trim)
-                    string rolSistemaCodigo = row.RolSistemaCodigo.Trim();
-                    string usuarioCorreo = row.UsuarioCorreo.Trim();
-                    string personalDocumento = row.PersonalDocumento.Trim();
-                    string configSlaCodigo = row.ConfigSlaCodigo.Trim();
-                    string rolRegistroNombre = row.RolRegistroNombre.Trim();
+                    // ============================
+                    // 2.0 Parseo de fechas (string)
+                    // ============================
 
-                    // Determinar si hay fecha de ingreso válida
-                    var tieneFechaIngreso = TieneFechaIngresoValida(row.SolFechaIngreso);
+                    // SolFechaSolicitud es OBLIGATORIA
+                    if (string.IsNullOrWhiteSpace(row.SolFechaSolicitud))
+                    {
+                        RegistrarError(result, rowIndex,
+                            "La fecha de solicitud (SolFechaSolicitud) es obligatoria.");
+                        rowIndex++;
+                        continue;
+                    }
 
-                    DateTime fechaSolicitud = row.SolFechaSolicitud.Date;
-                    DateTime? fechaIngreso = tieneFechaIngreso ? row.SolFechaIngreso!.Value.Date : null;
+                    if (!DateTime.TryParse(row.SolFechaSolicitud, out var fechaSolicitud))
+                    {
+                        RegistrarError(result, rowIndex,
+                            "La fecha de solicitud (SolFechaSolicitud) tiene un formato inválido.");
+                        rowIndex++;
+                        continue;
+                    }
 
-                    // Validar lógica de fechas
+                    fechaSolicitud = fechaSolicitud.Date;
+
+                    // SolFechaIngreso es OPCIONAL
+                    DateTime? fechaIngreso = null;
+                    if (!string.IsNullOrWhiteSpace(row.SolFechaIngreso))
+                    {
+                        if (!DateTime.TryParse(row.SolFechaIngreso, out var fechaIngresoParsed))
+                        {
+                            RegistrarError(result, rowIndex,
+                                "La fecha de ingreso (SolFechaIngreso) tiene un formato inválido.");
+                            rowIndex++;
+                            continue;
+                        }
+
+                        fechaIngreso = fechaIngresoParsed.Date;
+                    }
+
+                    // Validar lógica de fechas (no futuro, ingreso >= solicitud, etc.)
                     if (!ValidarFechas(fechaSolicitud, fechaIngreso, hoyPeru, result, rowIndex))
                     {
                         rowIndex++;
                         continue;
                     }
 
+                    // ============================
+                    // Normalizar valores (trim)
+                    // ============================
+                    string rolSistemaCodigo = row.RolSistemaCodigo.Trim();
+                    string usuarioCorreo = row.UsuarioCorreo.Trim();
+                    string personalDocumento = row.PersonalDocumento.Trim();
+                    string configSlaCodigo = row.ConfigSlaCodigo.Trim();
+                    string rolRegistroNombre = row.RolRegistroNombre.Trim();
+
                     // 2.1) Asegurar RolesSistema
                     var rolSistema = await AsegurarRolSistema(
-                        rolSistemaCodigo, 
-                        row.RolSistemaNombre, 
+                        rolSistemaCodigo,
+                        row.RolSistemaNombre,
                         row.RolSistemaDescripcion,
                         rolesSistemaByCodigo);
 
@@ -203,11 +238,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         // ----------------- Métodos privados auxiliares -----------------
 
         /// <summary>
-        /// Valida que todos los campos obligatorios estén presentes.
+        /// Valida que todos los campos obligatorios estén presentes
+        /// (excepto las fechas, que se validan con TryParse).
         /// </summary>
-        private bool ValidarCamposObligatorios(SubidaVolumenSolicitudRowDto row, BulkUploadResultDto result, int rowIndex)
+        private bool ValidarCamposObligatorios(SubidaVolumenSolicitudRowDto row,
+            BulkUploadResultDto result, int rowIndex)
         {
-            // Lista de campos faltantes para mensaje más descriptivo
             var camposFaltantes = new List<string>();
 
             if (row == null)
@@ -219,39 +255,38 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             // Validar campos de texto obligatorios
             if (string.IsNullOrWhiteSpace(row.RolSistemaCodigo))
                 camposFaltantes.Add("RolSistemaCodigo");
-            
+
             if (string.IsNullOrWhiteSpace(row.UsuarioCorreo))
                 camposFaltantes.Add("UsuarioCorreo");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalDocumento))
                 camposFaltantes.Add("PersonalDocumento");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalNombres))
                 camposFaltantes.Add("PersonalNombres");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalApellidos))
                 camposFaltantes.Add("PersonalApellidos");
-            
+
             if (string.IsNullOrWhiteSpace(row.PersonalCorreo))
                 camposFaltantes.Add("PersonalCorreo");
-            
+
             if (string.IsNullOrWhiteSpace(row.ConfigSlaCodigo))
                 camposFaltantes.Add("ConfigSlaCodigo");
-            
+
             if (string.IsNullOrWhiteSpace(row.ConfigSlaTipoSolicitud))
                 camposFaltantes.Add("ConfigSlaTipoSolicitud");
-            
+
             if (string.IsNullOrWhiteSpace(row.RolRegistroNombre))
                 camposFaltantes.Add("RolRegistroNombre");
-            
+
             if (string.IsNullOrWhiteSpace(row.RolRegistroBloqueTech))
                 camposFaltantes.Add("RolRegistroBloqueTech");
 
-            // Validar SolFechaSolicitud (obligatoria)
-            if (row.SolFechaSolicitud == DateTime.MinValue || row.SolFechaSolicitud == default)
+            // SolFechaSolicitud se valida como string requerida
+            if (string.IsNullOrWhiteSpace(row.SolFechaSolicitud))
                 camposFaltantes.Add("SolFechaSolicitud");
 
-            // Si hay campos faltantes, registrar error con detalle
             if (camposFaltantes.Count > 0)
             {
                 var mensaje = $"Campos obligatorios faltantes: {string.Join(", ", camposFaltantes)}";
@@ -263,33 +298,24 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         /// <summary>
-        /// Determina si la fecha de ingreso es válida (no null y no DateTime.MinValue).
-        /// </summary>
-        private bool TieneFechaIngresoValida(DateTime? fecha)
-        {
-            if (!fecha.HasValue) return false;
-            if (fecha.Value == DateTime.MinValue) return false;
-            if (fecha.Value.Year == 1) return false; // 0001-01-01
-            return true;
-        }
-
-        /// <summary>
         /// Valida la lógica de fechas según las reglas del negocio.
         /// </summary>
-        private bool ValidarFechas(DateTime fechaSolicitud, DateTime? fechaIngreso, DateTime hoyPeru, 
-            BulkUploadResultDto result, int rowIndex)
+        private bool ValidarFechas(DateTime fechaSolicitud, DateTime? fechaIngreso,
+            DateTime hoyPeru, BulkUploadResultDto result, int rowIndex)
         {
             // Validar que fecha de solicitud no esté en el futuro
             if (fechaSolicitud > hoyPeru)
             {
-                RegistrarError(result, rowIndex, "La fecha de solicitud está en el futuro respecto a la fecha actual.");
+                RegistrarError(result, rowIndex,
+                    "La fecha de solicitud está en el futuro respecto a la fecha actual.");
                 return false;
             }
 
             // Si hay fecha de ingreso, validar que no sea menor a fecha de solicitud
             if (fechaIngreso.HasValue && fechaIngreso.Value < fechaSolicitud)
             {
-                RegistrarError(result, rowIndex, "La fecha de ingreso es menor que la fecha de solicitud.");
+                RegistrarError(result, rowIndex,
+                    "La fecha de ingreso es menor que la fecha de solicitud.");
                 return false;
             }
 
@@ -333,25 +359,20 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             Dictionary<string, Usuario> diccionarioCorreo,
             Dictionary<string, Usuario> diccionarioUsername)
         {
-            // Primero buscar por correo (es la clave principal de negocio)
             if (diccionarioCorreo.TryGetValue(correo, out var usuario))
             {
                 return usuario;
             }
 
-            // Determinar el username a usar
             string usernameCalculado = string.IsNullOrWhiteSpace(username)
                 ? correo.Split('@')[0]
                 : username.Trim();
 
-            // Verificar si el username ya existe en otro usuario
-            if (diccionarioUsername.TryGetValue(usernameCalculado, out var usuarioExistentePorUsername))
+            if (diccionarioUsername.TryGetValue(usernameCalculado, out var _))
             {
-                // El username ya existe pero con diferente correo
-                // Generamos un username único agregando un sufijo numérico
                 int contador = 1;
                 string usernameBase = usernameCalculado;
-                
+
                 while (diccionarioUsername.ContainsKey(usernameCalculado))
                 {
                     usernameCalculado = $"{usernameBase}{contador}";
@@ -359,7 +380,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 }
             }
 
-            // Crear nuevo usuario
             var passwordRandom = GenerarPasswordSeguro(12);
 
             usuario = new Usuario
@@ -373,8 +393,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             };
 
             await _usuarioRepository.AddAsync(usuario);
-            
-            // Agregar a ambos diccionarios
+
             diccionarioCorreo[correo] = usuario;
             diccionarioUsername[usernameCalculado] = usuario;
 
@@ -400,7 +419,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     Apellidos = apellidos.Trim(),
                     Documento = documento,
                     CorreoCorporativo = correo.Trim(),
-                    Estado = "INACTIVO",
+                    Estado = "ACTIVO",
                     IdUsuario = idUsuario,
                     CreadoEn = DateTime.UtcNow
                 };
@@ -472,6 +491,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         /// <summary>
         /// Crea la entidad Solicitud con el cálculo de SLA según las reglas de negocio.
+        /// Reglas:
+        /// - ACTIVA: sin fechaIngreso, dentro del umbral (EN_PROCESO_{codigo}).
+        /// - INACTIVA: con fechaIngreso, cumpla o no el umbral.
+        /// - VENCIDA: sin fechaIngreso, pero el SLA ya se venció. Se autocierra
+        ///            usando fechaIngreso = fechaSolicitud + DiasUmbral y NO_CUMPLE_{codigo}.
         /// </summary>
         private Solicitud CrearSolicitud(
             SubidaVolumenSolicitudRowDto row,
@@ -492,29 +516,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 ? $"SLA{configSla.IdSla}"
                 : configSla.CodigoSla;
 
-            // Caso A: Sin fecha de ingreso (pendiente/en proceso)
-            if (!fechaIngreso.HasValue)
-            {
-                var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
-                numDiasSla = diasTranscurridos;
-
-                if (diasTranscurridos > configSla.DiasUmbral)
-                {
-                    // Ya venció el SLA
-                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
-                    estadoSolicitud = "VENCIDO";
-                    resumenSla = $"Solicitud INCUMPLIDA: se excedió el umbral del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
-                }
-                else
-                {
-                    // Aún dentro del plazo
-                    estadoCumplimiento = $"EN_PROCESO_{codigo}";
-                    estadoSolicitud = "EN_PROCESO";
-                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
-                }
-            }
-            // Caso B: Con fecha de ingreso (ya cerrada)
-            else
+            // 1) Con fechaIngreso explícita -> INACTIVA (cumpla o no el SLA)
+            if (fechaIngreso.HasValue)
             {
                 var dias = (int)Math.Floor((fechaIngreso.Value - fechaSolicitud).TotalDays);
                 numDiasSla = dias;
@@ -522,28 +525,58 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 if (dias <= configSla.DiasUmbral)
                 {
                     estadoCumplimiento = $"CUMPLE_{codigo}";
-                    resumenSla = $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días)";
+                    resumenSla =
+                        $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días).";
                 }
                 else
                 {
                     estadoCumplimiento = $"NO_CUMPLE_{codigo}";
-                    resumenSla = $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días)";
+                    resumenSla =
+                        $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días).";
                 }
 
-                estadoSolicitud = "CERRADO";
+                estadoSolicitud = "INACTIVA";
+            }
+            // 2) Sin fechaIngreso -> puede ser ACTIVA (en proceso) o VENCIDA (autocierre)
+            else
+            {
+                var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
+                numDiasSla = diasTranscurridos;
+
+                // ACTIVA: todavía dentro del umbral
+                if (diasTranscurridos <= configSla.DiasUmbral)
+                {
+                    if (numDiasSla < 0) numDiasSla = 0; // por seguridad
+
+                    estadoCumplimiento = $"EN_PROCESO_{codigo}";
+                    estadoSolicitud = "ACTIVA";
+                    resumenSla =
+                        $"Solicitud PENDIENTE dentro del SLA ({numDiasSla} de {configSla.DiasUmbral} días).";
+                }
+                // VENCIDA: se pasó el umbral sin registrar fechaIngreso -> autocerrar
+                else
+                {
+                    var fechaIngresoAuto = fechaSolicitud.AddDays(configSla.DiasUmbral);
+
+                    fechaIngreso = fechaIngresoAuto;
+                    numDiasSla = configSla.DiasUmbral;
+
+                    estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    estadoSolicitud = "VENCIDA";
+                    resumenSla =
+                        $"Solicitud VENCIDA: no se registró fecha de ingreso y se superó el umbral del SLA " +
+                        $"({diasTranscurridos} de {configSla.DiasUmbral} días). " +
+                        $"Se cerró automáticamente en la fecha límite del SLA.";
+                }
             }
 
-            // Sobrescribir con datos del Excel si vienen
+            // OrigenDato: default IMPORT si viene vacío
             var origenDato = string.IsNullOrWhiteSpace(row.SolOrigenDato)
                 ? "IMPORT"
                 : row.SolOrigenDato.Trim();
 
-            if (!string.IsNullOrWhiteSpace(row.SolEstado))
-            {
-                estadoSolicitud = row.SolEstado.Trim();
-            }
-
-            // Permitir sobrescribir resumen si viene en el Excel
+            // NO permitimos que Excel sobreescriba EstadoSolicitud,
+            // solo permitimos sobrescribir el resumen si viene lleno.
             if (!string.IsNullOrWhiteSpace(row.SolResumen))
             {
                 resumenSla = row.SolResumen.Trim();
@@ -556,12 +589,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 IdRolRegistro = idRolRegistro,
                 CreadoPor = creadoPor,
                 FechaSolicitud = DateOnly.FromDateTime(fechaSolicitud),
-                FechaIngreso = fechaIngreso.HasValue ? DateOnly.FromDateTime(fechaIngreso.Value) : null,
+                FechaIngreso = fechaIngreso.HasValue
+                    ? DateOnly.FromDateTime(fechaIngreso.Value)
+                    : null,
                 NumDiasSla = numDiasSla,
                 ResumenSla = resumenSla,
                 OrigenDato = origenDato,
-                EstadoSolicitud = estadoSolicitud,
-                EstadoCumplimientoSla = estadoCumplimiento,
+                EstadoSolicitud = estadoSolicitud,            // ACTIVA / INACTIVA / VENCIDA
+                EstadoCumplimientoSla = estadoCumplimiento,   // EN_PROCESO_*, CUMPLE_*, NO_CUMPLE_*
                 CreadoEn = DateTime.UtcNow,
                 ActualizadoEn = DateTime.UtcNow
             };
@@ -587,7 +622,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         /// </summary>
         private static string GenerarPasswordSeguro(int longitud)
         {
-            const string alfabeto = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+            const string alfabeto =
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
             var bytes = new byte[longitud];
             using var rng = RandomNumberGenerator.Create();
             rng.GetBytes(bytes);
@@ -597,6 +633,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 sb.Append(alfabeto[bytes[i] % alfabeto.Length]);
             }
+
             return sb.ToString();
         }
     }
