@@ -2,10 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,17 +22,6 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpS
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<IAlertaRepository, AlertaRepository>();
 builder.Services.AddTransient<IAlertaService, AlertaService>();
-
-// EMAIL AUTOMATION
-builder.Services.AddTransient<IEmailConfigRepository, EmailConfigRepository>();
-builder.Services.AddTransient<IEmailLogRepository, EmailLogRepository>();
-builder.Services.AddTransient<IEmailAutomationService, EmailAutomationService>();
-
-// BACKGROUND WORKERS
-// Worker para resumen diario de alertas
-builder.Services.AddHostedService<DailyEmailResumeWorker>();
-// Worker para actualización automática de alertas de solicitudes existentes
-builder.Services.AddHostedService<DailyAlertUpdateWorker>();
 
 // SOLICITUD
 builder.Services.AddTransient<ISolicitudRepository, SolicitudRepository>();
@@ -79,14 +69,17 @@ builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
 
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
+    options.AddPolicy("AllowQuasarApp",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:9000")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
 });
 
 builder.Services.AddControllers();
@@ -102,10 +95,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowQuasarApp");
+
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseCors("AllowAll");
 
 app.MapControllers();
 
