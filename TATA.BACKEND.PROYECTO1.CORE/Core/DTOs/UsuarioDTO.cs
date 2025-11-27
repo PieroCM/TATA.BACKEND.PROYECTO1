@@ -12,15 +12,15 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
     
     public class SignInRequestDTO
     {
-        public string Username { get; set; } = string.Empty; // ⚠️ Ahora usa Username en lugar de Correo
+        public string Email { get; set; } = string.Empty; // ⚠️ CAMBIO: Ahora usa Email (CorreoCorporativo)
         public string Password { get; set; } = string.Empty;
     }
     
     public class SignUpRequestDTO
     {
-        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty; // ⚠️ CAMBIO: Email en lugar de Username
         public string Password { get; set; } = string.Empty;
-        public int? IdPersonal { get; set; } // ⚠️ Opcional: vincular con Personal existente
+        public int? IdPersonal { get; set; }
     }
 
     // ===========================
@@ -34,11 +34,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public int IdRolSistema { get; set; }
         public string NombreRol { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
-        public int? IdPersonal { get; set; } // ⚠️ Nullable
-        public string? NombresPersonal { get; set; } // ⚠️ De PersonalNavigation
-        public string? ApellidosPersonal { get; set; } // ⚠️ De PersonalNavigation
-        public string? CorreoPersonal { get; set; } // ⚠️ De PersonalNavigation.CorreoCorporativo
-        public bool CuentaActivada { get; set; } // ⚠️ true si PasswordHash != null
+        public int? IdPersonal { get; set; }
+        public string? NombresPersonal { get; set; }
+        public string? ApellidosPersonal { get; set; }
+        public string? CorreoPersonal { get; set; }
+        public bool CuentaActivada { get; set; }
         public DateTime? UltimoLogin { get; set; }
         public DateTime? CreadoEn { get; set; }
         public DateTime? ActualizadoEn { get; set; }
@@ -47,9 +47,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
     public class UsuarioCreateDTO
     {
         public string Username { get; set; } = string.Empty;
-        public string? Password { get; set; } // ⚠️ Nullable para cuentas sin activar
+        public string? Password { get; set; }
         public int IdRolSistema { get; set; }
-        public int? IdPersonal { get; set; } // ⚠️ Opcional
+        public int? IdPersonal { get; set; }
         public string Estado { get; set; } = "ACTIVO";
     }
 
@@ -62,7 +62,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 
     public class UsuarioToggleEstadoDTO
     {
-        public string Estado { get; set; } = null!; // ACTIVO o INACTIVO
+        public string Estado { get; set; } = null!;
     }
 
     // ===========================
@@ -71,7 +71,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
   
     public class UsuarioChangePasswordDTO
     {
-        public string Username { get; set; } = null!;        // ⚠️ Ahora usa Username
+        public string Email { get; set; } = null!; // ⚠️ CAMBIO: Email en lugar de Username
         public string PasswordActual { get; set; } = null!;
         public string NuevaPassword { get; set; } = null!;
     }
@@ -82,8 +82,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
     
     public class ActivarCuentaDTO
     {
-        public string Username { get; set; } = null!;
+        public string Email { get; set; } = null!; // ⚠️ CAMBIO: Email en lugar de Username
         public string Token { get; set; } = null!;
         public string NuevaPassword { get; set; } = null!;
+    }
+
+    // ===========================
+    // VINCULACIÓN PERSONAL → USUARIO (ADMIN)
+    // ===========================
+    
+    public class VincularPersonalDTO
+    {
+        public int IdPersonal { get; set; }
+        public string Username { get; set; } = null!;
+        public int IdRolSistema { get; set; }
     }
 }

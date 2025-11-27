@@ -8,6 +8,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data; // ⚠️ NUEVO: Para DbContext
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -18,19 +19,22 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IEmailService _emailService;
         private readonly ILogger<PersonalService> _logger;
         private readonly FrontendSettings _frontendSettings;
+        private readonly Proyecto1SlaDbContext _context; // ⚠️ NUEVO: Para transacciones
 
         public PersonalService(
             IPersonalRepository personalRepository,
             IUsuarioRepository usuarioRepository,
             IEmailService emailService,
             ILogger<PersonalService> logger,
-            IOptions<FrontendSettings> frontendSettings)
+            IOptions<FrontendSettings> frontendSettings,
+            Proyecto1SlaDbContext context) // ⚠️ NUEVO
         {
             _personalRepository = personalRepository;
             _usuarioRepository = usuarioRepository;
             _emailService = emailService;
             _logger = logger;
             _frontendSettings = frontendSettings.Value;
+            _context = context; // ⚠️ NUEVO
         }
 
         public async Task<IEnumerable<PersonalResponseDTO>> GetAllAsync()
@@ -47,6 +51,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         public async Task<bool> CreateAsync(PersonalCreateDTO dto)
         {
+            // ⚠️ VALIDAR: Si se proporciona documento, verificar que no exista
+            if (!string.IsNullOrWhiteSpace(dto.Documento))
+            {
+                var existe = await _personalRepository.ExisteDocumentoAsync(dto.Documento);
+                if (existe)
+                {
+                    _logger.LogWarning("Intento de crear Personal con documento duplicado: {Documento}", dto.Documento);
+                    return false;
+                }
+            }
+
             var entity = new Personal
             {
                 Nombres = dto.Nombres,
@@ -60,12 +75,26 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             return true;
         }
 
-        // ⚠️ NUEVO: Crear Personal con Cuenta de Usuario Condicional
+        // ⚠️ NUEVO: Crear Personal con Cuenta de Usuario Condicional (TRANSACCIONAL)
         public async Task<bool> CreateWithAccountAsync(PersonalCreateWithAccountDTO dto)
         {
+            // ⚠️ INICIAR TRANSACCIÓN
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            
             try
             {
-                // PASO 1: Crear el registro de Personal
+                // ⚠️ PASO 0: VALIDAR DOCUMENTO DUPLICADO
+                if (!string.IsNullOrWhiteSpace(dto.Documento))
+                {
+                    var documentoExiste = await _personalRepository.ExisteDocumentoAsync(dto.Documento);
+                    if (documentoExiste)
+                    {
+                        _logger.LogWarning("Intento de crear Personal con documento duplicado: {Documento}", dto.Documento);
+                        return false;
+                    }
+                }
+
+                // ⚠️ PASO 1: Crear el registro de Personal y GUARDAR para obtener IdPersonal
                 var personal = new Personal
                 {
                     Nombres = dto.Nombres,
@@ -76,27 +105,32 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     CreadoEn = DateTime.UtcNow
                 };
 
-                await _personalRepository.AddAsync(personal);
+                _context.Personal.Add(personal);
+                await _context.SaveChangesAsync(); // ⚠️ GUARDAR para obtener IdPersonal
+                
                 _logger.LogInformation("Personal creado: {Nombres} {Apellidos} (ID: {Id})", 
                     personal.Nombres, personal.Apellidos, personal.IdPersonal);
 
-                // PASO 2: Si NO se debe crear cuenta de usuario, terminar aquí
+                // ⚠️ PASO 2: Si NO se debe crear cuenta de usuario, COMMIT y terminar
                 if (!dto.CrearCuentaUsuario)
                 {
+                    await transaction.CommitAsync(); // ⚠️ COMMIT
                     _logger.LogInformation("Personal {Id} creado SIN cuenta de usuario", personal.IdPersonal);
                     return true;
                 }
 
-                // PASO 3: Validaciones para crear cuenta de usuario
+                // ⚠️ PASO 3: Validaciones para crear cuenta de usuario
                 if (string.IsNullOrWhiteSpace(dto.Username))
                 {
                     _logger.LogWarning("Intento de crear cuenta sin username para Personal {Id}", personal.IdPersonal);
+                    await transaction.RollbackAsync(); // ⚠️ ROLLBACK
                     return false;
                 }
 
                 if (string.IsNullOrWhiteSpace(dto.CorreoCorporativo))
                 {
                     _logger.LogWarning("Intento de crear cuenta sin correo para Personal {Id}", personal.IdPersonal);
+                    await transaction.RollbackAsync(); // ⚠️ ROLLBACK
                     return false;
                 }
 
@@ -105,35 +139,43 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 if (existingUser != null)
                 {
                     _logger.LogWarning("Username {Username} ya existe", dto.Username);
+                    await transaction.RollbackAsync(); // ⚠️ ROLLBACK
                     return false;
                 }
 
-                // PASO 4: Crear cuenta de usuario vinculada
+                // ⚠️ PASO 4: Crear cuenta de usuario vinculada (PasswordHash = NULL)
                 var usuario = new Usuario
                 {
                     Username = dto.Username,
-                    PasswordHash = null,
+                    PasswordHash = null, // ⚠️ NULL = pendiente de activación
                     IdRolSistema = dto.IdRolSistema ?? 4,
-                    IdPersonal = personal.IdPersonal,
+                    IdPersonal = personal.IdPersonal, // ⚠️ Vinculado al Personal recién creado
                     Estado = "ACTIVO",
                     CreadoEn = DateTime.UtcNow
                 };
 
-                // PASO 5: Generar token de activación
+                // ⚠️ PASO 5: Generar token de activación (24 horas)
                 var token = GenerateSecureToken();
                 usuario.token_recuperacion = token;
                 usuario.expiracion_token = DateTime.UtcNow.AddHours(24);
 
-                await _usuarioRepository.AddAsync(usuario);
+                _context.Usuario.Add(usuario);
+                await _context.SaveChangesAsync(); // ⚠️ GUARDAR Usuario
+                
                 _logger.LogInformation("Cuenta de usuario creada (pendiente de activación): {Username} para Personal {Id}", 
                     usuario.Username, personal.IdPersonal);
 
-                // PASO 6: Construir URL de activación
+                // ⚠️ PASO 6: COMMIT de la transacción
+                await transaction.CommitAsync();
+                
+                _logger.LogInformation("Transacción completada exitosamente para Personal {Id}", personal.IdPersonal);
+
+                // ⚠️ PASO 7: Construir URL de activación y enviar email (FUERA de la transacción)
                 var activacionUrl = $"{_frontendSettings.BaseUrl}/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
 
-                // PASO 7: Generar y enviar email de activación
+                // Generar y enviar email de activación
                 var emailBody = $@"
                     <!DOCTYPE html>
                     <html>
@@ -173,20 +215,31 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     </html>
                 ";
 
-                await _emailService.SendAsync(
-                    personal.CorreoCorporativo,
-                    "Activación de Cuenta - Sistema SLA",
-                    emailBody
-                );
+                try
+                {
+                    await _emailService.SendAsync(
+                        personal.CorreoCorporativo,
+                        "Activación de Cuenta - Sistema SLA",
+                        emailBody
+                    );
 
-                _logger.LogInformation("Email de activación enviado a {Email} para usuario {Username}", 
-                    personal.CorreoCorporativo, usuario.Username);
+                    _logger.LogInformation("Email de activación enviado a {Email} para usuario {Username}", 
+                        personal.CorreoCorporativo, usuario.Username);
+                }
+                catch (Exception emailEx)
+                {
+                    // ⚠️ Si falla el email, NO hacer rollback (los datos ya están guardados)
+                    _logger.LogError(emailEx, "Error al enviar email de activación a {Email}. Usuario creado pero sin email", 
+                        personal.CorreoCorporativo);
+                }
 
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al crear Personal con cuenta de usuario");
+                // ⚠️ ROLLBACK en caso de error
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error al crear Personal con cuenta de usuario. Transacción revertida");
                 return false;
             }
         }
@@ -195,6 +248,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         {
             var p = await _personalRepository.GetByIdAsync(id);
             if (p == null) return false;
+
+            // ⚠️ VALIDAR: Si se actualiza el documento, verificar que no exista en otro registro
+            if (!string.IsNullOrWhiteSpace(dto.Documento) && dto.Documento != p.Documento)
+            {
+                var existe = await _personalRepository.ExisteDocumentoAsync(dto.Documento, id);
+                if (existe)
+                {
+                    _logger.LogWarning("Intento de actualizar Personal {Id} con documento duplicado: {Documento}", id, dto.Documento);
+                    return false;
+                }
+            }
 
             p.Nombres = dto.Nombres ?? p.Nombres;
             p.Apellidos = dto.Apellidos ?? p.Apellidos;

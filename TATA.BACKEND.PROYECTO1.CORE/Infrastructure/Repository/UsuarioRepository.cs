@@ -28,6 +28,16 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
                 .FirstOrDefaultAsync(u => u.Username == username);
         }
 
+        // ⚠️ NUEVO: Buscar usuario por correo (a través de Personal)
+        public async Task<Usuario?> GetByEmailAsync(string email)
+        {
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation)
+                .FirstOrDefaultAsync(u => u.PersonalNavigation != null && 
+                                       u.PersonalNavigation.CorreoCorporativo == email);
+        }
+
         public async Task<Usuario?> GetByIdAsync(int id)
         {
             return await _context.Usuario

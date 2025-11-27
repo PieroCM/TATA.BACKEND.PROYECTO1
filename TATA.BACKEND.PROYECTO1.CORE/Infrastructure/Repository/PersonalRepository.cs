@@ -28,6 +28,33 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
                 .FirstOrDefaultAsync(p => p.IdPersonal == id);
         }
 
+        public async Task<Personal?> GetByDocumentoAsync(string documento)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return null;
+
+            return await _context.Personal
+                .FirstOrDefaultAsync(p => p.Documento == documento);
+        }
+
+        public async Task<bool> ExisteDocumentoAsync(string documento)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return false;
+
+            return await _context.Personal
+                .AnyAsync(p => p.Documento == documento);
+        }
+
+        public async Task<bool> ExisteDocumentoAsync(string documento, int exceptoId)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return false;
+
+            return await _context.Personal
+                .AnyAsync(p => p.Documento == documento && p.IdPersonal != exceptoId);
+        }
+
         public async Task AddAsync(Personal personal)
         {
             _context.Personal.Add(personal);

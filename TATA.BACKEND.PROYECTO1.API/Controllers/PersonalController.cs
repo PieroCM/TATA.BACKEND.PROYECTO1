@@ -45,7 +45,12 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
             var ok = await _personalService.CreateAsync(dto);
             if (!ok)
-                return BadRequest(new { message = "Error al registrar personal" });
+                return BadRequest(new { 
+                    message = "Error al registrar personal",
+                    detalle = !string.IsNullOrWhiteSpace(dto.Documento) 
+                        ? "El documento proporcionado ya está registrado en el sistema" 
+                        : "Verifica que todos los datos sean válidos"
+                });
 
             return Ok(new { message = "Personal registrado correctamente" });
         }
@@ -72,12 +77,23 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
             var success = await _personalService.CreateWithAccountAsync(dto);
             if (!success)
+            {
+                var mensaje = "No se pudo crear el personal";
+                var detalle = dto.CrearCuentaUsuario 
+                    ? "Verifica que el username no exista y que todos los datos sean válidos" 
+                    : "Verifica que los datos sean válidos";
+                
+                // Si se proporcionó documento, probablemente sea duplicado
+                if (!string.IsNullOrWhiteSpace(dto.Documento))
+                {
+                    detalle = "El documento proporcionado ya está registrado en el sistema";
+                }
+                
                 return BadRequest(new { 
-                    message = "No se pudo crear el personal",
-                    sugerencia = dto.CrearCuentaUsuario 
-                        ? "Verifica que el username no exista y que todos los datos sean válidos" 
-                        : "Verifica que los datos sean válidos"
+                    message = mensaje,
+                    detalle = detalle
                 });
+            }
 
             return Ok(new { 
                 message = dto.CrearCuentaUsuario 
@@ -97,7 +113,18 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         {
             var ok = await _personalService.UpdateAsync(id, dto);
             if (!ok)
+            {
+                // Si se proporcionó documento, probablemente sea duplicado
+                if (!string.IsNullOrWhiteSpace(dto.Documento))
+                {
+                    return BadRequest(new { 
+                        message = "No se pudo actualizar el personal",
+                        detalle = "El documento proporcionado ya está registrado en otro personal o el personal no existe"
+                    });
+                }
+                
                 return NotFound(new { message = "Personal no encontrado" });
+            }
 
             return Ok(new { message = "Personal actualizado correctamente" });
         }
@@ -111,6 +138,28 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 return NotFound(new { message = "Personal no encontrado" });
 
             return Ok(new { message = "Personal eliminado correctamente" });
+        }
+
+        /// <summary>
+        /// Verificar si un documento ya existe en el sistema
+        /// GET /api/personal/verificar-documento/{documento}
+        /// </summary>
+        [HttpGet("verificar-documento/{documento}")]
+        public async Task<IActionResult> VerificarDocumento(string documento)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return BadRequest(new { message = "Documento es requerido" });
+
+            var personales = await _personalService.GetAllAsync();
+            var existe = personales.Any(p => p.Documento == documento);
+
+            return Ok(new { 
+                existe = existe,
+                documento = documento,
+                mensaje = existe 
+                    ? "El documento ya está registrado en el sistema" 
+                    : "El documento está disponible"
+            });
         }
     }
 }

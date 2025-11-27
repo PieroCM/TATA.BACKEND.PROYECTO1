@@ -29,8 +29,8 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost("signin")]
         public async Task<IActionResult> SignIn([FromBody] SignInRequestDTO dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
-                return BadRequest(new { message = "Username y contraseña son obligatorios" });
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+                return BadRequest(new { message = "Email y contraseña son obligatorios" });
 
             try
             {
@@ -42,7 +42,6 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // ⚠️ Capturar excepción de cuenta pendiente de activación
                 return Unauthorized(new { message = ex.Message });
             }
         }
@@ -55,12 +54,12 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost("signup")]
         public async Task<IActionResult> SignUp([FromBody] SignUpRequestDTO dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
-                return BadRequest(new { message = "Username y contraseña son obligatorios" });
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+                return BadRequest(new { message = "Email y contraseña son obligatorios" });
 
             var success = await _usuarioService.SignUpAsync(dto);
             if (!success)
-                return BadRequest(new { message = "El username ya está registrado" });
+                return BadRequest(new { message = "El email ya está registrado" });
 
             return Ok(new { message = "Usuario registrado correctamente" });
         }
@@ -73,13 +72,12 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost("solicitar-recuperacion")]
         public async Task<IActionResult> SolicitarRecuperacion([FromBody] SolicitarRecuperacionDTO request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Username))
-                return BadRequest(new { message = "El username es obligatorio" });
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+                return BadRequest(new { message = "El email es obligatorio" });
 
             await _usuarioService.SolicitarRecuperacionPassword(request);
-
-            // Por seguridad, siempre devuelve OK aunque el username no exista
-            return Ok(new { message = "Si el username existe y tiene correo vinculado, recibirás un enlace de recuperación" });
+            
+            return Ok(new { message = "Si el email existe y tiene correo vinculado, recibirás un enlace de recuperación" });
         }
 
         /// <summary>
@@ -91,11 +89,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         public async Task<IActionResult> RestablecerPassword([FromBody] RestablecerPasswordDTO request)
         {
             if (request == null ||
-                string.IsNullOrWhiteSpace(request.Username) ||
+                string.IsNullOrWhiteSpace(request.Email) ||
                 string.IsNullOrWhiteSpace(request.Token) ||
                 string.IsNullOrWhiteSpace(request.NuevaPassword))
             {
-                return BadRequest(new { message = "Username, token y nueva contraseña son obligatorios" });
+                return BadRequest(new { message = "Email, token y nueva contraseña son obligatorios" });
             }
 
             var resultado = await _usuarioService.RestablecerPassword(request);
@@ -115,11 +113,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         public async Task<IActionResult> ActivarCuenta([FromBody] ActivarCuentaDTO request)
         {
             if (request == null ||
-                string.IsNullOrWhiteSpace(request.Username) ||
+                string.IsNullOrWhiteSpace(request.Email) ||
                 string.IsNullOrWhiteSpace(request.Token) ||
                 string.IsNullOrWhiteSpace(request.NuevaPassword))
             {
-                return BadRequest(new { message = "Username, token y contraseña son obligatorios" });
+                return BadRequest(new { message = "Email, token y contraseña son obligatorios" });
             }
 
             var resultado = await _usuarioService.ActivarCuenta(request);
@@ -234,7 +232,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPut("cambiar-password")]
         public async Task<IActionResult> ChangePassword([FromBody] UsuarioChangePasswordDTO dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.Username) ||
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Email) ||
                 string.IsNullOrWhiteSpace(dto.PasswordActual) || string.IsNullOrWhiteSpace(dto.NuevaPassword))
                 return BadRequest(new { message = "Todos los campos son obligatorios" });
 
@@ -243,6 +241,54 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 return BadRequest(new { message = "Contraseña actual incorrecta o usuario no encontrado" });
 
             return Ok(new { message = "Contraseña actualizada correctamente" });
+        }
+
+        // ===========================
+        // VINCULAR PERSONAL → USUARIO (SOLO ADMIN)
+        // ===========================
+
+        /// <summary>
+        /// Vincular un Personal existente con una nueva cuenta de Usuario (SOLO ADMIN)
+        /// POST /api/usuario/vincular-personal
+        /// </summary>
+        [Authorize(Roles = "ADMIN")]
+        [HttpPost("vincular-personal")]
+        public async Task<IActionResult> VincularPersonalYActivar([FromBody] VincularPersonalDTO dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Username))
+                return BadRequest(new { message = "El Username es obligatorio" });
+
+            if (dto.IdPersonal <= 0)
+                return BadRequest(new { message = "El ID del Personal es inválido" });
+
+            if (dto.IdRolSistema <= 0)
+                return BadRequest(new { message = "El ID del Rol Sistema es inválido" });
+
+            try
+            {
+                await _usuarioService.VincularPersonalYActivarAsync(dto);
+                
+                return Ok(new 
+                { 
+                    message = "Cuenta de usuario creada y correo de activación enviado correctamente",
+                    detalles = new
+                    {
+                        idPersonal = dto.IdPersonal,
+                        username = dto.Username,
+                        idRolSistema = dto.IdRolSistema,
+                        instrucciones = "El usuario recibirá un correo con el enlace de activación. Tiene 24 horas para activar su cuenta."
+                    }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Errores de validación de negocio (Personal no existe, ya tiene cuenta, username duplicado, etc.)
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error interno del servidor al procesar la vinculación" });
+            }
         }
     }
 }
