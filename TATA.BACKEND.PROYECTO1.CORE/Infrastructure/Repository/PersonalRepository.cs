@@ -16,13 +16,16 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 
         public async Task<IEnumerable<Personal>> GetAllAsync()
         {
-            return await _context.Personal.Include(p => p.IdUsuarioNavigation).ToListAsync();
+            return await _context.Personal
+                .Include(p => p.UsuarioNavigation) // ⚠️ Incluir Usuario vinculado
+                .ToListAsync();
         }
 
         public async Task<Personal?> GetByIdAsync(int id)
         {
-            return await _context.Personal.Include(p => p.IdUsuarioNavigation)
-                                          .FirstOrDefaultAsync(p => p.IdPersonal == id);
+            return await _context.Personal
+                .Include(p => p.UsuarioNavigation) // ⚠️ Incluir Usuario vinculado
+                .FirstOrDefaultAsync(p => p.IdPersonal == id);
         }
 
         public async Task AddAsync(Personal personal)

@@ -7,7 +7,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task AddAsync(Usuario usuario);
         Task DeleteAsync(int id);
         Task<IEnumerable<Usuario>> GetAllAsync();
-        Task<Usuario?> GetByCorreoAsync(string correo);
+        
+        // ⚠️ CAMBIO: GetByCorreoAsync → GetByUsernameAsync
+        Task<Usuario?> GetByUsernameAsync(string username);
+        
         Task<Usuario?> GetByIdAsync(int id);
         Task UpdateAsync(Usuario usuario);
         

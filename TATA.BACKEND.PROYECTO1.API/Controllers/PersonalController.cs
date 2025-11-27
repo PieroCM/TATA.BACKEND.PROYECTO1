@@ -36,16 +36,59 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             return Ok(personal);
         }
 
-        // ✅ CREAR NUEVO
+        // ✅ CREAR NUEVO (Simple - sin cuenta de usuario)
         [HttpPost]
-        [Authorize(Roles = "1")] // opcional: solo admin (idRolSistema = 1)
         public async Task<IActionResult> Create([FromBody] PersonalCreateDTO dto)
         {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Nombres) || string.IsNullOrWhiteSpace(dto.Apellidos))
+                return BadRequest(new { message = "Nombres y Apellidos son obligatorios" });
+
             var ok = await _personalService.CreateAsync(dto);
             if (!ok)
                 return BadRequest(new { message = "Error al registrar personal" });
 
             return Ok(new { message = "Personal registrado correctamente" });
+        }
+
+        /// <summary>
+        /// ⚠️ NUEVO: Crear Personal con Cuenta de Usuario (Condicional)
+        /// POST /api/personal/with-account
+        /// </summary>
+        [HttpPost("with-account")]
+        public async Task<IActionResult> CreateWithAccount([FromBody] PersonalCreateWithAccountDTO dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Nombres) || string.IsNullOrWhiteSpace(dto.Apellidos))
+                return BadRequest(new { message = "Nombres y Apellidos son obligatorios" });
+
+            if (dto.CrearCuentaUsuario)
+            {
+                // Validaciones adicionales si se va a crear cuenta de usuario
+                if (string.IsNullOrWhiteSpace(dto.Username))
+                    return BadRequest(new { message = "Username es obligatorio cuando se crea cuenta de usuario" });
+
+                if (string.IsNullOrWhiteSpace(dto.CorreoCorporativo))
+                    return BadRequest(new { message = "Correo corporativo es obligatorio cuando se crea cuenta de usuario" });
+            }
+
+            var success = await _personalService.CreateWithAccountAsync(dto);
+            if (!success)
+                return BadRequest(new { 
+                    message = "No se pudo crear el personal",
+                    sugerencia = dto.CrearCuentaUsuario 
+                        ? "Verifica que el username no exista y que todos los datos sean válidos" 
+                        : "Verifica que los datos sean válidos"
+                });
+
+            return Ok(new { 
+                message = dto.CrearCuentaUsuario 
+                    ? "Personal creado con cuenta de usuario. Se ha enviado un correo de activación." 
+                    : "Personal creado exitosamente",
+                conCuentaUsuario = dto.CrearCuentaUsuario,
+                username = dto.CrearCuentaUsuario ? dto.Username : null,
+                instrucciones = dto.CrearCuentaUsuario 
+                    ? "El usuario recibirá un correo con el enlace de activación. Tiene 24 horas para activar su cuenta." 
+                    : null
+            });
         }
 
         // ✅ ACTUALIZAR

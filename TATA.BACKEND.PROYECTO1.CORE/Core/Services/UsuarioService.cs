@@ -39,55 +39,62 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         public async Task<string?> SignInAsync(SignInRequestDTO dto)
         {
-            var usuario = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+            var usuario = await _usuarioRepository.GetByUsernameAsync(dto.Username); // ⚠️ Usar Username
             if (usuario == null) 
             {
-                _logger.LogWarning("Intento de login con correo no registrado: {Correo}", dto.Correo);
+                _logger.LogWarning("Intento de login con username no registrado: {Username}", dto.Username);
                 return null;
+            }
+
+            // ⚠️ NUEVO: Verificar si la cuenta está pendiente de activación
+            if (usuario.PasswordHash == null)
+            {
+                _logger.LogWarning("Intento de login con cuenta pendiente de activación: {Username}", dto.Username);
+                throw new InvalidOperationException("Cuenta pendiente de activación. Revisa tu correo electrónico.");
             }
 
             // Verificar si el usuario está activo
             if (usuario.Estado != "ACTIVO")
             {
-                _logger.LogWarning("Intento de login con usuario inactivo: {Correo}", dto.Correo);
+                _logger.LogWarning("Intento de login con usuario inactivo: {Username}", dto.Username);
                 return null;
             }
 
             bool passwordOk = BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash);
             if (!passwordOk) 
             {
-                _logger.LogWarning("Contraseña incorrecta para: {Correo}", dto.Correo);
+                _logger.LogWarning("Contraseña incorrecta para: {Username}", dto.Username);
                 return null;
             }
 
             usuario.UltimoLogin = DateTime.Now;
             await _usuarioRepository.UpdateAsync(usuario);
 
-            _logger.LogInformation("Login exitoso: {Correo}", dto.Correo);
+            _logger.LogInformation("Login exitoso: {Username}", dto.Username);
             return _jwtService.GenerateJWToken(usuario);
         }
 
         public async Task<bool> SignUpAsync(SignUpRequestDTO dto)
         {
-            var existing = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+            var existing = await _usuarioRepository.GetByUsernameAsync(dto.Username); // ⚠️ Usar Username
             if (existing != null) 
             {
-                _logger.LogWarning("Intento de registro con correo existente: {Correo}", dto.Correo);
+                _logger.LogWarning("Intento de registro con username existente: {Username}", dto.Username);
                 return false;
             }
 
             var usuario = new Usuario
             {
                 Username = dto.Username,
-                Correo = dto.Correo,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 IdRolSistema = 1, // Rol por defecto
+                IdPersonal = dto.IdPersonal, // ⚠️ Vincular con Personal si se proporciona
                 Estado = "ACTIVO",
                 CreadoEn = DateTime.Now
             };
 
             await _usuarioRepository.AddAsync(usuario);
-            _logger.LogInformation("Usuario registrado: {Username} ({Correo})", dto.Username, dto.Correo);
+            _logger.LogInformation("Usuario registrado: {Username}", dto.Username);
             return true;
         }
 
@@ -102,10 +109,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 IdUsuario = u.IdUsuario,
                 Username = u.Username,
-                Correo = u.Correo,
                 IdRolSistema = u.IdRolSistema,
                 NombreRol = u.IdRolSistemaNavigation?.Nombre ?? "Sin Rol",
                 Estado = u.Estado ?? "ACTIVO",
+                IdPersonal = u.IdPersonal,
+                NombresPersonal = u.PersonalNavigation?.Nombres,
+                ApellidosPersonal = u.PersonalNavigation?.Apellidos,
+                CorreoPersonal = u.PersonalNavigation?.CorreoCorporativo, // ⚠️ Obtener de Personal
+                CuentaActivada = u.PasswordHash != null, // ⚠️ Verificar si tiene contraseña
                 UltimoLogin = u.UltimoLogin,
                 CreadoEn = u.CreadoEn,
                 ActualizadoEn = u.ActualizadoEn
@@ -125,10 +136,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 IdUsuario = u.IdUsuario,
                 Username = u.Username,
-                Correo = u.Correo,
                 IdRolSistema = u.IdRolSistema,
                 NombreRol = u.IdRolSistemaNavigation?.Nombre ?? "Sin Rol",
                 Estado = u.Estado ?? "ACTIVO",
+                IdPersonal = u.IdPersonal,
+                NombresPersonal = u.PersonalNavigation?.Nombres,
+                ApellidosPersonal = u.PersonalNavigation?.Apellidos,
+                CorreoPersonal = u.PersonalNavigation?.CorreoCorporativo,
+                CuentaActivada = u.PasswordHash != null,
                 UltimoLogin = u.UltimoLogin,
                 CreadoEn = u.CreadoEn,
                 ActualizadoEn = u.ActualizadoEn
@@ -139,35 +154,35 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         {
             try
             {
-                // Validar que el correo no exista
-                var existing = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+                // Validar que el username no exista
+                var existing = await _usuarioRepository.GetByUsernameAsync(dto.Username);
                 if (existing != null)
                 {
-                    _logger.LogWarning("Intento de crear usuario con correo existente: {Correo}", dto.Correo);
+                    _logger.LogWarning("Intento de crear usuario con username existente: {Username}", dto.Username);
                     return null;
                 }
 
                 var usuario = new Usuario
                 {
                     Username = dto.Username,
-                    Correo = dto.Correo,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                    PasswordHash = string.IsNullOrEmpty(dto.Password) ? null : BCrypt.Net.BCrypt.HashPassword(dto.Password),
                     IdRolSistema = dto.IdRolSistema,
+                    IdPersonal = dto.IdPersonal,
                     Estado = dto.Estado,
                     CreadoEn = DateTime.Now
                 };
 
                 await _usuarioRepository.AddAsync(usuario);
                 
-                _logger.LogInformation("Usuario creado: {Username} ({Correo}) - Rol: {IdRol}", 
-                    dto.Username, dto.Correo, dto.IdRolSistema);
+                _logger.LogInformation("Usuario creado: {Username} - Rol: {IdRol}", 
+                    dto.Username, dto.IdRolSistema);
 
                 // Retornar el usuario creado
                 return await GetByIdAsync(usuario.IdUsuario);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al crear usuario: {Correo}", dto.Correo);
+                _logger.LogError(ex, "Error al crear usuario: {Username}", dto.Username);
                 return null;
             }
         }
@@ -183,22 +198,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     return false;
                 }
 
-                // Validar correo único si se está actualizando
-                if (!string.IsNullOrEmpty(dto.Correo) && dto.Correo != usuario.Correo)
+                // Validar username único si se está actualizando
+                if (!string.IsNullOrEmpty(dto.Username) && dto.Username != usuario.Username)
                 {
-                    var existingEmail = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
-                    if (existingEmail != null)
+                    var existingUsername = await _usuarioRepository.GetByUsernameAsync(dto.Username);
+                    if (existingUsername != null)
                     {
-                        _logger.LogWarning("Intento de actualizar usuario con correo existente: {Correo}", dto.Correo);
+                        _logger.LogWarning("Intento de actualizar usuario con username existente: {Username}", dto.Username);
                         return false;
                     }
-                    usuario.Correo = dto.Correo;
+                    usuario.Username = dto.Username;
                 }
 
                 // Actualizar campos opcionales
-                if (!string.IsNullOrEmpty(dto.Username))
-                    usuario.Username = dto.Username;
-
                 if (dto.IdRolSistema.HasValue)
                     usuario.IdRolSistema = dto.IdRolSistema.Value;
 
@@ -277,17 +289,23 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         {
             try
             {
-                var usuario = await _usuarioRepository.GetByCorreoAsync(dto.Correo);
+                var usuario = await _usuarioRepository.GetByUsernameAsync(dto.Username); // ⚠️ Usar Username
                 if (usuario == null)
                 {
-                    _logger.LogWarning("Intento de cambiar contraseña de usuario inexistente: {Correo}", dto.Correo);
+                    _logger.LogWarning("Intento de cambiar contraseña de usuario inexistente: {Username}", dto.Username);
+                    return false;
+                }
+
+                if (usuario.PasswordHash == null)
+                {
+                    _logger.LogWarning("Intento de cambiar contraseña de cuenta no activada: {Username}", dto.Username);
                     return false;
                 }
 
                 bool passwordOk = BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash);
                 if (!passwordOk)
                 {
-                    _logger.LogWarning("Contraseña actual incorrecta para: {Correo}", dto.Correo);
+                    _logger.LogWarning("Contraseña actual incorrecta para: {Username}", dto.Username);
                     return false;
                 }
 
@@ -296,12 +314,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 await _usuarioRepository.UpdateAsync(usuario);
                 
-                _logger.LogInformation("Contraseña cambiada exitosamente para: {Correo}", dto.Correo);
+                _logger.LogInformation("Contraseña cambiada exitosamente para: {Username}", dto.Username);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al cambiar contraseña: {Correo}", dto.Correo);
+                _logger.LogError(ex, "Error al cambiar contraseña: {Username}", dto.Username);
                 return false;
             }
         }
@@ -310,13 +328,20 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         {
             try
             {
-                var usuario = await _usuarioRepository.GetByCorreoAsync(request.Email);
+                var usuario = await _usuarioRepository.GetByUsernameAsync(request.Username); // ⚠️ Usar Username
                 
                 if (usuario == null)
                 {
-                    _logger.LogWarning("Solicitud de recuperación para email no registrado: {Email}", request.Email);
+                    _logger.LogWarning("Solicitud de recuperación para username no registrado: {Username}", request.Username);
                     // Por seguridad, devuelve true aunque no exista el usuario
                     return true;
+                }
+
+                // ⚠️ Validar que el usuario tenga Personal vinculado para obtener el correo
+                if (usuario.PersonalNavigation == null || string.IsNullOrEmpty(usuario.PersonalNavigation.CorreoCorporativo))
+                {
+                    _logger.LogWarning("Usuario sin Personal vinculado o sin correo: {Username}", request.Username);
+                    return true; // Por seguridad, devuelve true
                 }
 
                 // Generar token seguro de 32 bytes (64 caracteres hexadecimales)
@@ -329,27 +354,28 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 await _usuarioRepository.UpdateAsync(usuario);
 
-                // Construir URL completa del frontend con email y token
-                var recoveryUrl = $"{_frontendSettings.BaseUrl}/forgot-password?email={Uri.EscapeDataString(usuario.Correo)}&token={token}";
+                // Construir URL completa del frontend con username y token
+                var recoveryUrl = $"{_frontendSettings.BaseUrl}/forgot-password?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
                 
-                _logger.LogInformation("URL de recuperación generada para {Email}: {Url}", request.Email, recoveryUrl);
+                _logger.LogInformation("URL de recuperación generada para {Username}: {Url}", request.Username, recoveryUrl);
 
                 // Generar email usando el template con la URL completa
                 var emailBody = EmailTemplates.BuildRecuperacionPasswordBody(usuario.Username, recoveryUrl);
                 
-                // Enviar email
+                // Enviar email al correo corporativo del Personal vinculado
                 await _emailService.SendAsync(
-                    usuario.Correo,
+                    usuario.PersonalNavigation.CorreoCorporativo,
                     "Recuperación de Contraseña - Sistema SLA",
                     emailBody
                 );
 
-                _logger.LogInformation("Enlace de recuperación enviado a {Email}", request.Email);
+                _logger.LogInformation("Enlace de recuperación enviado a {Email} para usuario {Username}", 
+                    usuario.PersonalNavigation.CorreoCorporativo, request.Username);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al procesar solicitud de recuperación para {Email}", request.Email);
+                _logger.LogError(ex, "Error al procesar solicitud de recuperación para {Username}", request.Username);
                 return false;
             }
         }
@@ -367,10 +393,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     return false;
                 }
 
-                // Verificar que el email coincida (seguridad adicional)
-                if (usuario.Correo != request.Email)
+                // Verificar que el username coincida (seguridad adicional)
+                if (usuario.Username != request.Username)
                 {
-                    _logger.LogWarning("Email {Email} no coincide con el token de recuperación", request.Email);
+                    _logger.LogWarning("Username {Username} no coincide con el token de recuperación", request.Username);
                     return false;
                 }
 
@@ -384,22 +410,24 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 await _usuarioRepository.UpdateAsync(usuario);
 
-                // Generar email de confirmación usando el template
-                var emailBody = EmailTemplates.BuildPasswordChangedBody(usuario.Username);
-                
-                // Enviar email de confirmación
-                await _emailService.SendAsync(
-                    usuario.Correo,
-                    "Contraseña Actualizada - Sistema SLA",
-                    emailBody
-                );
+                // Enviar email de confirmación si tiene Personal vinculado
+                if (usuario.PersonalNavigation != null && !string.IsNullOrEmpty(usuario.PersonalNavigation.CorreoCorporativo))
+                {
+                    var emailBody = EmailTemplates.BuildPasswordChangedBody(usuario.Username);
+                    
+                    await _emailService.SendAsync(
+                        usuario.PersonalNavigation.CorreoCorporativo,
+                        "Contraseña Actualizada - Sistema SLA",
+                        emailBody
+                    );
+                }
 
-                _logger.LogInformation("Contraseña restablecida exitosamente para {Email}. Token eliminado (enlace de un solo uso)", request.Email);
+                _logger.LogInformation("Contraseña restablecida exitosamente para {Username}. Token eliminado (enlace de un solo uso)", request.Username);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al restablecer contraseña para {Email}", request.Email);
+                _logger.LogError(ex, "Error al restablecer contraseña para {Username}", request.Username);
                 return false;
             }
         }
@@ -417,6 +445,74 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 rng.GetBytes(randomBytes);
             }
             return Convert.ToHexString(randomBytes);
+        }
+
+        // ===========================
+        // ACTIVACIÓN DE CUENTA
+        // ===========================
+
+        public async Task<bool> ActivarCuenta(ActivarCuentaDTO request)
+        {
+            try
+            {
+                // Buscar usuario por token válido y no expirado
+                var usuario = await _usuarioRepository.GetByRecoveryTokenAsync(request.Token);
+                
+                if (usuario == null)
+                {
+                    _logger.LogWarning("Intento de activar cuenta con token inválido o expirado");
+                    return false;
+                }
+
+                // Verificar que el username coincida
+                if (usuario.Username != request.Username)
+                {
+                    _logger.LogWarning("Username {Username} no coincide con el token de activación", request.Username);
+                    return false;
+                }
+
+                // Verificar que la cuenta esté pendiente de activación
+                if (usuario.PasswordHash != null)
+                {
+                    _logger.LogWarning("Intento de activar cuenta ya activada: {Username}", request.Username);
+                    return false;
+                }
+
+                // Establecer contraseña (hashear con BCrypt)
+                usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NuevaPassword);
+                
+                // Limpiar token de activación (un solo uso)
+                usuario.token_recuperacion = null;
+                usuario.expiracion_token = null;
+                usuario.ActualizadoEn = DateTime.UtcNow;
+                
+                await _usuarioRepository.UpdateAsync(usuario);
+
+                // Enviar email de confirmación si tiene Personal vinculado
+                if (usuario.PersonalNavigation != null && !string.IsNullOrEmpty(usuario.PersonalNavigation.CorreoCorporativo))
+                {
+                    var emailBody = $@"
+                        <h2>Cuenta Activada Exitosamente</h2>
+                        <p>Hola {usuario.Username},</p>
+                        <p>Tu cuenta ha sido activada correctamente.</p>
+                        <p>Ya puedes iniciar sesión en el Sistema SLA.</p>
+                    ";
+                    
+                    await _emailService.SendAsync(
+                        usuario.PersonalNavigation.CorreoCorporativo,
+                        "Cuenta Activada - Sistema SLA",
+                        emailBody
+                    );
+                }
+
+                _logger.LogInformation("Cuenta activada exitosamente para {Username}. Token eliminado (enlace de un solo uso)", request.Username);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al activar cuenta para {Username}", request.Username);
+                return false;
+            }
         }
     }
 }

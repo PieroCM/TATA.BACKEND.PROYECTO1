@@ -17,13 +17,12 @@ public partial class Personal
 
     public string? Estado { get; set; }
 
-    public int IdUsuario { get; set; }
-
     public DateTime CreadoEn { get; set; }
 
     public DateTime? ActualizadoEn { get; set; }
 
-    public virtual Usuario IdUsuarioNavigation { get; set; } = null!;
+    // ⚠️ Navegación inversa 1:0..1 - Un Personal puede tener 0 o 1 Usuario
+    public virtual Usuario? UsuarioNavigation { get; set; }
 
     public virtual ICollection<Solicitud> Solicitud { get; set; } = new List<Solicitud>();
 }
