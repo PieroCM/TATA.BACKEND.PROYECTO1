@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Storage;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -21,11 +19,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         public SolicitudService(ISolicitudRepository solicitudRepository)
         {
             _solicitudRepository = solicitudRepository;
-            _alertaRepository = alertaRepository;
-            _emailService = emailService;
-            _context = context;
         }
-
         // Get all solicitudes with dtos
         // GET ALL
         public async Task<List<SolicitudDto>> GetAllAsync()
@@ -165,7 +159,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         }
         // POST
-        // POST: crear solicitud, alerta y enviar correo si es crítico
+        // POST: crear y calcular SLA
         public async Task<SolicitudDto> CreateAsync(SolicitudCreateDto dto)
         {
             // 1. leer SLA
@@ -198,19 +192,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 CreadoEn = DateTime.UtcNow
             };
 
-                // 7. Commit de la transacción si todo salió bien
-                await transaction.CommitAsync();
+            // 5. guardar
+            var created = await _solicitudRepository.CreateSolicitudAsync(entity);
 
-                // 8. devolver con includes
-                return await GetByIdAsync(created.IdSolicitud)
-                       ?? throw new Exception("No se pudo obtener la solicitud creada");
-            }
-            catch (Exception)
-            {
-                // Rollback en caso de error
-                await transaction.RollbackAsync();
-                throw;
-            }
+            // 6. devolver con includes
+            return await GetByIdAsync(created.IdSolicitud)
+                   ?? throw new Exception("No se pudo obtener la solicitud creada");
         }
 
 

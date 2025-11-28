@@ -9,6 +9,5 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<AlertaDTO?> GetByIdAsync(int id);
         Task<AlertaDTO?> UpdateAsync(int id, AlertaUpdateDto dto);
         Task<bool> DeleteAsync(int id);
-        Task<List<AlertaDashboardDto>> GetDashboardAsync();
     }
 }

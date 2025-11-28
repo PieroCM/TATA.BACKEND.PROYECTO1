@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using log4net;
@@ -9,38 +9,16 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
     [ApiController]
     public class AlertaController : ControllerBase
     {
-        // 1. Definir TODOS los servicios necesarios arriba
         private static readonly ILog log = LogManager.GetLogger(typeof(AlertaController));
+        
         private readonly IAlertaService _alertaService;
-        private readonly IEmailAutomationService _emailAutomationService;
         private readonly ILogSistemaService _logService;
 
-        // 2. Unificar en UN SOLO CONSTRUCTOR
-        public AlertaController(
-            IAlertaService alertaService, 
-            IEmailAutomationService emailAutomationService,
-            ILogSistemaService logService)
+        public AlertaController(IAlertaService alertaService, ILogSistemaService logService)
         {
             _alertaService = alertaService;
-            _emailAutomationService = emailAutomationService;
             _logService = logService;
-            
-            log.Debug("AlertaController inicializado con todas las dependencias.");
-        }
-
-        // GET: api/alerta/dashboard
-        [HttpGet("dashboard")]
-        public async Task<ActionResult<List<AlertaDashboardDto>>> GetDashboard()
-        {
-            try
-            {
-                var result = await _emailAutomationService.GetDashboardAlertsAsync();
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { mensaje = "Error al obtener dashboard", detalle = ex.Message });
-            }
+            log.Debug("AlertaController inicializado.");
         }
 
         // GET: api/alerta
