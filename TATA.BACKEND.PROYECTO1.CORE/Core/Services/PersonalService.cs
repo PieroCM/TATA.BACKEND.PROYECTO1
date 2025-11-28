@@ -281,6 +281,57 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         // ===========================
+        // ✅ NUEVO: LISTADO UNIFICADO CON LEFT JOIN
+        // Personal → Usuario → RolesSistema
+        // ===========================
+        public async Task<IEnumerable<PersonalUsuarioResponseDTO>> GetUnifiedListAsync()
+        {
+            try
+            {
+                // Obtener todos los registros de Personal con sus relaciones cargadas
+                var personales = await _personalRepository.GetAllAsync();
+                
+                // Obtener todos los usuarios con sus relaciones de Rol
+                var usuarios = await _usuarioRepository.GetAllAsync();
+
+                // Realizar el LEFT JOIN en memoria
+                var resultado = personales.Select(personal =>
+                {
+                    // Buscar el usuario vinculado a este Personal (puede ser null)
+                    var usuario = usuarios.FirstOrDefault(u => u.IdPersonal == personal.IdPersonal);
+
+                    return new PersonalUsuarioResponseDTO
+                    {
+                        // ========== DATOS DE PERSONAL (Siempre presentes) ==========
+                        IdPersonal = personal.IdPersonal,
+                        Nombres = personal.Nombres,
+                        Apellidos = personal.Apellidos,
+                        Documento = personal.Documento,
+                        CorreoCorporativo = personal.CorreoCorporativo,
+
+                        // ========== DATOS DE USUARIO (Pueden ser NULL) ==========
+                        IdUsuario = usuario?.IdUsuario,
+                        Username = usuario?.Username,
+                        EstadoCuentaAcceso = usuario?.Estado,
+                        CuentaActivada = usuario?.PasswordHash != null,
+
+                        // ========== DATOS DE ROL (Pueden ser NULL) ==========
+                        NombreRol = usuario?.IdRolSistemaNavigation?.Nombre
+                    };
+                }).ToList();
+
+                _logger.LogInformation("Listado unificado generado: {Count} registros (Personal con/sin Usuario)", resultado.Count);
+                
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar listado unificado de Personal y Usuarios");
+                throw;
+            }
+        }
+
+        // ===========================
         // MÉTODOS AUXILIARES
         // ===========================
 

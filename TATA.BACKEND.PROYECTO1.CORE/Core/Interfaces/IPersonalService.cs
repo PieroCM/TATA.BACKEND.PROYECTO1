@@ -13,5 +13,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<IEnumerable<PersonalResponseDTO>> GetAllAsync();
         Task<PersonalResponseDTO?> GetByIdAsync(int id);
         Task<bool> UpdateAsync(int id, PersonalUpdateDTO dto);
+
+        // ✅ NUEVO: Obtener listado unificado con LEFT JOIN (Personal → Usuario → RolesSistema)
+        Task<IEnumerable<PersonalUsuarioResponseDTO>> GetUnifiedListAsync();
     }
 }

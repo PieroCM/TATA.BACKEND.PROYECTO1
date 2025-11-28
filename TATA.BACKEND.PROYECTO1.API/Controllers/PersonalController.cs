@@ -161,5 +161,24 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     : "El documento está disponible"
             });
         }
+
+        // ===========================
+        // ✅ NUEVO: LISTADO UNIFICADO PARA GESTIÓN DE USUARIOS
+        // ===========================
+
+        /// <summary>
+        /// Obtener listado completo para Gestión de Usuarios (LEFT JOIN Personal → Usuario → RolesSistema)
+        /// GET /api/personal/gestion-usuarios
+        /// </summary>
+        [HttpGet("gestion-usuarios")]
+        public async Task<IActionResult> GetGestionUsuarios()
+        {
+            var lista = await _personalService.GetUnifiedListAsync();
+            return Ok(lista);
+        }
+
+        // ===========================
+        // ENDPOINTS BÁSICOS DE PERSONAL
+        // ===========================
     }
 }
