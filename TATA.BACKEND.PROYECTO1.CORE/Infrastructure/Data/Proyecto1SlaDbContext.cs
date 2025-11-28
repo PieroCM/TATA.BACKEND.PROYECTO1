@@ -37,7 +37,10 @@ public partial class Proyecto1SlaDbContext : DbContext
     public virtual DbSet<Usuario> Usuario { get; set; }
     //Para el reporte detalle
     public virtual DbSet<ReporteDetalle> ReporteDetalle { get; set; }
-
+    
+    // Email Automation
+    public virtual DbSet<EmailConfig> EmailConfig { get; set; }
+    public virtual DbSet<EmailLog> EmailLog { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -439,6 +442,73 @@ public partial class Proyecto1SlaDbContext : DbContext
                     j.Property(rd => rd.IdReporte).HasColumnName("id_reporte");
                     j.Property(rd => rd.IdSolicitud).HasColumnName("id_solicitud");
                 });
+
+        // Configuración de EmailConfig
+        modelBuilder.Entity<EmailConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("email_config");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.DestinatarioResumen)
+                .HasMaxLength(190)
+                .IsRequired()
+                .HasColumnName("destinatario_resumen");
+            entity.Property(e => e.EnvioInmediato)
+                .HasDefaultValue(true)
+                .HasColumnName("envio_inmediato");
+            entity.Property(e => e.ResumenDiario)
+                .HasDefaultValue(false)
+                .HasColumnName("resumen_diario");
+            entity.Property(e => e.HoraResumen)
+                .HasColumnName("hora_resumen");
+            entity.Property(e => e.CreadoEn)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("creado_en");
+            entity.Property(e => e.ActualizadoEn)
+                .HasColumnName("actualizado_en");
+
+            // Seed: Configuración inicial
+            entity.HasData(new EmailConfig
+            {
+                Id = 1,
+                DestinatarioResumen = "admin@tata.com",
+                EnvioInmediato = true,
+                ResumenDiario = false,
+                HoraResumen = new TimeSpan(8, 0, 0), // 8:00 AM
+                CreadoEn = DateTime.UtcNow
+            });
+        });
+
+        // Configuración de EmailLog
+        modelBuilder.Entity<EmailLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("email_log");
+
+            entity.HasIndex(e => e.Fecha, "IX_email_log_fecha").IsDescending();
+            entity.HasIndex(e => e.Tipo, "IX_email_log_tipo");
+            entity.HasIndex(e => e.Estado, "IX_email_log_estado");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Fecha)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("fecha");
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(20)
+                .IsRequired()
+                .HasColumnName("tipo");
+            entity.Property(e => e.Destinatarios)
+                .HasMaxLength(2000)
+                .IsRequired()
+                .HasColumnName("destinatarios");
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .IsRequired()
+                .HasColumnName("estado");
+            entity.Property(e => e.ErrorDetalle)
+                .HasColumnName("error_detalle");
+        });
 
         OnModelCreatingPartial(modelBuilder);
     }
