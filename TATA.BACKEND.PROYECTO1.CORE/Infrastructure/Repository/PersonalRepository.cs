@@ -16,13 +16,43 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
 
         public async Task<IEnumerable<Personal>> GetAllAsync()
         {
-            return await _context.Personal.Include(p => p.IdUsuarioNavigation).ToListAsync();
+            return await _context.Personal
+                .Include(p => p.UsuarioNavigation) // ⚠️ Incluir Usuario vinculado
+                .ToListAsync();
         }
 
         public async Task<Personal?> GetByIdAsync(int id)
         {
-            return await _context.Personal.Include(p => p.IdUsuarioNavigation)
-                                          .FirstOrDefaultAsync(p => p.IdPersonal == id);
+            return await _context.Personal
+                .Include(p => p.UsuarioNavigation) // ⚠️ Incluir Usuario vinculado
+                .FirstOrDefaultAsync(p => p.IdPersonal == id);
+        }
+
+        public async Task<Personal?> GetByDocumentoAsync(string documento)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return null;
+
+            return await _context.Personal
+                .FirstOrDefaultAsync(p => p.Documento == documento);
+        }
+
+        public async Task<bool> ExisteDocumentoAsync(string documento)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return false;
+
+            return await _context.Personal
+                .AnyAsync(p => p.Documento == documento);
+        }
+
+        public async Task<bool> ExisteDocumentoAsync(string documento, int exceptoId)
+        {
+            if (string.IsNullOrWhiteSpace(documento))
+                return false;
+
+            return await _context.Personal
+                .AnyAsync(p => p.Documento == documento && p.IdPersonal != exceptoId);
         }
 
         public async Task AddAsync(Personal personal)

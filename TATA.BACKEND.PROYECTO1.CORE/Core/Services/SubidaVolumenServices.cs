@@ -12,6 +12,19 @@ using System;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
+    // ⚠️⚠️⚠️ SERVICIO DESHABILITADO TEMPORALMENTE ⚠️⚠️⚠️
+    // Este servicio usa la estructura antigua de Usuario y Personal:
+    // - Usuario.Correo (ya no existe, ahora se usa Username)
+    // - Personal.IdUsuario (ya no existe, ahora Usuario tiene IdPersonal)
+    // 
+    // TODO: Refactorizar este servicio para usar la nueva estructura:
+    // 1. Usuario ahora tiene IdPersonal (nullable) - Relación 1:0..1
+    // 2. Personal no tiene IdUsuario
+    // 3. Login usa Username en lugar de Correo
+    // 4. El correo corporativo viene de Personal.CorreoCorporativo
+    //
+    // Para más información, ver: USUARIO_BACKEND_GUIA_COMPLETA.md
+
     /// <summary>
     /// Servicio de dominio para carga masiva de Solicitudes SLA
     /// a partir de filas que provienen de un Excel.
@@ -56,14 +69,39 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             _solicitudRepository = solicitudRepository;
             _logService = logService;
         }
+        */
 
+        /// <summary>
+        /// ⚠️ MÉTODO DESHABILITADO - Retorna error indicando que el servicio no está disponible
+        /// </summary>
+        public Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
+            IEnumerable<SubidaVolumenSolicitudRowDto> filas)
+        {
+            var result = new BulkUploadResultDto
+            {
+                TotalFilas = filas?.Count() ?? 0,
+                FilasConError = filas?.Count() ?? 0
+            };
+
+            result.Errores.Add(new BulkUploadErrorDto
+            {
+                RowIndex = 0,
+                Mensaje = "⚠️ SERVICIO DESHABILITADO: El servicio de carga masiva está temporalmente deshabilitado debido a cambios en la arquitectura de Usuario y Personal. Por favor, contacte al administrador del sistema."
+            });
+
+            return Task.FromResult(result);
+        }
+
+        #region CÓDIGO ORIGINAL COMENTADO
+
+        /*
         /// <summary>
         /// Procesa un conjunto de filas de carga masiva, creando/asegurando
         /// datos maestros (RolesSistema, Usuario, Personal, ConfigSla, RolRegistro)
         /// y finalmente insertando la Solicitud correspondiente.
         /// Optimizado para rendimiento O(n) con grandes volúmenes.
         /// </summary>
-        public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
+        public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync_OLD(
             IEnumerable<SubidaVolumenSolicitudRowDto> filas)
         {
             var result = new BulkUploadResultDto();
@@ -502,6 +540,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
             return personal;
         }
+        */
+
+        #endregion
 
         /// <summary>
         /// Asegura que exista un ConfigSla, creándolo si es necesario.

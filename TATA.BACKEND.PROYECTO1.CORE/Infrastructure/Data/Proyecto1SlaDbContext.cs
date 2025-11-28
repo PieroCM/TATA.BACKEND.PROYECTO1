@@ -172,8 +172,6 @@ public partial class Proyecto1SlaDbContext : DbContext
 
             entity.HasIndex(e => e.Estado, "IX_personal_estado");
 
-            entity.HasIndex(e => e.IdUsuario, "IX_personal_usuario");
-
             entity.Property(e => e.IdPersonal).HasColumnName("id_personal");
             entity.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en");
             entity.Property(e => e.Apellidos)
@@ -191,15 +189,9 @@ public partial class Proyecto1SlaDbContext : DbContext
             entity.Property(e => e.Estado)
                 .HasMaxLength(20)
                 .HasColumnName("estado");
-            entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
             entity.Property(e => e.Nombres)
                 .HasMaxLength(120)
                 .HasColumnName("nombres");
-
-            entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.Personal)
-                .HasForeignKey(d => d.IdUsuario)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_personal_usuario");
         });
 
         modelBuilder.Entity<Reporte>(entity =>
@@ -382,15 +374,12 @@ public partial class Proyecto1SlaDbContext : DbContext
 
             entity.HasIndex(e => e.IdRolSistema, "IX_usuario_rol");
 
-            entity.HasIndex(e => e.Correo, "UX_usuario_correo").IsUnique();
-
             entity.HasIndex(e => e.Username, "UX_usuario_username").IsUnique();
+
+            entity.HasIndex(e => e.IdPersonal, "IX_usuario_personal");
 
             entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
             entity.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en");
-            entity.Property(e => e.Correo)
-                .HasMaxLength(190)
-                .HasColumnName("correo");
             entity.Property(e => e.CreadoEn)
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasColumnName("creado_en");
@@ -398,6 +387,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("estado");
             entity.Property(e => e.IdRolSistema).HasColumnName("id_rol_sistema");
+            entity.Property(e => e.IdPersonal).HasColumnName("id_personal");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");
@@ -405,11 +395,21 @@ public partial class Proyecto1SlaDbContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(100)
                 .HasColumnName("username");
+            entity.Property(e => e.token_recuperacion)
+                .HasMaxLength(128)
+                .HasColumnName("token_recuperacion");
+            entity.Property(e => e.expiracion_token).HasColumnName("expiracion_token");
 
             entity.HasOne(d => d.IdRolSistemaNavigation).WithMany(p => p.Usuario)
                 .HasForeignKey(d => d.IdRolSistema)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_usuario_rol");
+
+            entity.HasOne(d => d.PersonalNavigation)
+                .WithOne(p => p.UsuarioNavigation)
+                .HasForeignKey<Usuario>(d => d.IdPersonal)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_usuario_personal");
         });
 
         // Configuración many-to-many entre Reporte y Solicitud usando la entidad explícita ReporteDetalle

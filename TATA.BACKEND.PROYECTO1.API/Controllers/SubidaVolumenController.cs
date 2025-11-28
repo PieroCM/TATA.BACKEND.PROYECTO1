@@ -8,6 +8,14 @@ using log4net; // 1. Agregar el using
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
+    // ⚠️⚠️⚠️ CONTROLADOR DESHABILITADO TEMPORALMENTE ⚠️⚠️⚠️
+    // Este controlador usa el servicio SubidaVolumenServices que está deshabilitado
+    // debido a cambios en la arquitectura de Usuario y Personal.
+    //
+    // Para más información, ver:
+    // - TATA.BACKEND.PROYECTO1.CORE/Core/Services/SubidaVolumenServices.cs
+    // - USUARIO_BACKEND_GUIA_COMPLETA.md
+
     [ApiController]
     [Route("api/[controller]")]
     public class SubidaVolumenController : ControllerBase
@@ -28,8 +36,12 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         }
 
         /// <summary>
+        /// ⚠️ ENDPOINT DESHABILITADO
         /// Recibe un lote de filas provenientes del Excel (convertidas a JSON desde el frontend)
         /// y ejecuta la carga masiva de solicitudes SLA.
+        /// 
+        /// NOTA: Este endpoint está temporalmente deshabilitado debido a cambios en la arquitectura.
+        /// El servicio ahora retorna un mensaje de error indicando que no está disponible.
         /// </summary>
         /// <param name="filas">Colección de filas de carga masiva.</param>
         /// <returns>

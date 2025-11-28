@@ -7,12 +7,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task AddAsync(Usuario usuario);
         Task DeleteAsync(int id);
         Task<IEnumerable<Usuario>> GetAllAsync();
-        Task<Usuario?> GetByCorreoAsync(string correo);
         Task<Usuario?> GetByIdAsync(int id);
         Task<Usuario?> GetByUsernameAsync(string username);
-        Task UpdateAsync(Usuario usuario);
-        
-        // Métodos para recuperación de contraseña
+        Task<Usuario?> GetByEmailAsync(string email); // ⚠️ NUEVO: Buscar por correo
         Task<Usuario?> GetByRecoveryTokenAsync(string token);
+        Task UpdateAsync(Usuario usuario);
     }
 }
