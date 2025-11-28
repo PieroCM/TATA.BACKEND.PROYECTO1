@@ -73,7 +73,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 {
                     IdUsuario = s.CreadoPorNavigation.IdUsuario,
                     Username = s.CreadoPorNavigation.Username,
-                    Correo = s.CreadoPorNavigation.Correo
+                    Correo = s.CreadoPorNavigation.PersonalNavigation?.CorreoCorporativo ?? s.CreadoPorNavigation.Username // ⚠️ Obtener de Personal
                 },
 
                 Alertas = s.Alerta.Select(a => new AlertaDto
@@ -141,7 +141,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 {
                     IdUsuario = s.CreadoPorNavigation.IdUsuario,
                     Username = s.CreadoPorNavigation.Username,
-                    Correo = s.CreadoPorNavigation.Correo
+                    Correo = s.CreadoPorNavigation.PersonalNavigation?.CorreoCorporativo ?? s.CreadoPorNavigation.Username // ⚠️ Obtener de Personal
                 },
                 Alertas = s.Alerta.Select(a => new AlertaDto
                 {

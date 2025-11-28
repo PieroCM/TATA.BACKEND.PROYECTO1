@@ -7,12 +7,32 @@ using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
+using log4net; // Necesario para LogManager
+using log4net.Config; // Necesario para XmlConfigurator
+using System.Reflection; // Necesario para Assembly
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var _configuration = builder.Configuration;
 var connectionString = _configuration.GetConnectionString("DevConnection");
+
+
+
+// =====================================================
+// 1) Cargar archivo log4net.config (FORMA CORRECTA .NET 9)
+// =====================================================
+var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
+XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
+
+
+// =====================================================
+// 2) Providers de Logging de .NET 9 (NO usar AddLog4Net)
+// =====================================================
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole(); // Para ver logs en consola
+builder.Logging.AddDebug();   // Para ver logs en VS Debug Output
+
 
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
     options.UseSqlServer(connectionString));
@@ -75,6 +95,9 @@ builder.Services.AddHostedService<DailySummaryWorker>();
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
+//logService
+builder.Services.AddTransient<ILogService, LogService>();
+
 
 
 builder.Services.AddCors(options =>
