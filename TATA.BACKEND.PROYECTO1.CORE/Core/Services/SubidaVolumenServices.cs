@@ -1,43 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
+using log4net;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using log4net;
-using System;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
-    // ⚠️⚠️⚠️ SERVICIO DESHABILITADO TEMPORALMENTE ⚠️⚠️⚠️
-    // Este servicio usa la estructura antigua de Usuario y Personal:
-    // - Usuario.Correo (ya no existe, ahora se usa Username)
-    // - Personal.IdUsuario (ya no existe, ahora Usuario tiene IdPersonal)
-    // 
-    // TODO: Refactorizar este servicio para usar la nueva estructura:
-    // 1. Usuario ahora tiene IdPersonal (nullable) - Relación 1:0..1
-    // 2. Personal no tiene IdUsuario
-    // 3. Login usa Username en lugar de Correo
-    // 4. El correo corporativo viene de Personal.CorreoCorporativo
-    //
-    // Para más información, ver: USUARIO_BACKEND_GUIA_COMPLETA.md
-
     /// <summary>
     /// Servicio de dominio para carga masiva de Solicitudes SLA
     /// a partir de filas que provienen de un Excel.
     /// Optimizado para soportar 100, 1,000, 10,000+ filas.
+    /// 
+    /// Versión adaptada al nuevo modelo:
+    /// - NO crea usuarios nuevos.
+    /// - SÍ crea Personal cuando no existe.
+    /// - Usa el idUsuarioCreador recibido como parámetro.
     /// </summary>
     public class SubidaVolumenServices : ISubidaVolumenServices
     {
-        // 2. DECLARACIÓN ESTÁTICA DEL LOGGER
+        // Logger
         private static readonly ILog log = LogManager.GetLogger(typeof(SubidaVolumenServices));
 
         // Repositorios necesarios
-        private readonly IRolesSistemaRepository _rolesSistemaRepository;
-        private readonly IUsuarioRepository _usuarioRepository;
         private readonly IPersonalRepository _personalRepository;
         private readonly IConfigSLARepository _configSlaRepository;
         private readonly IRolRegistroRepository _rolRegistroRepository;
@@ -49,62 +36,32 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
         public SubidaVolumenServices(
-            IRolesSistemaRepository rolesSistemaRepository,
-            IUsuarioRepository usuarioRepository,
             IPersonalRepository personalRepository,
             IConfigSLARepository configSlaRepository,
             IRolRegistroRepository rolRegistroRepository,
             ISolicitudRepository solicitudRepository,
             ILogService logService)
         {
-            _rolesSistemaRepository = rolesSistemaRepository;
-            _usuarioRepository = usuarioRepository;
             _personalRepository = personalRepository;
             _configSlaRepository = configSlaRepository;
             _rolRegistroRepository = rolRegistroRepository;
             _solicitudRepository = solicitudRepository;
             _logService = logService;
         }
-       
 
-        /// <summary>
-        /// ⚠️ MÉTODO DESHABILITADO - Retorna error indicando que el servicio no está disponible
-        /// </summary>
-        public Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
-            IEnumerable<SubidaVolumenSolicitudRowDto> filas)
-        {
-            var result = new BulkUploadResultDto
-            {
-                TotalFilas = filas?.Count() ?? 0,
-                FilasConError = filas?.Count() ?? 0
-            };
-
-            result.Errores.Add(new BulkUploadErrorDto
-            {
-                RowIndex = 0,
-                Mensaje = "⚠️ SERVICIO DESHABILITADO: El servicio de carga masiva está temporalmente deshabilitado debido a cambios en la arquitectura de Usuario y Personal. Por favor, contacte al administrador del sistema."
-            });
-
-            return Task.FromResult(result);
-        }
-
-        #region CÓDIGO ORIGINAL COMENTADO
-
-        /*
         /// <summary>
         /// Procesa un conjunto de filas de carga masiva, creando/asegurando
-        /// datos maestros (RolesSistema, Usuario, Personal, ConfigSla, RolRegistro)
+        /// datos maestros (Personal, ConfigSla, RolRegistro)
         /// y finalmente insertando la Solicitud correspondiente.
-        /// Optimizado para rendimiento O(n) con grandes volúmenes.
         /// </summary>
-        public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync_OLD(
-            IEnumerable<SubidaVolumenSolicitudRowDto> filas)
+        public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
+            IEnumerable<SubidaVolumenSolicitudRowDto> filas,
+            int idUsuarioCreador)
         {
             var result = new BulkUploadResultDto();
 
-            // Loguear el inicio de la operación
-            log.Info($"Iniciando procesamiento masivo de {filas?.Count() ?? 0} filas.");
-
+            var total = filas?.Count() ?? 0;
+            log.Info($"[SubidaVolumen] Iniciando procesamiento masivo de {total} filas.");
 
             if (filas == null)
                 return result;
@@ -116,17 +73,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 return result;
 
             // 1) Cargar catálogos existentes en memoria para evitar repetir queries
-            var rolesSistemaList = await _rolesSistemaRepository.GetAll();
             var configSlaList = (await _configSlaRepository.GetAllAsync()).ToList();
             var rolRegistroList = (await _rolRegistroRepository.GetAllAsync()).ToList();
-            var usuariosList = (await _usuarioRepository.GetAllAsync()).ToList();
             var personalList = (await _personalRepository.GetAllAsync()).ToList();
 
             // Diccionarios para búsquedas rápidas O(1) - case-insensitive
-            var rolesSistemaByCodigo = rolesSistemaList
-                .Where(r => !string.IsNullOrWhiteSpace(r.Codigo))
-                .ToDictionary(r => r.Codigo.Trim(), StringComparer.OrdinalIgnoreCase);
-
             var configSlaByCodigo = configSlaList
                 .Where(c => !string.IsNullOrWhiteSpace(c.CodigoSla))
                 .ToDictionary(c => c.CodigoSla.Trim(), StringComparer.OrdinalIgnoreCase);
@@ -134,16 +85,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var rolRegistroByNombre = rolRegistroList
                 .Where(r => !string.IsNullOrWhiteSpace(r.NombreRol))
                 .ToDictionary(r => r.NombreRol.Trim(), StringComparer.OrdinalIgnoreCase);
-
-            // Diccionario por CORREO (clave principal de negocio)
-            var usuarioByCorreo = usuariosList
-                .Where(u => !string.IsNullOrWhiteSpace(u.Correo))
-                .ToDictionary(u => u.Correo.Trim(), StringComparer.OrdinalIgnoreCase);
-
-            // Diccionario por USERNAME (para evitar duplicados de username)
-            var usuarioByUsername = usuariosList
-                .Where(u => !string.IsNullOrWhiteSpace(u.Username))
-                .ToDictionary(u => u.Username.Trim(), StringComparer.OrdinalIgnoreCase);
 
             var personalByDocumento = personalList
                 .Where(p => !string.IsNullOrWhiteSpace(p.Documento))
@@ -214,37 +155,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     // ============================
                     // Normalizar valores (trim)
                     // ============================
-                    string rolSistemaCodigo = row.RolSistemaCodigo.Trim();
-                    string usuarioCorreo = row.UsuarioCorreo.Trim();
                     string personalDocumento = row.PersonalDocumento.Trim();
                     string configSlaCodigo = row.ConfigSlaCodigo.Trim();
                     string rolRegistroNombre = row.RolRegistroNombre.Trim();
 
-                    // 2.1) Asegurar RolesSistema
-                    var rolSistema = await AsegurarRolSistema(
-                        rolSistemaCodigo,
-                        row.RolSistemaNombre,
-                        row.RolSistemaDescripcion,
-                        rolesSistemaByCodigo);
-
-                    // 2.2) Asegurar Usuario (por correo, validando también username)
-                    var usuario = await AsegurarUsuario(
-                        usuarioCorreo,
-                        row.UsuarioUsername,
-                        rolSistema.IdRolSistema,
-                        usuarioByCorreo,
-                        usuarioByUsername);
-
-                    // 2.3) Asegurar Personal (por documento)
+                    // 2.1) Asegurar Personal (por documento)
                     var personal = await AsegurarPersonal(
                         personalDocumento,
                         row.PersonalNombres,
                         row.PersonalApellidos,
                         row.PersonalCorreo,
-                        usuario.IdUsuario,
                         personalByDocumento);
 
-                    // 2.4) Asegurar ConfigSla (por CodigoSla)
+                    // 2.2) Asegurar ConfigSla (por CodigoSla)
                     var configSla = await AsegurarConfigSla(
                         configSlaCodigo,
                         row.ConfigSlaDescripcion,
@@ -252,93 +175,40 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         row.ConfigSlaTipoSolicitud,
                         configSlaByCodigo);
 
-                    // 2.5) Asegurar RolRegistro (por NombreRol)
+                    // 2.3) Asegurar RolRegistro (por NombreRol)
                     var rolRegistro = await AsegurarRolRegistro(
                         rolRegistroNombre,
                         row.RolRegistroBloqueTech,
                         row.RolRegistroDescripcion,
                         rolRegistroByNombre);
 
-                    // 2.6) Calcular SLA y crear Solicitud
+                    // 2.4) Calcular SLA y crear Solicitud
                     var solicitud = CrearSolicitud(
                         row,
                         personal.IdPersonal,
                         configSla,
                         rolRegistro.IdRolRegistro,
-                        usuario.IdUsuario,
+                        idUsuarioCreador,
                         fechaSolicitud,
                         fechaIngreso,
                         hoyPeru);
 
-            return true;
-        }
+                    await _solicitudRepository.CreateSolicitudAsync(solicitud);
 
                     result.FilasExitosas++;
-                    // Loguear cada fila exitosa (opcional, pero útil para depurar grandes cargas)
-                    log.Debug($"Fila {rowIndex} procesada exitosamente. Solicitud creada para documento: {row.PersonalDocumento}");
+                    log.Debug($"[SubidaVolumen] Fila {rowIndex} OK. Solicitud creada para documento: {row.PersonalDocumento}.");
                 }
                 catch (Exception ex)
                 {
-                    // LOGUEAR EL ERROR CRÍTICO con la excepción para guardar detalles en la BD
-                    log.Error($"Error CRÍTICO en la fila {rowIndex}. Mensaje: {ex.Message}", ex);
-
+                    log.Error($"[SubidaVolumen] Error CRÍTICO en la fila {rowIndex}. Mensaje: {ex.Message}", ex);
                     RegistrarError(result, rowIndex, $"Error inesperado: {ex.Message}");
                 }
+
+                rowIndex++;
             }
 
-            // Crear nuevo usuario
-            var passwordRandom = GenerarPasswordSeguro(12);
-
-            usuario = new Usuario
-            {
-                Username = usernameCalculado,
-                Correo = correo,
-                PasswordHash = passwordRandom, // TODO: aplicar hashing real si es necesario
-                IdRolSistema = idRolSistema,
-                Estado = "INACTIVO",
-                CreadoEn = DateTime.UtcNow
-            };
-
-            await _usuarioRepository.AddAsync(usuario);
-            
-            // Agregar a ambos diccionarios
-            diccionarioCorreo[correo] = usuario;
-            diccionarioUsername[usernameCalculado] = usuario;
-
-            return usuario;
-        }
-
-        /// <summary>
-        /// Asegura que exista un Personal, creándolo si es necesario.
-        /// </summary>
-        private async Task<Personal> AsegurarPersonal(
-            string documento,
-            string nombres,
-            string apellidos,
-            string correo,
-            int idUsuario,
-            Dictionary<string, Personal> diccionario)
-        {
-            if (!diccionario.TryGetValue(documento, out var personal))
-            {
-                personal = new Personal
-                {
-                    Nombres = nombres.Trim(),
-                    Apellidos = apellidos.Trim(),
-                    Documento = documento,
-                    CorreoCorporativo = correo.Trim(),
-                    Estado = "INACTIVO",
-                    IdUsuario = idUsuario,
-                    CreadoEn = DateTime.UtcNow
-                };
-
-                await _personalRepository.AddAsync(personal);
-                diccionario[documento] = personal;
-            }
-            // Loguear el resultado final de la operación
-            log.Info($"Procesamiento masivo finalizado. Éxitos: {result.FilasExitosas}, Errores: {result.FilasConError}.");
-
-            return personal;
+            log.Info($"[SubidaVolumen] Finalizado. Éxitos: {result.FilasExitosas}, Errores: {result.FilasConError}.");
+            return result;
         }
 
         // ----------------- Métodos privados auxiliares -----------------
@@ -346,9 +216,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         /// <summary>
         /// Valida que todos los campos obligatorios estén presentes
         /// (excepto las fechas, que se validan con TryParse).
+        /// 
+        /// IMPORTANTE: Aquí ya NO obligamos usuario_correo ni rol_sistema_codigo,
+        /// solo los campos necesarios para Personal, ConfigSla, RolRegistro y Solicitud.
         /// </summary>
-        private bool ValidarCamposObligatorios(SubidaVolumenSolicitudRowDto row,
-            BulkUploadResultDto result, int rowIndex)
+        private bool ValidarCamposObligatorios(
+            SubidaVolumenSolicitudRowDto row,
+            BulkUploadResultDto result,
+            int rowIndex)
         {
             var camposFaltantes = new List<string>();
 
@@ -358,13 +233,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 return false;
             }
 
-            // Validar campos de texto obligatorios
-            if (string.IsNullOrWhiteSpace(row.RolSistemaCodigo))
-                camposFaltantes.Add("RolSistemaCodigo");
-
-            if (string.IsNullOrWhiteSpace(row.UsuarioCorreo))
-                camposFaltantes.Add("UsuarioCorreo");
-
+            // Personal
             if (string.IsNullOrWhiteSpace(row.PersonalDocumento))
                 camposFaltantes.Add("PersonalDocumento");
 
@@ -377,19 +246,21 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             if (string.IsNullOrWhiteSpace(row.PersonalCorreo))
                 camposFaltantes.Add("PersonalCorreo");
 
+            // ConfigSla
             if (string.IsNullOrWhiteSpace(row.ConfigSlaCodigo))
                 camposFaltantes.Add("ConfigSlaCodigo");
 
             if (string.IsNullOrWhiteSpace(row.ConfigSlaTipoSolicitud))
                 camposFaltantes.Add("ConfigSlaTipoSolicitud");
 
+            // RolRegistro
             if (string.IsNullOrWhiteSpace(row.RolRegistroNombre))
                 camposFaltantes.Add("RolRegistroNombre");
 
             if (string.IsNullOrWhiteSpace(row.RolRegistroBloqueTech))
                 camposFaltantes.Add("RolRegistroBloqueTech");
 
-            // SolFechaSolicitud se valida como string requerida
+            // Fecha solicitud (se valida como string requerida)
             if (string.IsNullOrWhiteSpace(row.SolFechaSolicitud))
                 camposFaltantes.Add("SolFechaSolicitud");
 
@@ -406,8 +277,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         /// <summary>
         /// Valida la lógica de fechas según las reglas del negocio.
         /// </summary>
-        private bool ValidarFechas(DateTime fechaSolicitud, DateTime? fechaIngreso,
-            DateTime hoyPeru, BulkUploadResultDto result, int rowIndex)
+        private bool ValidarFechas(
+            DateTime fechaSolicitud,
+            DateTime? fechaIngreso,
+            DateTime hoyPeru,
+            BulkUploadResultDto result,
+            int rowIndex)
         {
             // Validar que fecha de solicitud no esté en el futuro
             if (fechaSolicitud > hoyPeru)
@@ -429,116 +304,35 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         /// <summary>
-        /// Asegura que exista un RolSistema, creándolo si es necesario.
-        /// </summary>
-        private async Task<RolesSistema> AsegurarRolSistema(
-            string codigo,
-            string? nombre,
-            string? descripcion,
-            Dictionary<string, RolesSistema> diccionario)
-        {
-            if (!diccionario.TryGetValue(codigo, out var rolSistema))
-            {
-                rolSistema = new RolesSistema
-                {
-                    Codigo = codigo,
-                    Nombre = string.IsNullOrWhiteSpace(nombre) ? codigo : nombre.Trim(),
-                    Descripcion = descripcion?.Trim(),
-                    EsActivo = true
-                };
-
-                await _rolesSistemaRepository.Add(rolSistema);
-                diccionario[codigo] = rolSistema;
-            }
-
-            return rolSistema;
-        }
-
-        /// <summary>
-        /// Asegura que exista un Usuario, creándolo si es necesario.
-        /// Valida tanto por correo como por username para evitar duplicados.
-        /// </summary>
-        private async Task<Usuario> AsegurarUsuario(
-            string correo,
-            string? username,
-            int idRolSistema,
-            Dictionary<string, Usuario> diccionarioCorreo,
-            Dictionary<string, Usuario> diccionarioUsername)
-        {
-            if (diccionarioCorreo.TryGetValue(correo, out var usuario))
-            {
-                return usuario;
-            }
-
-            string usernameCalculado = string.IsNullOrWhiteSpace(username)
-                ? correo.Split('@')[0]
-                : username.Trim();
-
-            if (diccionarioUsername.TryGetValue(usernameCalculado, out var _))
-            {
-                int contador = 1;
-                string usernameBase = usernameCalculado;
-
-                while (diccionarioUsername.ContainsKey(usernameCalculado))
-                {
-                    usernameCalculado = $"{usernameBase}{contador}";
-                    contador++;
-                }
-            }
-
-            var passwordRandom = GenerarPasswordSeguro(12);
-
-            usuario = new Usuario
-            {
-                Username = usernameCalculado,
-                Correo = correo,
-                PasswordHash = passwordRandom, // TODO: aplicar hashing real si es necesario
-                IdRolSistema = idRolSistema,
-                Estado = "INACTIVO",
-                CreadoEn = DateTime.UtcNow
-            };
-
-            await _usuarioRepository.AddAsync(usuario);
-
-            diccionarioCorreo[correo] = usuario;
-            diccionarioUsername[usernameCalculado] = usuario;
-
-            return usuario;
-        }
-
-        /// <summary>
-        /// Asegura que exista un Personal, creándolo si es necesario.
+        /// Asegura que exista un Personal, creándolo si es necesario (NUEVO MODELO).
         /// </summary>
         private async Task<Personal> AsegurarPersonal(
             string documento,
             string nombres,
             string apellidos,
             string correo,
-            int idUsuario,
             Dictionary<string, Personal> diccionario)
         {
-            if (!diccionario.TryGetValue(documento, out var personal))
+            if (diccionario.TryGetValue(documento, out var personalExistente))
             {
-                personal = new Personal
-                {
-                    Nombres = nombres.Trim(),
-                    Apellidos = apellidos.Trim(),
-                    Documento = documento,
-                    CorreoCorporativo = correo.Trim(),
-                    Estado = "ACTIVO",
-                    IdUsuario = idUsuario,
-                    CreadoEn = DateTime.UtcNow
-                };
-
-                await _personalRepository.AddAsync(personal);
-                diccionario[documento] = personal;
+                return personalExistente;
             }
+
+            var personal = new Personal
+            {
+                Nombres = nombres.Trim(),
+                Apellidos = apellidos.Trim(),
+                Documento = documento.Trim(),
+                CorreoCorporativo = correo.Trim(),
+                Estado = "ACTIVO",
+                CreadoEn = DateTime.UtcNow
+            };
+
+            await _personalRepository.AddAsync(personal);
+            diccionario[documento] = personal;
 
             return personal;
         }
-        */
-
-        #endregion
 
         /// <summary>
         /// Asegura que exista un ConfigSla, creándolo si es necesario.
@@ -600,11 +394,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         /// <summary>
         /// Crea la entidad Solicitud con el cálculo de SLA según las reglas de negocio.
-        /// Reglas:
-        /// - ACTIVA: sin fechaIngreso, dentro del umbral (EN_PROCESO_{codigo}).
-        /// - INACTIVA: con fechaIngreso, cumpla o no el umbral.
-        /// - VENCIDA: sin fechaIngreso, pero el SLA ya se venció. Se autocierra
-        ///            usando fechaIngreso = fechaSolicitud + DiasUmbral y NO_CUMPLE_{codigo}.
         /// </summary>
         private Solicitud CrearSolicitud(
             SubidaVolumenSolicitudRowDto row,
@@ -722,28 +511,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 RowIndex = rowIndex,
                 Mensaje = mensaje
             });
-        }
-
-        /// <summary>
-        /// Genera una contraseña aleatoria "segura" de longitud dada.
-        /// Aquí solo se genera en texto plano; el hash real debería
-        /// aplicarse en otro punto si lo necesitas.
-        /// </summary>
-        private static string GenerarPasswordSeguro(int longitud)
-        {
-            const string alfabeto =
-                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
-            var bytes = new byte[longitud];
-            using var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(bytes);
-
-            var sb = new StringBuilder(longitud);
-            for (int i = 0; i < longitud; i++)
-            {
-                sb.Append(alfabeto[bytes[i] % alfabeto.Length]);
-            }
-
-            return sb.ToString();
         }
     }
 }
