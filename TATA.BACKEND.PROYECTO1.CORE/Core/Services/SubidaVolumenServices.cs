@@ -48,10 +48,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private static readonly TimeZoneInfo PeruTimeZone =
             TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
-        // TimeZone de Perú para cálculo correcto de "hoy"
-        private static readonly TimeZoneInfo PeruTimeZone =
-            TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
-
         public SubidaVolumenServices(
             IRolesSistemaRepository rolesSistemaRepository,
             IUsuarioRepository usuarioRepository,
@@ -69,7 +65,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             _solicitudRepository = solicitudRepository;
             _logService = logService;
         }
-        */
+       
 
         /// <summary>
         /// ⚠️ MÉTODO DESHABILITADO - Retorna error indicando que el servicio no está disponible
