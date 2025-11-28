@@ -27,6 +27,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
                 .AsNoTracking()
                 .Where(s => s.EstadoSolicitud != "ELIMINADO" || s.EstadoSolicitud == null)
                 .Include(s => s.CreadoPorNavigation)
+                    .ThenInclude(u => u.PersonalNavigation) // ⚠️ Incluir Personal del Usuario para obtener CorreoCorporativo
                 .Include(s => s.IdPersonalNavigation)
                 .Include(s => s.IdRolRegistroNavigation)
                 .Include(s => s.IdSlaNavigation)
@@ -44,6 +45,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
             return await _context.Solicitud
                 .AsNoTracking()
                 .Include(s => s.CreadoPorNavigation)
+                    .ThenInclude(u => u.PersonalNavigation) // ⚠️ Incluir Personal del Usuario para obtener CorreoCorporativo
                 .Include(s => s.IdPersonalNavigation)
                 .Include(s => s.IdRolRegistroNavigation)
                 .Include(s => s.IdSlaNavigation)
