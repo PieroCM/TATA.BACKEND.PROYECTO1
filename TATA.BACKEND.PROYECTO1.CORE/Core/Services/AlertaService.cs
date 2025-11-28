@@ -19,6 +19,90 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             _emailService = emailService;
         }
 
+        // NUEVO MÉTODO: Dashboard con cálculos de SLA
+        public async Task<List<AlertaDashboardDto>> GetDashboardAsync()
+        {
+            var entities = await _RepositoryAlerta.GetAlertasAsync();
+            var today = DateTime.Today;
+            var todayDateOnly = DateOnly.FromDateTime(today);
+
+            return entities
+                .Where(a => a.Estado != "ELIMINADA") // Excluir alertas eliminadas
+                .Select(a =>
+                {
+                    var solicitud = a.IdSolicitudNavigation;
+                    var configSla = solicitud?.IdSlaNavigation;
+                    var personal = solicitud?.IdPersonalNavigation;
+                    var rolRegistro = solicitud?.IdRolRegistroNavigation;
+
+                    // Cálculo de fechas y días
+                    var fechaInicio = solicitud != null ? solicitud.FechaSolicitud : todayDateOnly;
+                    var diasUmbral = configSla?.DiasUmbral ?? 0;
+                    var fechaVencimiento = fechaInicio.AddDays(diasUmbral);
+                    
+                    // Calcular días transcurridos y restantes
+                    var diasTranscurridos = (todayDateOnly.DayNumber - fechaInicio.DayNumber);
+                    var diasRestantes = (fechaVencimiento.DayNumber - todayDateOnly.DayNumber);
+                    
+                    // Calcular porcentaje de progreso (puede superar 100%)
+                    double porcentajeProgreso = 0;
+                    if (diasUmbral > 0)
+                    {
+                        porcentajeProgreso = Math.Round((double)diasTranscurridos / diasUmbral * 100, 2);
+                        // NO limitar a 100% - permitir valores mayores para mostrar vencidos
+                    }
+                    
+                    // Determinar color según estado
+                    string colorEstado;
+                    if (diasRestantes < 0)
+                    {
+                        // VENCIDO - Rojo
+                        colorEstado = "#dc3545";
+                    }
+                    else if (diasRestantes <= 2 || a.Nivel == "CRITICO")
+                    {
+                        // CRÍTICO - Amarillo/Naranja
+                        colorEstado = "#ffc107";
+                    }
+                    else if (diasRestantes <= 5 || a.Nivel == "ALTO")
+                    {
+                        // ALTO - Naranja claro
+                        colorEstado = "#fd7e14";
+                    }
+                    else
+                    {
+                        // NORMAL - Verde
+                        colorEstado = "#28a745";
+                    }
+
+                    return new AlertaDashboardDto
+                    {
+                        IdAlerta = a.IdAlerta,
+                        IdSolicitud = a.IdSolicitud,
+                        NombreSolicitud = solicitud?.ResumenSla ?? "Sin descripción",
+                        NombreResponsable = personal != null 
+                            ? $"{personal.Nombres} {personal.Apellidos}".Trim() 
+                            : "Sin asignar",
+                        NombreSla = configSla?.CodigoSla ?? "Sin SLA",
+                        Nivel = a.Nivel ?? "MEDIO",
+                        DiasTranscurridos = diasTranscurridos,
+                        DiasRestantes = diasRestantes,
+                        PorcentajeProgreso = porcentajeProgreso,
+                        ColorEstado = colorEstado,
+                        EstadoLectura = a.Estado ?? "NUEVA",
+                        FechaCreacion = a.FechaCreacion,
+                        FechaIngreso = solicitud?.FechaIngreso,
+                        FechaVencimiento = fechaVencimiento,
+                        TipoAlerta = a.TipoAlerta ?? "GENERAL",
+                        Mensaje = a.Mensaje ?? "",
+                        EnviadoEmail = a.EnviadoEmail,
+                        CorreoResponsable = personal?.CorreoCorporativo
+                    };
+                })
+                .OrderByDescending(x => x.FechaCreacion)
+                .ToList();
+        }
+
         // Get alerta 
         public async Task<List<AlertaDTO>> GetAllAsync()
         {
@@ -145,7 +229,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             // 3) sacar el correo del destinatario
             var destinatario = alertaFull.IdSolicitudNavigation?.IdPersonalNavigation?.CorreoCorporativo;
 
-            // 4) AQUÍ se manda el correo con manejo de errores
+            // 4) AQUÍ se manda elcorreo con manejo de errores
             if (!string.IsNullOrWhiteSpace(destinatario))
             {
                 try

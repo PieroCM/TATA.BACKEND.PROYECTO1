@@ -2,13 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
 using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using System.Reflection; // Necesario para Assembly
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,6 +90,7 @@ builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 builder.Services.AddSharedInfrastructure(_configuration);
 //logService
 builder.Services.AddTransient<ILogService, LogService>();
+
 
 
 
