@@ -6,10 +6,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
     /// <summary>
     /// Representa UNA fila del Excel/JSON de carga masiva de solicitudes SLA.
+    /// Nota: Los campos de usuario/rol pueden venir en el archivo,
+    /// pero el servicio actual SOLO crea/actualiza Personal y Solicitud.
     /// </summary>
     public class SubidaVolumenSolicitudRowDto
     {
-        // -------- RolSistema + Usuario + Personal --------
+        // --------- (Opcionales) RolSistema + Usuario ----------
 
         [JsonPropertyName("rol_sistema_codigo")]
         public string RolSistemaCodigo { get; set; } = string.Empty;
@@ -26,6 +28,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         [JsonPropertyName("usuario_username")]
         public string? UsuarioUsername { get; set; }
 
+        // ---------------------- Personal ----------------------
+
         [JsonPropertyName("personal_nombres")]
         public string PersonalNombres { get; set; } = string.Empty;
 
@@ -38,7 +42,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         [JsonPropertyName("personal_correo")]
         public string PersonalCorreo { get; set; } = string.Empty;
 
-        // -------------------- ConfigSla --------------------
+        // -------------------- ConfigSla -----------------------
 
         [JsonPropertyName("config_sla_codigo")]
         public string ConfigSlaCodigo { get; set; } = string.Empty;
@@ -52,7 +56,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         [JsonPropertyName("config_sla_tipo_solicitud")]
         public string ConfigSlaTipoSolicitud { get; set; } = string.Empty;
 
-        // ------------------- RolRegistro -------------------
+        // ------------------- RolRegistro ----------------------
 
         [JsonPropertyName("rol_registro_nombre")]
         public string RolRegistroNombre { get; set; } = string.Empty;
@@ -63,7 +67,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         [JsonPropertyName("rol_registro_descripcion")]
         public string? RolRegistroDescripcion { get; set; }
 
-        // --------------------- Solicitud --------------------
+        // --------------------- Solicitud ----------------------
 
         /// <summary>
         /// Fecha de solicitud OBLIGATORIA, viene como string desde el Excel/JSON.
@@ -85,6 +89,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         [JsonPropertyName("sol_origen_dato")]
         public string? SolOrigenDato { get; set; }
 
+        /// <summary>
+        /// Estado recibido desde el archivo (actualmente NO se usa para grabar).
+        /// </summary>
         [JsonPropertyName("sol_estado")]
         public string? SolEstado { get; set; }
     }
