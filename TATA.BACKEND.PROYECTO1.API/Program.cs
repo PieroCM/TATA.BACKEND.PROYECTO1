@@ -1,15 +1,16 @@
+using log4net; // Necesario para LogManager
+using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
+using System.Reflection; // Necesario para Assembly
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Seed;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Workers;
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
-using log4net; // Necesario para LogManager
-using log4net.Config; // Necesario para XmlConfigurator
-using System.Reflection; // Necesario para Assembly
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +37,10 @@ builder.Logging.AddDebug();   // Para ver logs en VS Debug Output
 
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// SEEEDERA USUARIO PRO
+builder.Services.AddScoped<DataSeeder>();
+
 
 // CORREO Y ALERTAS
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
@@ -116,6 +121,15 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
+    // Si SeedAsync es async Task
+    seeder.SeedAsync().GetAwaiter().GetResult();
+}
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
