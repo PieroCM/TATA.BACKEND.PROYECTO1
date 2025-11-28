@@ -95,7 +95,7 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
-// BACKGROUND WORKER - Resumen diario autom�tico
+// BACKGROUND WORKER - Resumen diario autom�tico
 builder.Services.AddHostedService<DailySummaryWorker>();
 
 // Shared Infrastructure (JWT, etc.)
@@ -122,11 +122,26 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// =====================================================
+// 3) Migración automática y Seeder inicial
+// =====================================================
 using (var scope = app.Services.CreateScope())
 {
-    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
-    // Si SeedAsync es async Task
-    seeder.SeedAsync().GetAwaiter().GetResult();
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<Proyecto1SlaDbContext>();
+        await context.Database.MigrateAsync();
+
+        var seeder = services.GetRequiredService<DataSeeder>();
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error al aplicar migraciones o ejecutar el seeder");
+        throw;
+    }
 }
 
 

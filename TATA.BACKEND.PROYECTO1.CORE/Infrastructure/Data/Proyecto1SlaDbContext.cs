@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
@@ -415,24 +415,24 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasConstraintName("FK_usuario_personal");
         });
 
-        // Configuración many-to-many entre Reporte y Solicitud usando la entidad explícita ReporteDetalle
+        // ConfiguraciÃ³n many-to-many entre Reporte y Solicitud usando la entidad explÃ­cita ReporteDetalle
         modelBuilder.Entity<Reporte>()
             .HasMany(r => r.Solicitudes)
             .WithMany(s => s.IdReporte)
             .UsingEntity<ReporteDetalle>(
-                // relación desde ReporteDetalle hacia Solicitud
+                // relaciÃ³n desde ReporteDetalle hacia Solicitud
                 j => j.HasOne(rd => rd.Solicitud)
-                      .WithMany() // no hay colección de ReporteDetalle en Solicitud
+                      .WithMany() // no hay colecciÃ³n de ReporteDetalle en Solicitud
                       .HasForeignKey(rd => rd.IdSolicitud)
                       .OnDelete(DeleteBehavior.ClientSetNull)
                       .HasConstraintName("FK_repdet_solicitud"),
-                // relación desde ReporteDetalle hacia Reporte
+                // relaciÃ³n desde ReporteDetalle hacia Reporte
                 j => j.HasOne(rd => rd.Reporte)
                       .WithMany(r => r.Detalles)
                       .HasForeignKey(rd => rd.IdReporte)
                       .OnDelete(DeleteBehavior.ClientSetNull)
                       .HasConstraintName("FK_repdet_reporte"),
-                // configuración de la tabla de unión
+                // configuraciÃ³n de la tabla de uniÃ³n
                 j =>
                 {
                     j.HasKey(rd => new { rd.IdReporte, rd.IdSolicitud }).HasName("PK_reporte_detalle");
@@ -443,7 +443,8 @@ public partial class Proyecto1SlaDbContext : DbContext
                     j.Property(rd => rd.IdSolicitud).HasColumnName("id_solicitud");
                 });
 
-        // Configuración de EmailConfig
+        // ConfiguraciÃ³n de EmailConfig
+        // ConfiguraciÃ³n de EmailConfig
         modelBuilder.Entity<EmailConfig>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -468,19 +469,20 @@ public partial class Proyecto1SlaDbContext : DbContext
             entity.Property(e => e.ActualizadoEn)
                 .HasColumnName("actualizado_en");
 
-            // Seed: Configuración inicial
+            // âœ… Seed SIN valores dinÃ¡micos
             entity.HasData(new EmailConfig
             {
                 Id = 1,
-                DestinatarioResumen = "admin@tata.com",
+                DestinatarioResumen = "22200150@ue.edu.pe",
                 EnvioInmediato = true,
                 ResumenDiario = false,
-                HoraResumen = new TimeSpan(8, 0, 0), // 8:00 AM
-                CreadoEn = DateTime.UtcNow
+                HoraResumen = new TimeSpan(8, 0, 0) // 8:00 AM
+                                                    // CreadoEn lo rellena el defaultValueSql
             });
         });
 
-        // Configuración de EmailLog
+
+        // ConfiguraciÃ³n de EmailLog
         modelBuilder.Entity<EmailLog>(entity =>
         {
             entity.HasKey(e => e.Id);
