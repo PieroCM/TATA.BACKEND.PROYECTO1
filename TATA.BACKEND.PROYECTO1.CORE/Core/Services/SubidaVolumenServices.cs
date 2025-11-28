@@ -10,12 +10,27 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
+    // ⚠️⚠️⚠️ SERVICIO DESHABILITADO TEMPORALMENTE ⚠️⚠️⚠️
+    // Este servicio usa la estructura antigua de Usuario y Personal:
+    // - Usuario.Correo (ya no existe, ahora se usa Username)
+    // - Personal.IdUsuario (ya no existe, ahora Usuario tiene IdPersonal)
+    // 
+    // TODO: Refactorizar este servicio para usar la nueva estructura:
+    // 1. Usuario ahora tiene IdPersonal (nullable) - Relación 1:0..1
+    // 2. Personal no tiene IdUsuario
+    // 3. Login usa Username en lugar de Correo
+    // 4. El correo corporativo viene de Personal.CorreoCorporativo
+    //
+    // Para más información, ver: USUARIO_BACKEND_GUIA_COMPLETA.md
+
     /// <summary>
     /// Servicio de dominio para carga masiva de Solicitudes SLA
     /// a partir de filas que provienen de un Excel.
+    /// ⚠️ DESHABILITADO: Usa estructura antigua de DB
     /// </summary>
     public class SubidaVolumenServices : ISubidaVolumenServices
     {
+        /*
         // Repositorios necesarios
         private readonly IRolesSistemaRepository _rolesSistemaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
@@ -39,13 +54,42 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             _rolRegistroRepository = rolRegistroRepository;
             _solicitudRepository = solicitudRepository;
         }
+        */
 
+        /// <summary>
+        /// ⚠️ MÉTODO DESHABILITADO - Retorna error indicando que el servicio no está disponible
+        /// </summary>
+        public Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
+            IEnumerable<SubidaVolumenSolicitudRowDto> filas)
+        {
+            var result = new BulkUploadResultDto
+            {
+                TotalFilas = filas?.Count() ?? 0,
+                FilasConError = filas?.Count() ?? 0
+            };
+
+            result.Errores.Add(new BulkUploadErrorDto
+            {
+                RowIndex = 0,
+                Mensaje = "⚠️ SERVICIO DESHABILITADO: El servicio de carga masiva está temporalmente deshabilitado debido a cambios en la arquitectura de Usuario y Personal. Por favor, contacte al administrador del sistema."
+            });
+
+            return Task.FromResult(result);
+        }
+
+        #region CÓDIGO ORIGINAL COMENTADO
+
+        /*
         /// <summary>
         /// Procesa un conjunto de filas de carga masiva, creando/asegurando
         /// datos maestros (RolesSistema, Usuario, Personal, ConfigSla, RolRegistro)
         /// y finalmente insertando la Solicitud correspondiente.
+        /// 
+        /// ⚠️ ESTE CÓDIGO USA LA ESTRUCTURA ANTIGUA:
+        /// - Usuario.Correo (ya no existe)
+        /// - Personal.IdUsuario (ya no existe)
         /// </summary>
-        public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
+        public async Task<BulkUploadResultDto> ProcesarSolicitudesAsync_OLD(
             IEnumerable<SubidaVolumenSolicitudRowDto> filas)
         {
             var result = new BulkUploadResultDto();
@@ -73,9 +117,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 .Where(r => !string.IsNullOrWhiteSpace(r.NombreRol))
                 .ToDictionary(r => r.NombreRol.Trim(), StringComparer.OrdinalIgnoreCase);
 
-            var usuarioByCorreo = usuariosList
-                .Where(u => !string.IsNullOrWhiteSpace(u.Correo))
-                .ToDictionary(u => u.Correo.Trim(), StringComparer.OrdinalIgnoreCase);
+            // ⚠️ PROBLEMA: Usuario ya no tiene campo Correo
+            // var usuarioByCorreo = usuariosList
+            //     .Where(u => !string.IsNullOrWhiteSpace(u.Correo))
+            //     .ToDictionary(u => u.Correo.Trim(), StringComparer.OrdinalIgnoreCase);
 
             var personalByDocumento = personalList
                 .Where(p => !string.IsNullOrWhiteSpace(p.Documento))
@@ -138,45 +183,44 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         rolesSistemaByCodigo[rolSistemaCodigo] = rolSistema;
                     }
 
-                    // 2.2) Asegurar Usuario (por correo)
-                    if (!usuarioByCorreo.TryGetValue(usuarioCorreo, out var usuario))
-                    {
-                        var passwordRandom = GenerarPasswordSeguro(12);
+                    // 2.2) Asegurar Usuario (por correo) ⚠️ YA NO FUNCIONA
+                    // if (!usuarioByCorreo.TryGetValue(usuarioCorreo, out var usuario))
+                    // {
+                    //     var passwordRandom = GenerarPasswordSeguro(12);
+                    //
+                    //     usuario = new Usuario
+                    //     {
+                    //         Username = string.IsNullOrWhiteSpace(row.UsuarioUsername)
+                    //             ? usuarioCorreo.Split('@')[0]
+                    //             : row.UsuarioUsername!.Trim(),
+                    //         Correo = usuarioCorreo, // ⚠️ Ya no existe
+                    //         PasswordHash = passwordRandom,
+                    //         IdRolSistema = rolSistema.IdRolSistema,
+                    //         Estado = "INACTIVO",
+                    //         CreadoEn = DateTime.UtcNow
+                    //     };
+                    //
+                    //     await _usuarioRepository.AddAsync(usuario);
+                    //     usuarioByCorreo[usuarioCorreo] = usuario;
+                    // }
 
-                        usuario = new Usuario
-                        {
-                            Username = string.IsNullOrWhiteSpace(row.UsuarioUsername)
-                                ? usuarioCorreo.Split('@')[0]
-                                : row.UsuarioUsername!.Trim(),
-                            Correo = usuarioCorreo,
-                            // TODO: aplicar hashing real; por ahora se guarda tal cual
-                            PasswordHash = passwordRandom,
-                            IdRolSistema = rolSistema.IdRolSistema,
-                            Estado = "INACTIVO",
-                            CreadoEn = DateTime.UtcNow
-                        };
-
-                        await _usuarioRepository.AddAsync(usuario);
-                        usuarioByCorreo[usuarioCorreo] = usuario;
-                    }
-
-                    // 2.3) Asegurar Personal (por documento)
-                    if (!personalByDocumento.TryGetValue(personalDocumento, out var personal))
-                    {
-                        personal = new Personal
-                        {
-                            Nombres = row.PersonalNombres.Trim(),
-                            Apellidos = row.PersonalApellidos.Trim(),
-                            Documento = personalDocumento,
-                            CorreoCorporativo = row.PersonalCorreo.Trim(),
-                            Estado = "INACTIVO",
-                            IdUsuario = usuario.IdUsuario,
-                            CreadoEn = DateTime.UtcNow
-                        };
-
-                        await _personalRepository.AddAsync(personal);
-                        personalByDocumento[personalDocumento] = personal;
-                    }
+                    // 2.3) Asegurar Personal (por documento) ⚠️ YA NO FUNCIONA
+                    // if (!personalByDocumento.TryGetValue(personalDocumento, out var personal))
+                    // {
+                    //     personal = new Personal
+                    //     {
+                    //         Nombres = row.PersonalNombres.Trim(),
+                    //         Apellidos = row.PersonalApellidos.Trim(),
+                    //         Documento = personalDocumento,
+                    //         CorreoCorporativo = row.PersonalCorreo.Trim(),
+                    //         Estado = "INACTIVO",
+                    //         IdUsuario = usuario.IdUsuario, // ⚠️ Ya no existe
+                    //         CreadoEn = DateTime.UtcNow
+                    //     };
+                    //
+                    //     await _personalRepository.AddAsync(personal);
+                    //     personalByDocumento[personalDocumento] = personal;
+                    // }
 
                     // 2.4) Asegurar ConfigSla (por CodigoSla)
                     if (!configSlaByCodigo.TryGetValue(configSlaCodigo, out var configSla))
@@ -214,7 +258,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     }
 
                     // 2.6) Crear Solicitud
-
                     var origenDato = string.IsNullOrWhiteSpace(row.SolOrigenDato)
                         ? "IMPORT"
                         : row.SolOrigenDato!.Trim();
@@ -245,26 +288,26 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         ? $"CUMPLE_{codigo}"
                         : $"NO_CUMPLE_{codigo}";
 
-                    var solicitud = new Solicitud
-                    {
-                        IdPersonal = personal.IdPersonal,
-                        IdSla = configSla.IdSla,
-                        IdRolRegistro = rolRegistro.IdRolRegistro,
-                        CreadoPor = usuario.IdUsuario,
-                        FechaSolicitud = DateOnly.FromDateTime(fechaSolicitudDate),
-                        FechaIngreso = DateOnly.FromDateTime(fechaIngresoDate),
-                        NumDiasSla = numDias,
-                        ResumenSla = row.SolResumen?.Trim() ?? string.Empty,
-                        OrigenDato = origenDato,
-                        EstadoSolicitud = estadoSolicitud,
-                        EstadoCumplimientoSla = estadoCumplimiento,
-                        CreadoEn = DateTime.UtcNow,
-                        ActualizadoEn = DateTime.UtcNow
-                    };
-
-                    await _solicitudRepository.CreateSolicitudAsync(solicitud);
-
-                    result.FilasExitosas++;
+                    // var solicitud = new Solicitud
+                    // {
+                    //     IdPersonal = personal.IdPersonal,
+                    //     IdSla = configSla.IdSla,
+                    //     IdRolRegistro = rolRegistro.IdRolRegistro,
+                    //     CreadoPor = usuario.IdUsuario,
+                    //     FechaSolicitud = DateOnly.FromDateTime(fechaSolicitudDate),
+                    //     FechaIngreso = DateOnly.FromDateTime(fechaIngresoDate),
+                    //     NumDiasSla = numDias,
+                    //     ResumenSla = row.SolResumen?.Trim() ?? string.Empty,
+                    //     OrigenDato = origenDato,
+                    //     EstadoSolicitud = estadoSolicitud,
+                    //     EstadoCumplimientoSla = estadoCumplimiento,
+                    //     CreadoEn = DateTime.UtcNow,
+                    //     ActualizadoEn = DateTime.UtcNow
+                    // };
+                    //
+                    // await _solicitudRepository.CreateSolicitudAsync(solicitud);
+                    //
+                    // result.FilasExitosas++;
                 }
                 catch (Exception ex)
                 {
@@ -276,6 +319,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
             return result;
         }
+        */
+
+        #endregion
 
         // ----------------- helpers privados -----------------
 

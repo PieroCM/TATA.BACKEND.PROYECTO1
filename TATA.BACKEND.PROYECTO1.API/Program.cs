@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
@@ -68,14 +68,17 @@ builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
 
+// ⚠️ CONFIGURACIÓN CORS (DEBE ESTAR ANTES DE AddControllers)
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
+    options.AddPolicy("AllowQuasarApp",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:9000")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
 });
 
 builder.Services.AddControllers();
@@ -89,13 +92,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.UseCors("AllowAll");
-
-app.MapControllers();
+// ⚠️ ORDEN CORRECTO DE MIDDLEWARES (¡CRÍTICO!)
+app.UseCors("AllowQuasarApp");      // 1️⃣ CORS PRIMERO
+app.UseHttpsRedirection();           // 2️⃣ HTTPS
+app.UseAuthentication();             // 3️⃣ Autenticación
+app.UseAuthorization();              // 4️⃣ Autorización
+app.MapControllers();                // 5️⃣ Controllers
 
 app.Run();
