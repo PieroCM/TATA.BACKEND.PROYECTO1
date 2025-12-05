@@ -5,19 +5,43 @@ using System.Security.Claims;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using System;
+using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Threading.Tasks;
+using MailKit;
+using MailKit.Net.Smtp;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
+    public class SendEmailRequest
+    {
+        // admite uno (To) o varios (Tos)
+        public string? To { get; set; } // un solo destinatario opcional
+        public List<string>? Tos { get; set; } // múltiples destinatarios opcional
+        public string Subject { get; set; } = "";
+        public string Message { get; set; } = "";
+        public string? PdfBase64 { get; set; }
+        public string? FileName { get; set; } = "reporte.pdf";
+    }
+
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize] // Requiere JWT para todos los endpoints (ajusta si sólo quieres en generar)
     public class ReporteController : ControllerBase
     {
         private readonly IReporteService _reporteService;
+        private readonly IEmailService _emailService;
 
-        public ReporteController(IReporteService reporteService)
+        // límite básico para evitar adjuntos excesivos (10 MB)
+        private const int MaxAttachmentBytes = 10 * 1024 * 1024;
+
+        public ReporteController(IReporteService reporteService, IEmailService emailService)
         {
             _reporteService = reporteService;
+            _emailService = emailService;
         }
 
         // GET: api/reportes
@@ -113,6 +137,113 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             var ok = await _reporteService.DeleteAsync(id);
             if (!ok) return NotFound();
             return NoContent();
+        }
+
+        // POST: api/reporte/enviar-correo
+        [HttpPost("enviar-correo")] // api/reporte/enviar-correo
+        [AllowAnonymous] // quita esto si deseas exigir JWT
+        public async Task<IActionResult> EnviarCorreo([FromBody] SendEmailRequest req)
+        {
+            // normaliza destinatarios: usa To si existe, o la lista Tos
+            var recipients = new List<string>();
+            if (!string.IsNullOrWhiteSpace(req?.To))
+                recipients.Add(req!.To!.Trim());
+            if (req?.Tos != null && req.Tos.Count > 0)
+                recipients.AddRange(req.Tos.Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e.Trim()));
+
+            // elimina duplicados
+            recipients = recipients.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            if (recipients.Count == 0)
+                return BadRequest("Debes enviar 'To' o 'Tos'.");
+
+            var subject = string.IsNullOrWhiteSpace(req!.Subject) ? "Reporte SLA" : req.Subject;
+            var body = string.IsNullOrWhiteSpace(req!.Message) ? "Adjunto reporte." : req.Message;
+
+            try
+            {
+                byte[]? bytes = null;
+                if (!string.IsNullOrWhiteSpace(req.PdfBase64))
+                {
+                    try
+                    {
+                        bytes = Convert.FromBase64String(req.PdfBase64);
+                    }
+                    catch
+                    {
+                        return BadRequest("El PDF no tiene un base64 válido.");
+                    }
+
+                    if (bytes.Length > MaxAttachmentBytes)
+                        return StatusCode(StatusCodes.Status413PayloadTooLarge, new { mensaje = "Adjunto demasiado grande (máx 10MB)." });
+                }
+
+                // envía a cada destinatario individualmente para aislar errores por correo
+                var results = new List<object>();
+                foreach (var to in recipients)
+                {
+                    try
+                    {
+                        if (bytes != null)
+                            await _emailService.SendWithAttachmentAsync(to, subject, body, bytes, req.FileName ?? "reporte.pdf");
+                        else
+                            await _emailService.SendAsync(to, subject, body);
+
+                        results.Add(new { to, ok = true });
+                    }
+                    catch (SmtpCommandException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 502, error = ex.Message });
+                    }
+                    catch (SmtpProtocolException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 502, error = ex.Message });
+                    }
+                    catch (AuthenticationException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 401, error = ex.Message });
+                    }
+                    catch (SocketException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 503, error = ex.Message });
+                    }
+                    catch (TimeoutException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 504, error = ex.Message });
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 504, error = ex.Message });
+                    }
+                    catch (ServiceNotConnectedException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 503, error = ex.Message });
+                    }
+                    catch (ServiceNotAuthenticatedException ex)
+                    {
+                        results.Add(new { to, ok = false, status = 401, error = ex.Message });
+                    }
+                    catch (Exception ex)
+                    {
+                        results.Add(new { to, ok = false, status = 503, error = ex.Message });
+                    }
+                }
+
+                // si todos fallaron, devuelve el peor estado; si alguno ok, 200
+                var anyOk = results.Any(r => (bool)r.GetType().GetProperty("ok")!.GetValue(r)!);
+                if (anyOk)
+                    return Ok(new { ok = true, results });
+                else
+                {
+                    // determina el código más representativo entre los errores
+                    var status = results.Select(r => (int)r.GetType().GetProperty("status")!.GetValue(r)!).DefaultIfEmpty(503).Max();
+                    return StatusCode(status, new { ok = false, results });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { mensaje = "No fue posible enviar el correo en este entorno.", detalle = ex.Message });
+            }
         }
 
         private static ReporteDTO MapToDto(Reporte r) => new ReporteDTO

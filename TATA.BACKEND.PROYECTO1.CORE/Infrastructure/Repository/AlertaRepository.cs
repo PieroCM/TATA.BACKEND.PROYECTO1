@@ -110,6 +110,73 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
             await _context.SaveChangesAsync();
             return true;
         }
+
+        // Buscar alerta por IdSolicitud (para sincronización)
+        public async Task<Alerta?> GetAlertaBySolicitudIdAsync(int idSolicitud)
+        {
+            return await _context.Alerta
+                .AsNoTracking()
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s.IdPersonalNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s.IdRolRegistroNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s.IdSlaNavigation)
+                .FirstOrDefaultAsync(a => a.IdSolicitud == idSolicitud);
+        }
+
+        // Obtener todas las alertas con navegación completa (para Dashboard)
+        public async Task<List<Alerta>> GetAlertasWithFullNavigationAsync()
+        {
+            return await _context.Alerta
+                .AsNoTracking()
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s.IdPersonalNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s.IdRolRegistroNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s.IdSlaNavigation)
+                .OrderByDescending(a => a.FechaCreacion)
+                .ToListAsync();
+        }
+
+        // Obtener alertas próximas a vencer (por días restantes)
+        public async Task<List<Alerta>> GetAlertasPorVencer(int dias)
+        {
+            var fechaLimite = DateTime.UtcNow.AddDays(dias);
+
+            return await _context.Alerta
+                .AsNoTracking()
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdPersonalNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdRolRegistroNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdSlaNavigation)
+                .Where(a => a.Estado == "ACTIVA" &&
+                           (a.Nivel == "CRITICO" || a.Nivel == "ALTO"))
+                .OrderByDescending(a => a.FechaCreacion)
+                .ToListAsync();
+        }
+
+        // Obtener alertas por fecha de creación específica
+        public async Task<List<Alerta>> GetAlertasByFechaCreacion(DateTime fechaCreacion)
+        {
+            var fechaInicio = fechaCreacion.Date;
+            var fechaFin = fechaInicio.AddDays(1);
+
+            return await _context.Alerta
+                .AsNoTracking()
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdPersonalNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdRolRegistroNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdSlaNavigation)
+                .Where(a => a.FechaCreacion >= fechaInicio && a.FechaCreacion < fechaFin)
+                .OrderByDescending(a => a.FechaCreacion)
+                .ToListAsync();
+        }
     }
 
 

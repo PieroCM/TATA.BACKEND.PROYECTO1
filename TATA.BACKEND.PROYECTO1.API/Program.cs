@@ -1,10 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+
+using log4net; // Necesario para LogManager
+using log4net.Config; // Necesario para XmlConfigurator
+using Microsoft.EntityFrameworkCore;
+using System.Reflection; // Necesario para Assembly
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Seed;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Workers;
+using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
-using TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,14 +19,39 @@ var builder = WebApplication.CreateBuilder(args);
 var _configuration = builder.Configuration;
 var connectionString = _configuration.GetConnectionString("DevConnection");
 
+
+
+// =====================================================
+// 1) Cargar archivo log4net.config (FORMA CORRECTA .NET 9)
+// =====================================================
+var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
+XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
+
+
+// =====================================================
+// 2) Providers de Logging de .NET 9 (NO usar AddLog4Net)
+// =====================================================
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole(); // Para ver logs en consola
+builder.Logging.AddDebug();   // Para ver logs en VS Debug Output
+
+
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// SEEEDERA USUARIO PRO
+builder.Services.AddScoped<DataSeeder>();
+
 
 // CORREO Y ALERTAS
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<IAlertaRepository, AlertaRepository>();
 builder.Services.AddTransient<IAlertaService, AlertaService>();
+
+// EMAIL AUTOMATION (NUEVOS SERVICIOS)
+builder.Services.AddTransient<IEmailAutomationService, EmailAutomationService>();
+builder.Services.AddTransient<IEmailConfigService, EmailConfigService>();
 
 // SOLICITUD
 builder.Services.AddTransient<ISolicitudRepository, SolicitudRepository>();
@@ -65,8 +96,15 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
+// BACKGROUND WORKER - Resumen diario autom�tico
+builder.Services.AddHostedService<DailySummaryWorker>();
+
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
+//logService
+builder.Services.AddTransient<ILogService, LogService>();
+
+
 
 // ⚠️ CONFIGURACIÓN CORS (DEBE ESTAR ANTES DE AddControllers)
 builder.Services.AddCors(options =>
@@ -86,17 +124,45 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// =====================================================
+// 3) Migración automática y Seeder inicial
+// =====================================================
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<Proyecto1SlaDbContext>();
+        await context.Database.MigrateAsync();
+
+        var seeder = services.GetRequiredService<DataSeeder>();
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error al aplicar migraciones o ejecutar el seeder");
+        throw;
+    }
+}
+
+
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-// ⚠️ ORDEN CORRECTO DE MIDDLEWARES (¡CRÍTICO!)
-app.UseCors("AllowQuasarApp");      // 1️⃣ CORS PRIMERO
-app.UseHttpsRedirection();           // 2️⃣ HTTPS
-app.UseAuthentication();             // 3️⃣ Autenticación
-app.UseAuthorization();              // 4️⃣ Autorización
-app.MapControllers();                // 5️⃣ Controllers
+app.UseHttpsRedirection();
+
+app.UseCors("AllowQuasarApp");
+
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+
+app.MapControllers();
 
 app.Run();
