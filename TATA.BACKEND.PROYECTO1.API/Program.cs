@@ -1,3 +1,4 @@
+
 using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
@@ -105,6 +106,7 @@ builder.Services.AddTransient<ILogService, LogService>();
 
 
 
+// ⚠️ CONFIGURACIÓN CORS (DEBE ESTAR ANTES DE AddControllers)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowQuasarApp",

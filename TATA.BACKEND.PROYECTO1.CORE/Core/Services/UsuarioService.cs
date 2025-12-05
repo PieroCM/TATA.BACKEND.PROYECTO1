@@ -472,17 +472,55 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     return false;
                 }
 
-                // ⚠️ CAMBIO: Verificar email en lugar de username
-                if (usuario.PersonalNavigation?.CorreoCorporativo != request.Email)
+                // ⚠️ MEJORA: Detectar si request.Email es realmente un EMAIL o un USERNAME
+                string emailParaValidar = request.Email;
+
+                // Si NO contiene '@', asumir que es un username
+                if (!request.Email.Contains("@"))
                 {
-                    _logger.LogWarning("Email {Email} no coincide con el token de activación", request.Email);
+                    _logger.LogInformation("Detectado username en lugar de email: {Username}. Buscando correo corporativo...", request.Email);
+                    
+                    // Buscar usuario por username
+                    var usuarioPorUsername = await _usuarioRepository.GetByUsernameAsync(request.Email);
+                    
+                    if (usuarioPorUsername == null)
+                    {
+                        _logger.LogWarning("Username {Username} no existe en el sistema", request.Email);
+                        return false;
+                    }
+
+                    // Verificar que el usuario encontrado por username coincida con el del token
+                    if (usuarioPorUsername.IdUsuario != usuario.IdUsuario)
+                    {
+                        _logger.LogWarning("El username {Username} no coincide con el usuario del token", request.Email);
+                        return false;
+                    }
+
+                    // Verificar que tenga Personal vinculado con correo
+                    if (usuarioPorUsername.PersonalNavigation == null || 
+                        string.IsNullOrWhiteSpace(usuarioPorUsername.PersonalNavigation.CorreoCorporativo))
+                    {
+                        _logger.LogWarning("El usuario {Username} no tiene Personal vinculado o no tiene correo corporativo", request.Email);
+                        return false;
+                    }
+
+                    // Extraer el correo corporativo real
+                    emailParaValidar = usuarioPorUsername.PersonalNavigation.CorreoCorporativo;
+                    
+                    _logger.LogInformation("Username {Username} mapeado a correo corporativo: {Email}", request.Email, emailParaValidar);
+                }
+
+                // ⚠️ Validar contra el correo corporativo (ya sea recibido directamente o extraído del username)
+                if (usuario.PersonalNavigation?.CorreoCorporativo != emailParaValidar)
+                {
+                    _logger.LogWarning("Email {Email} no coincide con el correo corporativo del token de activación", emailParaValidar);
                     return false;
                 }
 
                 // Verificar que la cuenta esté pendiente de activación
                 if (usuario.PasswordHash != null)
                 {
-                    _logger.LogWarning("Intento de activar cuenta ya activada: {Email}", request.Email);
+                    _logger.LogWarning("Intento de activar cuenta ya activada: {Email}", emailParaValidar);
                     return false;
                 }
 
@@ -509,7 +547,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     );
                 }
 
-                _logger.LogInformation("Cuenta activada exitosamente para {Email}. Token eliminado", request.Email);
+                _logger.LogInformation("Cuenta activada exitosamente para {Email}. Token eliminado", emailParaValidar);
                 return true;
             }
             catch (Exception ex)
