@@ -863,7 +863,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         /// Vincular un Personal existente con una nueva cuenta de Usuario (SOLO ADMIN)
         /// POST /api/usuario/vincular-personal
         /// </summary>
-        [Authorize(Roles = "ADMIN")]
+        [Authorize(Roles = "1")]
         [HttpPost("vincular-personal")]
         public async Task<IActionResult> VincularPersonalYActivar([FromBody] VincularPersonalDTO dto)
         {
