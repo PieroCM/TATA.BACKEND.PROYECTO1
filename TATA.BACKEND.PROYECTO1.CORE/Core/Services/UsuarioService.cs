@@ -1,10 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using System.Security.Cryptography;
@@ -18,22 +16,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IJWTService _jwtService;
         private readonly IEmailService _emailService;
         private readonly ILogger<UsuarioService> _logger;
-        private readonly FrontendSettings _frontendSettings;
 
         public UsuarioService(
             IUsuarioRepository usuarioRepository,
             IPersonalRepository personalRepository, // ⚠️ NUEVO
             IJWTService jwtService,
             IEmailService emailService,
-            ILogger<UsuarioService> logger,
-            IOptions<FrontendSettings> frontendSettings)
+            ILogger<UsuarioService> logger)
         {
             _usuarioRepository = usuarioRepository;
             _personalRepository = personalRepository; // ⚠️ NUEVO
             _jwtService = jwtService;
             _emailService = emailService;
             _logger = logger;
-            _frontendSettings = frontendSettings.Value;
         }
 
         // ===========================
@@ -372,7 +367,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 await _usuarioRepository.UpdateAsync(usuario);
 
                 // ⚠️ CAMBIO: URL usa email en lugar de username
-                var recoveryUrl = $"{_frontendSettings.BaseUrl}/forgot-password?email={Uri.EscapeDataString(request.Email)}&token={token}";
+                var recoveryUrl = $"/forgot-password?email={Uri.EscapeDataString(request.Email)}&token={token}";
                 
                 _logger.LogInformation("URL de recuperación generada para {Email}: {Url}", request.Email, recoveryUrl);
 
@@ -620,7 +615,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     dto.IdPersonal, dto.Username, dto.IdRolSistema);
 
                 // PASO 7: Construir URL de activación
-                var activacionUrl = $"{_frontendSettings.BaseUrl}/activacion-cuenta?email={Uri.EscapeDataString(personal.CorreoCorporativo)}&token={token}";
+                var activacionUrl = $"/activacion-cuenta?email={Uri.EscapeDataString(personal.CorreoCorporativo)}&token={token}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", dto.Username, activacionUrl);
 

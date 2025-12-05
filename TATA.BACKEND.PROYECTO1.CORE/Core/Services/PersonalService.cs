@@ -3,11 +3,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data; // ⚠️ NUEVO: Para DbContext
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
@@ -18,7 +16,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEmailService _emailService;
         private readonly ILogger<PersonalService> _logger;
-        private readonly FrontendSettings _frontendSettings;
         private readonly Proyecto1SlaDbContext _context; // ⚠️ NUEVO: Para transacciones
 
         public PersonalService(
@@ -26,14 +23,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             IUsuarioRepository usuarioRepository,
             IEmailService emailService,
             ILogger<PersonalService> logger,
-            IOptions<FrontendSettings> frontendSettings,
             Proyecto1SlaDbContext context) // ⚠️ NUEVO
         {
             _personalRepository = personalRepository;
             _usuarioRepository = usuarioRepository;
             _emailService = emailService;
             _logger = logger;
-            _frontendSettings = frontendSettings.Value;
             _context = context; // ⚠️ NUEVO
         }
 
@@ -171,7 +166,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 _logger.LogInformation("Transacción completada exitosamente para Personal {Id}", personal.IdPersonal);
 
                 // ⚠️ PASO 7: Construir URL de activación y enviar email (FUERA de la transacción)
-                var activacionUrl = $"{_frontendSettings.BaseUrl}/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
+                // Using relative path because frontend URL is managed externally (Quasar)
+                var activacionUrl = $"/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
 
