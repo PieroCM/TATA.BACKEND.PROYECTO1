@@ -312,7 +312,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         CuentaActivada = usuario?.PasswordHash != null,
 
                         // ========== DATOS DE ROL (Pueden ser NULL) ==========
-                        NombreRol = usuario?.IdRolSistemaNavigation?.Nombre
+                        NombreRol = usuario?.IdRolSistemaNavigation?.Nombre,
+
+                        // Fecha de creación tomada del registro de Personal
+                        CreadoEn = personal.CreadoEn
                     };
                 }).ToList();
 

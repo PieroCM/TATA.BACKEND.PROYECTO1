@@ -131,5 +131,8 @@
         /// Será NULL si el Personal no tiene cuenta de usuario
         /// </summary>
         public string? NombreRol { get; set; }
+
+        // Ingresando fecha de creacion
+        public DateTime CreadoEn { get; set; }
     }
 }
