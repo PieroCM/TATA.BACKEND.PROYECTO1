@@ -3,6 +3,7 @@ using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
 using System.Reflection; // Necesario para Assembly
+using TATA.BACKEND.PROYECTO1.API.Services;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Seed;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
@@ -121,6 +122,13 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Configurar HttpClient para el servicio de predicción
+builder.Services.AddHttpClient<PrediccionProxyService>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:8000");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 var app = builder.Build();
 
