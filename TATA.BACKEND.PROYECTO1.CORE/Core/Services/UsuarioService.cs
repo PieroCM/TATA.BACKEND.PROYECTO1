@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
@@ -16,28 +17,31 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IJWTService _jwtService;
         private readonly IEmailService _emailService;
         private readonly ILogger<UsuarioService> _logger;
+        private readonly string _frontendBaseUrl;
 
         public UsuarioService(
             IUsuarioRepository usuarioRepository,
             IPersonalRepository personalRepository, // ⚠️ NUEVO
             IJWTService jwtService,
             IEmailService emailService,
-            ILogger<UsuarioService> logger)
+            ILogger<UsuarioService> logger,
+            IConfiguration configuration)
         {
             _usuarioRepository = usuarioRepository;
             _personalRepository = personalRepository; // ⚠️ NUEVO
             _jwtService = jwtService;
             _emailService = emailService;
             _logger = logger;
+            _frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"] ?? "http://localhost:9000";
         }
 
         // ===========================
         // AUTENTICACIÓN
         // ===========================
 
-        public async Task<string?> SignInAsync(SignInRequestDTO dto)
+        public async Task<SignInResponseDTO?> SignInAsync(SignInRequestDTO dto)
         {
-            // ⚠️ CAMBIO: Buscar por email en lugar de username
+            // ⚠️ CAMBIO: Buscar por email en lugar de username (incluye rol y permisos)
             var usuario = await _usuarioRepository.GetByEmailAsync(dto.Email);
             if (usuario == null) 
             {
@@ -69,8 +73,32 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             usuario.UltimoLogin = DateTime.UtcNow;
             await _usuarioRepository.UpdateAsync(usuario);
 
-            _logger.LogInformation("Login exitoso: {Email} - Username: {Username}", dto.Email, usuario.Username);
-            return _jwtService.GenerateJWToken(usuario);
+            // Generar token JWT
+            var token = _jwtService.GenerateJWToken(usuario);
+
+            // Construir respuesta completa con datos del usuario, rol y permisos
+            var response = new SignInResponseDTO
+            {
+                Token = token,
+                IdUsuario = usuario.IdUsuario,
+                Username = usuario.Username,
+                Email = usuario.PersonalNavigation?.CorreoCorporativo ?? string.Empty,
+                IdPersonal = usuario.IdPersonal,
+                Nombres = usuario.PersonalNavigation?.Nombres,
+                Apellidos = usuario.PersonalNavigation?.Apellidos,
+                IdRolSistema = usuario.IdRolSistema,
+                RolCodigo = usuario.IdRolSistemaNavigation?.Codigo ?? string.Empty,
+                RolNombre = usuario.IdRolSistemaNavigation?.Nombre ?? string.Empty,
+                Permisos = usuario.IdRolSistemaNavigation?.IdPermiso
+                    .Select(p => p.Codigo)
+                    .Distinct()
+                    .ToList() ?? new List<string>()
+            };
+
+            _logger.LogInformation("Login exitoso: {Email} - Username: {Username} - Rol: {Rol} - Permisos: {Permisos}", 
+                dto.Email, usuario.Username, response.RolCodigo, string.Join(", ", response.Permisos));
+
+            return response;
         }
 
         public async Task<bool> SignUpAsync(SignUpRequestDTO dto)
@@ -366,8 +394,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 await _usuarioRepository.UpdateAsync(usuario);
 
-                // ⚠️ CAMBIO: URL usa email en lugar de username
-                var recoveryUrl = $"/forgot-password?email={Uri.EscapeDataString(request.Email)}&token={token}";
+                // ⚠️ CAMBIO: Construir URL absoluta para el frontend
+                var path = $"/forgot-password?email={Uri.EscapeDataString(request.Email)}&token={token}";
+                var recoveryUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
                 
                 _logger.LogInformation("URL de recuperación generada para {Email}: {Url}", request.Email, recoveryUrl);
 
@@ -614,8 +643,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 _logger.LogInformation("Usuario creado y vinculado a Personal {IdPersonal}: Username={Username}, Rol={IdRol}", 
                     dto.IdPersonal, dto.Username, dto.IdRolSistema);
 
-                // PASO 7: Construir URL de activación
-                var activacionUrl = $"/activacion-cuenta?email={Uri.EscapeDataString(personal.CorreoCorporativo)}&token={token}";
+                // PASO 7: Construir URL absoluta de activación
+                var path = $"/activacion-cuenta?email={Uri.EscapeDataString(personal.CorreoCorporativo)}&token={token}";
+                var activacionUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", dto.Username, activacionUrl);
 

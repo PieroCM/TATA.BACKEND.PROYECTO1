@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
@@ -17,19 +18,22 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IEmailService _emailService;
         private readonly ILogger<PersonalService> _logger;
         private readonly Proyecto1SlaDbContext _context; // ⚠️ NUEVO: Para transacciones
+        private readonly string _frontendBaseUrl;
 
         public PersonalService(
             IPersonalRepository personalRepository,
             IUsuarioRepository usuarioRepository,
             IEmailService emailService,
             ILogger<PersonalService> logger,
-            Proyecto1SlaDbContext context) // ⚠️ NUEVO
+            Proyecto1SlaDbContext context,
+            IConfiguration configuration)
         {
             _personalRepository = personalRepository;
             _usuarioRepository = usuarioRepository;
             _emailService = emailService;
             _logger = logger;
-            _context = context; // ⚠️ NUEVO
+            _context = context;
+            _frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"] ?? "http://localhost:9000";
         }
 
         public async Task<IEnumerable<PersonalResponseDTO>> GetAllAsync()
@@ -165,9 +169,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 _logger.LogInformation("Transacción completada exitosamente para Personal {Id}", personal.IdPersonal);
 
-                // ⚠️ PASO 7: Construir URL de activación y enviar email (FUERA de la transacción)
-                // Using relative path because frontend URL is managed externally (Quasar)
-                var activacionUrl = $"/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
+                // ⚠️ PASO 7: Construir URL absoluta de activación y enviar email (FUERA de la transacción)
+                var path = $"/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
+                var activacionUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
 

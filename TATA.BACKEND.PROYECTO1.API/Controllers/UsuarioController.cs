@@ -59,9 +59,9 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 
             try
             {
-                var token = await _usuarioService.SignInAsync(dto);
+                var result = await _usuarioService.SignInAsync(dto);
                 
-                if (token == null)
+                if (result == null)
                 {
                     log.Warn($"SignIn: Credenciales inválidas o usuario inactivo para email: {dto.Email}");
                     await _logService.AddAsync(new LogSistemaCreateDTO
@@ -83,7 +83,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     IdUsuario = null
                 });
 
-                return Ok(new { message = "Inicio de sesión exitoso", token });
+                return Ok(result);
             }
             catch (InvalidOperationException ex)
             {

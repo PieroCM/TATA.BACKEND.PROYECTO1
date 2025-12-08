@@ -33,6 +33,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
         {
             return await _context.Usuario
                 .Include(u => u.IdRolSistemaNavigation)
+                    .ThenInclude(r => r.IdPermiso) // ⚠️ Incluir permisos del rol
                 .Include(u => u.PersonalNavigation)
                 .FirstOrDefaultAsync(u => u.PersonalNavigation != null && 
                                        u.PersonalNavigation.CorreoCorporativo == email);
