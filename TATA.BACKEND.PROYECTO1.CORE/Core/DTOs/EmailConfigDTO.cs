@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
     /// <summary>
-    /// DTO de configuración de email
+    /// DTO de configuración de email (lectura)
     /// </summary>
     public class EmailConfigDTO
     {
@@ -18,13 +18,33 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
     }
 
     /// <summary>
-    /// DTO para actualizar configuración de email
+    /// DTO para actualizar configuración de email desde el frontend
+    /// Campos opcionales: solo se actualizan los que se envían
     /// </summary>
     public class EmailConfigUpdateDTO
     {
+        /// <summary>
+        /// Email destinatario para resumen diario
+        /// </summary>
+        [EmailAddress(ErrorMessage = "El formato del email es inválido")]
         public string? DestinatarioResumen { get; set; }
+
+        /// <summary>
+        /// Activar envío inmediato de alertas
+        /// </summary>
         public bool? EnvioInmediato { get; set; }
+
+        /// <summary>
+        /// Toggle del frontend: Activar/Desactivar resumen diario automático
+        /// true = ACTIVADO, false = DESACTIVADO
+        /// </summary>
         public bool? ResumenDiario { get; set; }
+
+        /// <summary>
+        /// Hora de envío del resumen diario (formato "HH:mm:ss")
+        /// Ejemplo: "08:00:00", "14:30:00"
+        /// El model binder de .NET 9 convierte automáticamente string a TimeSpan
+        /// </summary>
         public TimeSpan? HoraResumen { get; set; }
     }
 
@@ -43,5 +63,45 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 
         [Required(ErrorMessage = "El cuerpo del correo es obligatorio")]
         public string CuerpoHtml { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// DTO de respuesta para el envío del resumen diario
+    /// Contiene el resultado de la operación y mensaje dinámico
+    /// </summary>
+    public class EmailSummaryResponseDto
+    {
+        /// <summary>
+        /// Indica si la operación fue exitosa
+        /// </summary>
+        public bool Exito { get; set; }
+
+        /// <summary>
+        /// Mensaje dinámico del resultado de la operación
+        /// Ejemplos:
+        /// - "No se encontraron alertas para enviar"
+        /// - "Resumen diario enviado exitosamente con 5 alertas"
+        /// </summary>
+        public string Mensaje { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Número de alertas incluidas en el resumen (0 si no se envió)
+        /// </summary>
+        public int CantidadAlertas { get; set; }
+
+        /// <summary>
+        /// Indica si se envió el correo (false si no había alertas)
+        /// </summary>
+        public bool CorreoEnviado { get; set; }
+
+        /// <summary>
+        /// Destinatario del correo (si aplica)
+        /// </summary>
+        public string? Destinatario { get; set; }
+
+        /// <summary>
+        /// Timestamp de la operación
+        /// </summary>
+        public DateTime Fecha { get; set; } = DateTime.UtcNow;
     }
 }

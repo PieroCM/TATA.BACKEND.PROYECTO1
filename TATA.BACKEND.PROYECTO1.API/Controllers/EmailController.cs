@@ -156,32 +156,42 @@ public class EmailController(
     {
         try
         {
-            _logger.LogInformation("Solicitud de configuración de email");
+            _logger.LogInformation("?? Solicitud de configuración de email desde frontend");
 
             var config = await _emailConfigService.GetConfigAsync();
 
             if (config == null)
             {
-                _logger.LogWarning("No se encontró configuración de email");
-                return NotFound(new { mensaje = "No se encontró configuración de email. Ejecute las migraciones de BD." });
+                _logger.LogWarning("?? No se encontró configuración de email");
+                return NotFound(new 
+                { 
+                    mensaje = "No se encontró configuración de email. Ejecute las migraciones de BD.",
+                    success = false 
+                });
             }
+
+            _logger.LogInformation("? Configuración obtenida: ResumenDiario={Estado}, HoraResumen={Hora}", 
+                config.ResumenDiario ? "ACTIVADO" : "DESACTIVADO", 
+                config.HoraResumen.ToString(@"hh\:mm\:ss"));
 
             return Ok(config);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al obtener configuración de email");
+            _logger.LogError(ex, "? Error al obtener configuración de email");
             return StatusCode(500, new
             {
                 mensaje = "Error al obtener configuración. Por favor, contacte al administrador.",
-                error = ex.Message
+                error = ex.Message,
+                success = false
             });
         }
     }
 
     /// <summary>
-    /// Actualizar configuración de email
+    /// Actualizar configuración de email desde el frontend
     /// PUT /api/email/config/{id}
+    /// Body ejemplo: { "resumenDiario": true, "horaResumen": "08:00:00" }
     /// </summary>
     [HttpPut("config/{id:int}")]
     [ProducesResponseType(typeof(EmailConfigDTO), StatusCodes.Status200OK)]
@@ -192,33 +202,63 @@ public class EmailController(
     {
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("Modelo inválido al actualizar configuración de email");
-            return BadRequest(ModelState);
+            _logger.LogWarning("?? Modelo inválido al actualizar configuración de email desde frontend");
+            return BadRequest(new 
+            { 
+                mensaje = "Datos inválidos",
+                errores = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage),
+                success = false
+            });
         }
 
         try
         {
-            _logger.LogInformation("Actualizando configuración de email {Id}", id);
+            _logger.LogInformation("?? Actualizando configuración de email {Id} desde frontend", id);
+            
+            // Log de los campos recibidos
+            if (dto.ResumenDiario.HasValue)
+            {
+                var emoji = dto.ResumenDiario.Value ? "?" : "?";
+                _logger.LogInformation("{Emoji} Frontend solicita cambiar ResumenDiario a: {Estado}", 
+                    emoji, dto.ResumenDiario.Value);
+            }
+            
+            if (dto.HoraResumen.HasValue)
+            {
+                _logger.LogInformation("? Frontend solicita cambiar HoraResumen a: {Hora}", 
+                    dto.HoraResumen.Value.ToString(@"hh\:mm\:ss"));
+            }
 
             var updated = await _emailConfigService.UpdateConfigAsync(id, dto);
 
             if (updated == null)
             {
-                _logger.LogWarning("Configuración de email {Id} no encontrada", id);
-                return NotFound(new { mensaje = $"Configuración con ID {id} no encontrada" });
+                _logger.LogWarning("?? Configuración de email {Id} no encontrada", id);
+                return NotFound(new 
+                { 
+                    mensaje = $"Configuración con ID {id} no encontrada",
+                    success = false
+                });
             }
 
-            _logger.LogInformation("Configuración de email {Id} actualizada exitosamente", id);
+            _logger.LogInformation("? Configuración de email {Id} actualizada exitosamente desde frontend", id);
 
-            return Ok(updated);
+            return Ok(new
+            {
+                success = true,
+                mensaje = "Configuración actualizada exitosamente",
+                data = updated,
+                actualizadoEn = DateTime.UtcNow
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al actualizar configuración de email {Id}", id);
+            _logger.LogError(ex, "? Error al actualizar configuración de email {Id}", id);
             return StatusCode(500, new
             {
                 mensaje = "Error al actualizar configuración. Por favor, contacte al administrador.",
-                error = ex.Message
+                error = ex.Message,
+                success = false
             });
         }
     }
@@ -289,7 +329,7 @@ public class EmailController(
     /// <summary>
     /// Enviar resumen diario manualmente (para pruebas o botón administrativo)
     /// POST /api/email/send-summary
-    /// MODIFICADO: Ahora devuelve error 400 con detalles completos si falla
+    /// MODIFICADO: Usa mensaje dinámico del servicio en lugar de texto fijo
     /// </summary>
     [HttpPost("send-summary")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -297,27 +337,35 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> SendSummary()
     {
-        _logger.LogCritical("??????????????????????????????????????????????????????????");
-        _logger.LogCritical("?  ?? [API] Solicitud manual de envío de resumen diario ?");
-        _logger.LogCritical("??????????????????????????????????????????????????????????");
+        _logger.LogCritical("???????????????????????????????????????????????????????");
+        _logger.LogCritical("?? [API] Solicitud manual de envío de resumen diario");
+        _logger.LogCritical("???????????????????????????????????????????????????????");
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
-            await _emailAutomationService.SendDailySummaryAsync();
+            // ?? CAPTURAR EL RESULTADO del servicio
+            var response = await _emailAutomationService.SendDailySummaryAsync();
 
             stopwatch.Stop();
-            _logger.LogCritical("??????????????????????????????????????????????????????????");
-            _logger.LogCritical("?  ? [API] Resumen diario enviado exitosamente         ?");
-            _logger.LogCritical("?  ??  Tiempo total: {Time:F2}s                            ?", stopwatch.Elapsed.TotalSeconds);
-            _logger.LogCritical("??????????????????????????????????????????????????????????");
+            
+            // ? USAR EL MENSAJE DINÁMICO del servicio
+            _logger.LogInformation("?? Resultado del servicio: {Mensaje}", response.Mensaje);
+            _logger.LogInformation("   Exito: {Exito}", response.Exito);
+            _logger.LogInformation("   Correo enviado: {CorreoEnviado}", response.CorreoEnviado);
+            _logger.LogInformation("   Cantidad de alertas: {CantidadAlertas}", response.CantidadAlertas);
+            _logger.LogInformation("   Duración total: {Time:F2}s", stopwatch.Elapsed.TotalSeconds);
 
+            // ? RETORNAR MENSAJE DINÁMICO en el JSON
             return Ok(new
             {
-                success = true,
-                mensaje = "? Resumen diario enviado exitosamente",
-                fecha = DateTime.UtcNow,
+                success = response.Exito,
+                mensaje = response.Mensaje, // ? MENSAJE DINÁMICO del servicio
+                cantidadAlertas = response.CantidadAlertas,
+                correoEnviado = response.CorreoEnviado,
+                destinatario = response.Destinatario,
+                fecha = response.Fecha,
                 tipo = "MANUAL",
                 duracionSegundos = stopwatch.Elapsed.TotalSeconds
             });
@@ -325,16 +373,16 @@ public class EmailController(
         catch (InvalidOperationException ex)
         {
             stopwatch.Stop();
-            _logger.LogCritical("??????????????????????????????????????????????????????????");
-            _logger.LogCritical("?  ? [API] No se pudo enviar resumen diario            ?");
-            _logger.LogCritical("?  ??  Falló después de: {Time:F2}s                        ?", stopwatch.Elapsed.TotalSeconds);
-            _logger.LogCritical("??????????????????????????????????????????????????????????");
+            _logger.LogCritical("???????????????????????????????????????????????????????");
+            _logger.LogCritical("? [API] No se pudo enviar resumen diario");
+            _logger.LogCritical("   Falló después de: {Time:F2}s", stopwatch.Elapsed.TotalSeconds);
+            _logger.LogCritical("???????????????????????????????????????????????????????");
             _logger.LogError(ex, "Detalles del error:");
             
             return BadRequest(new
             {
                 success = false,
-                mensaje = "? No se pudo enviar el resumen diario",
+                mensaje = ex.Message, // ? Mensaje de la excepción
                 error = ex.Message,
                 detalleCompleto = ex.ToString(),
                 tipo = "CONFIGURATION_ERROR",
@@ -345,16 +393,16 @@ public class EmailController(
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _logger.LogCritical("??????????????????????????????????????????????????????????");
-            _logger.LogCritical("?  ?? [API] Error crítico al enviar resumen             ?");
-            _logger.LogCritical("?  ??  Falló después de: {Time:F2}s                        ?", stopwatch.Elapsed.TotalSeconds);
-            _logger.LogCritical("??????????????????????????????????????????????????????????");
+            _logger.LogCritical("???????????????????????????????????????????????????????");
+            _logger.LogCritical("? [API] Error crítico al enviar resumen");
+            _logger.LogCritical("   Falló después de: {Time:F2}s", stopwatch.Elapsed.TotalSeconds);
+            _logger.LogCritical("???????????????????????????????????????????????????????");
             _logger.LogError(ex, "Error inesperado:");
             
             return StatusCode(500, new
             {
                 success = false,
-                mensaje = "? Error crítico al enviar resumen diario",
+                mensaje = $"Error crítico al enviar resumen diario: {ex.Message}", // ? Mensaje dinámico del error
                 error = ex.Message,
                 tipoExcepcion = ex.GetType().Name,
                 innerException = ex.InnerException?.Message,

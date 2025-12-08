@@ -122,9 +122,9 @@ public class EmailAutomationService(
 
     /// <summary>
     /// Envío automático del resumen diario de alertas críticas/vencidas
-    /// VERSIÓN REFORZADA: Con validaciones y logs extremadamente detallados
+    /// VERSIÓN REFORZADA: Con validaciones, guard clause, logs extremadamente detallados y respuesta dinámica
     /// </summary>
-    public async Task SendDailySummaryAsync()
+    public async Task<EmailSummaryResponseDto> SendDailySummaryAsync()
     {
         _logger.LogCritical("?????????????????????????????????????????");
         _logger.LogCritical("?? [PASO 1/7] INICIANDO envío de resumen diario");
@@ -143,14 +143,22 @@ public class EmailAutomationService(
         }
 
         _logger.LogInformation("? EmailConfig encontrado: Id={Id}", config.Id);
-        _logger.LogInformation("   ? ResumenDiario: {ResumenDiario}", config.ResumenDiario);
-        _logger.LogInformation("   ? DestinatarioResumen: '{Destinatario}'", config.DestinatarioResumen ?? "NULL");
+        _logger.LogInformation("   ?? ResumenDiario: {ResumenDiario}", config.ResumenDiario);
+        _logger.LogInformation("   ?? DestinatarioResumen: '{Destinatario}'", config.DestinatarioResumen ?? "NULL");
         _logger.LogInformation("   ? HoraResumen: {Hora}", config.HoraResumen);
 
         if (!config.ResumenDiario)
         {
             _logger.LogWarning("?? ResumenDiario está DESACTIVADO. Abortando envío.");
-            return;
+            
+            // ?? NO registrar en email_log cuando está desactivado (no se envía correo)
+            return new EmailSummaryResponseDto
+            {
+                Exito = true,
+                Mensaje = "Resumen diario desactivado en la configuración",
+                CantidadAlertas = 0,
+                CorreoEnviado = false
+            };
         }
 
         var destinatario = config.DestinatarioResumen?.Trim();
@@ -158,7 +166,7 @@ public class EmailAutomationService(
         {
             var error = "? [FATAL] DestinatarioResumen está vacío o NULL";
             _logger.LogCritical(error);
-            _logger.LogCritical("   ? Valor actual: '{Valor}'", config.DestinatarioResumen ?? "NULL");
+            _logger.LogCritical("   ?? Valor actual: '{Valor}'", config.DestinatarioResumen ?? "NULL");
             await RegistrarEmailLog("RESUMEN", "", "ERROR", error);
             throw new InvalidOperationException(error);
         }
@@ -188,21 +196,40 @@ public class EmailAutomationService(
             .OrderByDescending(a => a.FechaCreacion)
             .ToListAsync();
 
-        _logger.LogInformation("? Consulta completada: {Count} alertas encontradas", alertasCriticas.Count);
+        _logger.LogInformation("?? Consulta completada: {Count} alertas encontradas", alertasCriticas.Count);
 
+        // ???????????????????????????????????????????????????????????????
+        // ?? GUARD CLAUSE: Validar si hay alertas antes de continuar
+        // ???????????????????????????????????????????????????????????????
         if (!alertasCriticas.Any())
         {
-            _logger.LogWarning("?? No hay alertas CRITICO/ALTO. Abortando envío (no hay datos).");
-            _logger.LogInformation("   Sugerencia: Verifica que existan alertas con:");
-            _logger.LogInformation("   SELECT * FROM alerta WHERE Estado='ACTIVA' AND Nivel IN ('CRITICO','ALTO')");
-            return;
+            _logger.LogWarning("?????????????????????????????????????????");
+            _logger.LogWarning("?? No se encontraron alertas para enviar");
+            _logger.LogWarning("?????????????????????????????????????????");
+            _logger.LogInformation("   ?? No hay alertas con Estado='ACTIVA' y Nivel IN ('CRITICO','ALTO')");
+            _logger.LogInformation("   ? Proceso finalizado correctamente sin envío de correo");
+            _logger.LogInformation("   ?? Sugerencia: Verifica la consulta con:");
+            _logger.LogInformation("      SELECT * FROM alerta WHERE Estado='ACTIVA' AND Nivel IN ('CRITICO','ALTO')");
+            
+            // ?? NO registrar en email_log cuando no se envía correo
+            // await RegistrarEmailLog("RESUMEN", destinatario, "OK", "No se encontraron alertas para enviar"); ? ELIMINADO
+            
+            // ? EARLY RETURN con mensaje dinámico (sin registro en BD)
+            return new EmailSummaryResponseDto
+            {
+                Exito = true,
+                Mensaje = "No se encontraron alertas para enviar",
+                CantidadAlertas = 0,
+                CorreoEnviado = false,
+                Destinatario = destinatario
+            };
         }
 
         // Mostrar primeras 3 alertas para confirmar
         _logger.LogInformation("?? Primeras 3 alertas a incluir:");
         foreach (var alerta in alertasCriticas.Take(3))
         {
-            _logger.LogInformation("   ? [{Id}] {Nivel}: {Mensaje}", 
+            _logger.LogInformation("   ?? [{Id}] {Nivel}: {Mensaje}", 
                 alerta.IdAlerta, 
                 alerta.Nivel, 
                 alerta.Mensaje.Length > 50 ? alerta.Mensaje.Substring(0, 50) + "..." : alerta.Mensaje);
@@ -245,9 +272,9 @@ public class EmailAutomationService(
         _logger.LogCritical("?????????????????????????????????????????");
         _logger.LogCritical("?? [PASO 5/7] Preparando envío de correo");
         _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogInformation("   ? Destinatario: {To}", destinatario);
-        _logger.LogInformation("   ? Asunto: {Subject}", asunto);
-        _logger.LogInformation("   ? Tamaño HTML: {Size} caracteres", htmlBody.Length);
+        _logger.LogInformation("   ?? Destinatario: {To}", destinatario);
+        _logger.LogInformation("   ?? Asunto: {Subject}", asunto);
+        _logger.LogInformation("   ?? Tamaño HTML: {Size} caracteres", htmlBody.Length);
 
         // PASO 5: ENVIAR - AQUÍ ES CRÍTICO
         _logger.LogCritical("?????????????????????????????????????????");
@@ -256,11 +283,10 @@ public class EmailAutomationService(
         
         var envioComienzo = DateTime.UtcNow;
         var envioExitoso = false;
-        Exception? errorCapturado = null;
 
         try
         {
-            _logger.LogWarning("? Llamando a _emailService.SendAsync...");
+            _logger.LogWarning("?? Llamando a _emailService.SendAsync...");
             _logger.LogWarning("   Si no ves logs después de esto, el error está en EmailService");
             
             await _emailService.SendAsync(destinatario, asunto, htmlBody);
@@ -268,16 +294,15 @@ public class EmailAutomationService(
             envioExitoso = true;
             var duracion = (DateTime.UtcNow - envioComienzo).TotalSeconds;
             
-            _logger.LogCritical("??? [ÉXITO] EmailService.SendAsync completado en {Duracion:F2}s", duracion);
+            _logger.LogCritical("?? [ÉXITO] EmailService.SendAsync completado en {Duracion:F2}s", duracion);
             _logger.LogCritical("?????????????????????????????????????????");
         }
         catch (Exception ex)
         {
-            errorCapturado = ex;
             var duracion = (DateTime.UtcNow - envioComienzo).TotalSeconds;
             
             _logger.LogCritical("?????????????????????????????????????????");
-            _logger.LogCritical("??? [ERROR CAPTURADO] Falló después de {Duracion:F2}s", duracion);
+            _logger.LogCritical("?? [ERROR CAPTURADO] Falló después de {Duracion:F2}s", duracion);
             _logger.LogCritical("?????????????????????????????????????????");
             _logger.LogCritical("Tipo: {Type}", ex.GetType().FullName);
             _logger.LogCritical("Mensaje: {Message}", ex.Message);
@@ -294,19 +319,20 @@ public class EmailAutomationService(
                 ex);
         }
 
-        // PASO 6: Registrar éxito
+        // PASO 6: Registrar éxito y retornar respuesta
         if (envioExitoso)
         {
             _logger.LogCritical("?????????????????????????????????????????");
             _logger.LogCritical("?? [PASO 7/7] Registrando en email_log");
             _logger.LogCritical("?????????????????????????????????????????");
 
-            await RegistrarEmailLog("RESUMEN", destinatario, "OK",
-                $"Enviado resumen con {alertasCriticas.Count} alertas");
+            var mensajeExito = $"Resumen diario enviado exitosamente con {alertasCriticas.Count} alertas";
 
-            _logger.LogCritical("??? [COMPLETADO] Resumen diario enviado exitosamente");
-            _logger.LogCritical("   ? Destinatario: {To}", destinatario);
-            _logger.LogCritical("   ? Alertas incluidas: {Count}", alertasCriticas.Count);
+            await RegistrarEmailLog("RESUMEN", destinatario, "OK", mensajeExito);
+
+            _logger.LogCritical("?? [COMPLETADO] {Mensaje}", mensajeExito);
+            _logger.LogCritical("   ?? Destinatario: {To}", destinatario);
+            _logger.LogCritical("   ?? Alertas incluidas: {Count}", alertasCriticas.Count);
             _logger.LogCritical("   ? Timestamp: {Time}", DateTime.UtcNow);
             _logger.LogCritical("?????????????????????????????????????????");
             
@@ -317,7 +343,27 @@ public class EmailAutomationService(
             _logger.LogWarning("   2. Busca: from:mellamonose19@gmail.com");
             _logger.LogWarning("   3. Busca: subject:[RESUMEN DIARIO SLA]");
             _logger.LogWarning("   4. El correo SÍ se envió, puede estar bloqueado por Gmail");
+
+            // Retornar respuesta con mensaje dinámico
+            return new EmailSummaryResponseDto
+            {
+                Exito = true,
+                Mensaje = mensajeExito,
+                CantidadAlertas = alertasCriticas.Count,
+                CorreoEnviado = true,
+                Destinatario = destinatario
+            };
         }
+
+        // Este código nunca debería ejecutarse, pero por seguridad:
+        return new EmailSummaryResponseDto
+        {
+            Exito = false,
+            Mensaje = "Error desconocido en el envío",
+            CantidadAlertas = 0,
+            CorreoEnviado = false,
+            Destinatario = destinatario
+        };
     }
 
     /// <summary>
