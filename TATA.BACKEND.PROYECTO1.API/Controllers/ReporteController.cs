@@ -182,14 +182,14 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 return BadRequest("Debes enviar al menos una solicitud.");
             }
 
-            // Obtener id usuario desde el JWT (claim "UserId")
-            var userIdClaim = User.FindFirst("UserId");
+            // Obtener id usuario desde el JWT usando NameIdentifier
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var idUsuarioActual))
             {
-                log.Warn("Generar: Token sin UserId válido");
-                await _logService.RegistrarLogAsync("WARN", "Validación fallida: Token sin UserId", 
-                    "El token no contiene claim UserId válido", userId);
-                return Unauthorized("Token sin claim UserId válido.");
+                log.Warn("Generar: Token sin NameIdentifier válido");
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: Token sin NameIdentifier", 
+                    "El token no contiene claim NameIdentifier válido", userId);
+                return Unauthorized("Token sin claim NameIdentifier válido.");
             }
 
             try
