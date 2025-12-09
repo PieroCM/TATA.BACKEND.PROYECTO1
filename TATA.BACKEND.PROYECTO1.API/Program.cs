@@ -1,4 +1,3 @@
-
 using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
@@ -97,8 +96,15 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
-// BACKGROUND WORKER - Resumen diario autom�tico
+// ═══════════════════════════════════════════════════════════════════════════════
+// BACKGROUND WORKERS (Procesos automáticos que corren en segundo plano)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Worker 1: Resumen diario de ALERTAS por email (usa EmailConfig.HoraResumen)
 builder.Services.AddHostedService<DailySummaryWorker>();
+
+// Worker 2: Recálculo diario de SLA a medianoche (hora Perú) - INDEPENDIENTE de alertas
+builder.Services.AddHostedService<SlaDailyWorker>();
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);

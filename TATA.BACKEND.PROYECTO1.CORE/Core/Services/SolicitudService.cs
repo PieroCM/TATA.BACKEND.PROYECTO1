@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Shared;
+using Microsoft.Extensions.Logging;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -13,16 +15,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     {
         private readonly ISolicitudRepository _solicitudRepository;
         private readonly IAlertaRepository _alertaRepository;
+        private readonly ILogger<SolicitudService> _logger;
 
         // TimeZone de Perú para cálculo correcto de "hoy"
         private static readonly TimeZoneInfo PeruTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time");
 
         public SolicitudService(
             ISolicitudRepository solicitudRepository,
-            IAlertaRepository alertaRepository)
+            IAlertaRepository alertaRepository,
+            ILogger<SolicitudService> logger)
         {
             _solicitudRepository = solicitudRepository;
             _alertaRepository = alertaRepository;
+            _logger = logger;
         }
         // Get all solicitudes with dtos
         // GET ALL
@@ -171,8 +176,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             if (configSla == null)
                 throw new ArgumentException($"No existe configuración SLA con Id={dto.IdSla}");
 
-            // Llamar al calculador común
-            var hoyPeru = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PeruTimeZone).Date;
+            // Usar hora de Perú para el cálculo
+            var hoyPeru = PeruTimeProvider.TodayPeru;
             var calc = CalcularSlaYResumen(dto.FechaSolicitud.Date, dto.FechaIngreso?.Date, configSla, hoyPeru);
 
             // Si DTO trae resumen personalizado, respetarlo
@@ -180,6 +185,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var estadoSolicitudFinal = string.IsNullOrWhiteSpace(dto.EstadoSolicitud) ? calc.estadoSolicitud : dto.EstadoSolicitud;
 
             // 4. armar entidad (convertir DateTime -> DateOnly)
+            // Usar hora de Perú para CreadoEn
             var entity = new Solicitud
             {
                 IdPersonal = dto.IdPersonal,
@@ -193,7 +199,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 OrigenDato = dto.OrigenDato,
                 EstadoSolicitud = estadoSolicitudFinal,
                 EstadoCumplimientoSla = calc.estadoCumplimientoSla,
-                CreadoEn = DateTime.UtcNow
+                CreadoEn = PeruTimeProvider.NowPeru // ⚠️ Usar hora de Perú
             };
 
             // 5. TRANSACCIÓN: Guardar solicitud y crear alerta inicial
@@ -212,7 +218,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     Mensaje = "Nueva solicitud creada",
                     Estado = "ACTIVA",
                     EnviadoEmail = false,
-                    FechaCreacion = DateTime.UtcNow
+                    FechaCreacion = PeruTimeProvider.NowPeru // ⚠️ Usar hora de Perú
                 };
 
                 await _alertaRepository.CreateAlertaAsync(alertaInicial);
@@ -237,7 +243,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             if (configSla == null)
                 throw new ArgumentException($"No existe configuración SLA con Id={dto.IdSla}");
 
-            var hoyPeru = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PeruTimeZone).Date;
+            var hoyPeru = PeruTimeProvider.TodayPeru;
             var calc = CalcularSlaYResumen(dto.FechaSolicitud.Date, dto.FechaIngreso?.Date, configSla, hoyPeru);
 
             var resumenFinal = string.IsNullOrWhiteSpace(dto.ResumenSla) ? calc.resumenSla : dto.ResumenSla;
@@ -256,7 +262,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 OrigenDato = dto.OrigenDato,
                 EstadoSolicitud = dto.EstadoSolicitud ?? calc.estadoSolicitud,
                 EstadoCumplimientoSla = calc.estadoCumplimientoSla,
-                ActualizadoEn = DateTime.UtcNow
+                ActualizadoEn = PeruTimeProvider.NowPeru // ⚠️ Usar hora de Perú
             };
 
             var updated = await _solicitudRepository.UpdateSolicitudAsync(id, entity);
@@ -273,6 +279,107 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         public async Task<bool> DeleteAsync(int id)
         {
             return await _solicitudRepository.DeleteSolicitudAsync(id, "ELIMINADO");
+        }
+
+        /// <summary>
+        /// Actualiza el SLA diario de todas las solicitudes activas o en proceso.
+        /// Recalcula NumDiasSla, EstadoCumplimientoSla y EstadoSolicitud basándose en la fecha actual de Perú.
+        /// Optimizado para manejar miles de registros eficientemente.
+        /// </summary>
+        /// <param name="fechaReferenciaPeru">Fecha de referencia en zona horaria de Perú para el cálculo de SLA</param>
+        /// <param name="cancellationToken">Token de cancelación</param>
+        /// <returns>Número de solicitudes actualizadas</returns>
+        public async Task<int> ActualizarSlaDiarioAsync(DateTime fechaReferenciaPeru, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation(
+                "Iniciando actualización diaria de SLA. Fecha de referencia (Perú): {FechaPeru:yyyy-MM-dd HH:mm:ss}",
+                fechaReferenciaPeru);
+
+            var hoyPeru = fechaReferenciaPeru.Date;
+
+            // Obtener solicitudes que necesitan recálculo
+            var solicitudes = await _solicitudRepository.GetSolicitudesParaRecalculoAsync();
+
+            _logger.LogDebug("Se encontraron {Total} solicitudes para recalcular SLA", solicitudes.Count);
+
+            int actualizadas = 0;
+            int errores = 0;
+
+            foreach (var s in solicitudes)
+            {
+                // Verificar cancelación
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Actualización de SLA cancelada. Procesadas: {Actualizadas}, Pendientes: {Pendientes}",
+                        actualizadas, solicitudes.Count - actualizadas - errores);
+                    break;
+                }
+
+                try
+                {
+                    // Validar que tenga ConfigSla
+                    if (s.IdSlaNavigation == null)
+                    {
+                        _logger.LogWarning("Solicitud {IdSolicitud} sin ConfigSla válido, se omite", s.IdSolicitud);
+                        errores++;
+                        continue;
+                    }
+
+                    // Convertir DateOnly a DateTime para cálculo
+                    var fechaSol = s.FechaSolicitud.ToDateTime(TimeOnly.MinValue);
+                    DateTime? fechaIng = s.FechaIngreso?.ToDateTime(TimeOnly.MinValue);
+
+                    // Guardar valores originales para comparar cambios
+                    var estadoSolicitudOriginal = s.EstadoSolicitud;
+                    var estadoCumplimientoOriginal = s.EstadoCumplimientoSla;
+                    var numDiasOriginal = s.NumDiasSla;
+
+                    // Llamar al método de cálculo común
+                    var calc = CalcularSlaYResumen(fechaSol, fechaIng, s.IdSlaNavigation, hoyPeru);
+
+                    // Actualizar campos calculados
+                    s.NumDiasSla = calc.numDiasSla;
+                    s.EstadoCumplimientoSla = calc.estadoCumplimientoSla;
+                    s.EstadoSolicitud = calc.estadoSolicitud;
+
+                    // Actualizar ResumenSla solo si estaba vacío
+                    if (string.IsNullOrWhiteSpace(s.ResumenSla))
+                    {
+                        s.ResumenSla = calc.resumenSla;
+                    }
+
+                    s.ActualizadoEn = fechaReferenciaPeru; // Usar la fecha de referencia
+
+                    // Solo actualizar en BD si hubo cambios
+                    var huboCambios = estadoSolicitudOriginal != s.EstadoSolicitud ||
+                                     estadoCumplimientoOriginal != s.EstadoCumplimientoSla ||
+                                     numDiasOriginal != s.NumDiasSla;
+
+                    if (huboCambios)
+                    {
+                        await _solicitudRepository.UpdateSolicitudAsync(s.IdSolicitud, s);
+                        actualizadas++;
+
+                        _logger.LogDebug(
+                            "Solicitud {IdSolicitud} actualizada: Estado={EstadoNuevo} (era {EstadoAnterior}), " +
+                            "Cumplimiento={CumplimientoNuevo} (era {CumplimientoAnterior}), Días={DiasNuevo}",
+                            s.IdSolicitud, s.EstadoSolicitud, estadoSolicitudOriginal,
+                            s.EstadoCumplimientoSla, estadoCumplimientoOriginal, s.NumDiasSla);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errores++;
+                    _logger.LogError(ex, "Error al actualizar SLA de solicitud {IdSolicitud}", s.IdSolicitud);
+                    // Continuar con las demás solicitudes
+                }
+            }
+
+            _logger.LogInformation(
+                "Actualización diaria de SLA finalizada. Total procesadas: {Total}, Actualizadas: {Actualizadas}, Errores: {Errores}",
+                solicitudes.Count, actualizadas, errores);
+
+            return actualizadas;
         }
 
         // Método privado que encapsula la lógica de SLA usada en SubidaVolumenServices
