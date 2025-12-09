@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers;
 
@@ -14,11 +17,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers;
 public class EmailController(
     IEmailAutomationService emailAutomationService,
     IEmailConfigService emailConfigService,
-    ILogger<EmailController> logger) : ControllerBase
+    ILogger<EmailController> logger,
+    ILogService logService) : ControllerBase
 {
+    private static readonly ILog log = LogManager.GetLogger(typeof(EmailController));
+    
     private readonly IEmailAutomationService _emailAutomationService = emailAutomationService;
     private readonly IEmailConfigService _emailConfigService = emailConfigService;
     private readonly ILogger<EmailController> _logger = logger;
+    private readonly ILogService _logService = logService;
 
     /// <summary>
     /// Envío masivo de correos (Broadcast) según filtros
@@ -31,8 +38,18 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> SendBroadcast([FromBody] BroadcastDto dto)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"SendBroadcast iniciado para usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: SendBroadcast", 
+            $"Usuario {userId} solicita broadcast con IdRol={dto?.IdRol}, IdSla={dto?.IdSla}", userId);
+
         if (!ModelState.IsValid)
         {
+            log.Warn("Modelo inválido en SendBroadcast");
+            await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
+            
             _logger.LogWarning("Modelo inválido en SendBroadcast: {Errors}",
                 string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             return BadRequest(new
@@ -45,6 +62,10 @@ public class EmailController(
         // Validación adicional
         if (string.IsNullOrWhiteSpace(dto.MensajeHtml))
         {
+            log.Warn("MensajeHtml vacío en broadcast");
+            await _logService.RegistrarLogAsync("WARN", "Validación fallida: MensajeHtml vacío", 
+                "El campo mensajeHtml es obligatorio", userId);
+            
             _logger.LogWarning("MensajeHtml vacío en broadcast");
             return BadRequest(new
             {
@@ -60,6 +81,10 @@ public class EmailController(
 
             await _emailAutomationService.SendBroadcastAsync(dto);
 
+            log.Info("Broadcast enviado exitosamente");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: SendBroadcast", 
+                $"Broadcast enviado exitosamente por usuario {userId}", userId);
+            
             _logger.LogInformation("Broadcast enviado exitosamente");
 
             return Ok(new
@@ -75,6 +100,9 @@ public class EmailController(
         }
         catch (ArgumentNullException ex)
         {
+            log.Warn($"Error de validación en broadcast: {ex.Message}");
+            await _logService.RegistrarLogAsync("WARN", "Error de validación en broadcast", ex.ToString(), userId);
+            
             _logger.LogWarning(ex, "Error de validación en broadcast");
             return BadRequest(new
             {
@@ -84,6 +112,9 @@ public class EmailController(
         }
         catch (ArgumentException ex)
         {
+            log.Warn($"Error de argumentos en broadcast: {ex.Message}");
+            await _logService.RegistrarLogAsync("WARN", "Error de argumentos en broadcast", ex.ToString(), userId);
+            
             _logger.LogWarning(ex, "Error de argumentos en broadcast");
             return BadRequest(new
             {
@@ -93,6 +124,9 @@ public class EmailController(
         }
         catch (InvalidOperationException ex)
         {
+            log.Warn($"Error de operación en broadcast: {ex.Message}");
+            await _logService.RegistrarLogAsync("WARN", "Error de operación en broadcast", ex.ToString(), userId);
+            
             _logger.LogWarning(ex, "Error de operación en broadcast");
             return BadRequest(new
             {
@@ -101,6 +135,9 @@ public class EmailController(
         }
         catch (Exception ex)
         {
+            log.Error("Error inesperado al enviar broadcast", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error inesperado al enviar broadcast", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error inesperado al enviar broadcast");
             return StatusCode(500, new
             {
@@ -119,12 +156,22 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> GetLogs()
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"GetLogs iniciado para usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetLogs email", 
+            $"Usuario {userId} solicita logs de email", userId);
+
         try
         {
             _logger.LogInformation("Solicitud de logs de email");
 
             var logs = await _emailAutomationService.GetLogsAsync();
 
+            log.Info($"GetLogs completado correctamente, {logs.Count} logs obtenidos");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetLogs email", 
+                $"Se retornaron {logs.Count} logs", userId);
+            
             _logger.LogInformation("Se retornaron {Count} logs", logs.Count);
 
             return Ok(new
@@ -135,6 +182,9 @@ public class EmailController(
         }
         catch (Exception ex)
         {
+            log.Error("Error al obtener logs", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error al obtener logs de email", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error al obtener logs");
             return StatusCode(500, new
             {
@@ -154,6 +204,12 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<EmailConfigDTO>> GetConfig()
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"GetConfig iniciado para usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetConfig email", 
+            $"Usuario {userId} solicita configuración de email", userId);
+
         try
         {
             _logger.LogInformation("Solicitud de configuración de email");
@@ -162,14 +218,25 @@ public class EmailController(
 
             if (config == null)
             {
+                log.Warn("No se encontró configuración de email");
+                await _logService.RegistrarLogAsync("WARN", "Configuración de email no encontrada", 
+                    "No existe configuración de email en BD", userId);
+                
                 _logger.LogWarning("No se encontró configuración de email");
                 return NotFound(new { mensaje = "No se encontró configuración de email. Ejecute las migraciones de BD." });
             }
+
+            log.Info("GetConfig completado correctamente");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetConfig email", 
+                $"Configuración obtenida exitosamente", userId);
 
             return Ok(config);
         }
         catch (Exception ex)
         {
+            log.Error("Error al obtener configuración de email", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error al obtener configuración de email", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error al obtener configuración de email");
             return StatusCode(500, new
             {
@@ -190,8 +257,18 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<EmailConfigDTO>> UpdateConfig(int id, [FromBody] EmailConfigUpdateDTO dto)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"UpdateConfig iniciado para id: {id}, usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: UpdateConfig email", 
+            $"Usuario {userId} actualizando configuración de email {id}", userId);
+
         if (!ModelState.IsValid)
         {
+            log.Warn("Modelo inválido al actualizar configuración de email");
+            await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
+            
             _logger.LogWarning("Modelo inválido al actualizar configuración de email");
             return BadRequest(ModelState);
         }
@@ -204,16 +281,27 @@ public class EmailController(
 
             if (updated == null)
             {
+                log.Warn($"Configuración de email {id} no encontrada");
+                await _logService.RegistrarLogAsync("WARN", $"Configuración de email no encontrada: {id}", 
+                    "Recurso solicitado no existe", userId);
+                
                 _logger.LogWarning("Configuración de email {Id} no encontrada", id);
                 return NotFound(new { mensaje = $"Configuración con ID {id} no encontrada" });
             }
 
+            log.Info($"UpdateConfig completado correctamente para id: {id}");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: UpdateConfig email", 
+                $"Configuración {id} actualizada exitosamente", userId);
+            
             _logger.LogInformation("Configuración de email {Id} actualizada exitosamente", id);
 
             return Ok(updated);
         }
         catch (Exception ex)
         {
+            log.Error($"Error al actualizar configuración de email {id}", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error al actualizar configuración de email", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error al actualizar configuración de email {Id}", id);
             return StatusCode(500, new
             {
@@ -234,8 +322,18 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> SendNotification([FromBody] NotificationDto dto)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"SendNotification iniciado para usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: SendNotification", 
+            $"Usuario {userId} enviando notificación a {dto?.Destinatario}", userId);
+
         if (!ModelState.IsValid)
         {
+            log.Warn("Modelo inválido en SendNotification");
+            await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
+            
             _logger.LogWarning("Modelo inválido en SendNotification");
             return BadRequest(ModelState);
         }
@@ -249,6 +347,10 @@ public class EmailController(
                 dto.Asunto, 
                 dto.CuerpoHtml);
 
+            log.Info("Notificación enviada exitosamente");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: SendNotification", 
+                $"Notificación enviada a {dto.Destinatario}", userId);
+            
             _logger.LogInformation("Notificación enviada exitosamente");
 
             return Ok(new
@@ -260,6 +362,9 @@ public class EmailController(
         }
         catch (ArgumentException ex)
         {
+            log.Warn($"Error de validación en notificación: {ex.Message}");
+            await _logService.RegistrarLogAsync("WARN", "Error de validación en notificación", ex.ToString(), userId);
+            
             _logger.LogWarning(ex, "Error de validación en notificación");
             return BadRequest(new
             {
@@ -269,6 +374,9 @@ public class EmailController(
         }
         catch (InvalidOperationException ex)
         {
+            log.Error("Error al enviar notificación", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error al enviar notificación", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error al enviar notificación");
             return StatusCode(500, new
             {
@@ -277,6 +385,9 @@ public class EmailController(
         }
         catch (Exception ex)
         {
+            log.Error("Error inesperado al enviar notificación", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error inesperado al enviar notificación", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error inesperado al enviar notificación");
             return StatusCode(500, new
             {
@@ -297,6 +408,12 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> SendSummary()
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"SendSummary iniciado para usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: SendSummary manual", 
+            $"Usuario {userId} solicita envío manual de resumen diario", userId);
+        
         _logger.LogCritical("??????????????????????????????????????????????????????????");
         _logger.LogCritical("?  ?? [API] Solicitud manual de envío de resumen diario ?");
         _logger.LogCritical("??????????????????????????????????????????????????????????");
@@ -308,6 +425,11 @@ public class EmailController(
             await _emailAutomationService.SendDailySummaryAsync();
 
             stopwatch.Stop();
+            
+            log.Info($"SendSummary completado correctamente en {stopwatch.Elapsed.TotalSeconds:F2}s");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: SendSummary", 
+                $"Resumen diario enviado exitosamente en {stopwatch.Elapsed.TotalSeconds:F2}s", userId);
+            
             _logger.LogCritical("??????????????????????????????????????????????????????????");
             _logger.LogCritical("?  ? [API] Resumen diario enviado exitosamente         ?");
             _logger.LogCritical("?  ??  Tiempo total: {Time:F2}s                            ?", stopwatch.Elapsed.TotalSeconds);
@@ -325,6 +447,11 @@ public class EmailController(
         catch (InvalidOperationException ex)
         {
             stopwatch.Stop();
+            
+            log.Error($"No se pudo enviar resumen diario después de {stopwatch.Elapsed.TotalSeconds:F2}s", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error de configuración al enviar resumen diario", 
+                ex.ToString(), userId);
+            
             _logger.LogCritical("??????????????????????????????????????????????????????????");
             _logger.LogCritical("?  ? [API] No se pudo enviar resumen diario            ?");
             _logger.LogCritical("?  ??  Falló después de: {Time:F2}s                        ?", stopwatch.Elapsed.TotalSeconds);
@@ -345,6 +472,11 @@ public class EmailController(
         catch (Exception ex)
         {
             stopwatch.Stop();
+            
+            log.Error($"Error crítico al enviar resumen después de {stopwatch.Elapsed.TotalSeconds:F2}s", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error crítico al enviar resumen diario", 
+                ex.ToString(), userId);
+            
             _logger.LogCritical("??????????????????????????????????????????????????????????");
             _logger.LogCritical("?  ?? [API] Error crítico al enviar resumen             ?");
             _logger.LogCritical("?  ??  Falló después de: {Time:F2}s                        ?", stopwatch.Elapsed.TotalSeconds);
@@ -373,6 +505,12 @@ public class EmailController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult> TestComparison()
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
+        log.Info($"TestComparison iniciado para usuario {userId}");
+        await _logService.RegistrarLogAsync("INFO", "Petición recibida: TestComparison email", 
+            $"Usuario {userId} ejecuta test de comparación de envíos", userId);
+        
         _logger.LogCritical("?? INICIANDO TEST DE COMPARACIÓN");
 
         var test1Exitoso = false;
@@ -392,6 +530,9 @@ public class EmailController(
             
             if (emailConfig == null)
             {
+                log.Warn("No hay configuración de EmailConfig para test");
+                await _logService.RegistrarLogAsync("WARN", "Test fallido: sin configuración", 
+                    "No existe EmailConfig en BD", userId);
                 return BadRequest(new { error = "No hay configuración de EmailConfig" });
             }
 
@@ -464,6 +605,10 @@ public class EmailController(
                 analisis = "? Ambos fallan. Problema general de SMTP.";
             }
 
+            log.Info($"TestComparison completado: {analisis}");
+            await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: TestComparison", 
+                $"Test1: {test1Exitoso}, Test2: {test2Exitoso}. {analisis}", userId);
+            
             _logger.LogCritical("?? RESULTADO: {Analisis}", analisis);
 
             return Ok(new
@@ -487,6 +632,9 @@ public class EmailController(
         }
         catch (Exception ex)
         {
+            log.Error("Error en test de comparación", ex);
+            await _logService.RegistrarLogAsync("ERROR", "Error en test de comparación", ex.ToString(), userId);
+            
             _logger.LogError(ex, "Error en test de comparación");
             return StatusCode(500, new { error = ex.Message });
         }
