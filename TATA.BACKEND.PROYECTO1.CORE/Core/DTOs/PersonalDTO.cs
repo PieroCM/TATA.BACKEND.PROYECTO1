@@ -96,6 +96,11 @@
         /// </summary>
         public string? CorreoCorporativo { get; set; }
 
+        /// <summary>
+        /// Estado del registro de Personal: "ACTIVO" o "INACTIVO"
+        /// </summary>
+        public string? EstadoPersonal { get; set; }
+
         // ========== DATOS DE USUARIO (Pueden ser NULL si no tiene cuenta) =========
         
         /// <summary>
@@ -134,5 +139,37 @@
 
         // Ingresando fecha de creacion
         public DateTime CreadoEn { get; set; }
+    }
+
+    // ===========================
+    // ✅ NUEVO: DTO PARA DESHABILITACIÓN CONDICIONAL DE PERSONAL Y USUARIO
+    // Controla si el Usuario se elimina o solo se deshabilita
+    // ===========================
+    
+    /// <summary>
+    /// DTO para la deshabilitación administrativa de Personal con eliminación condicional de Usuario
+    /// </summary>
+    public class DeshabilitarPersonalDTO
+    {
+        /// <summary>
+        /// Determina la acción sobre la cuenta de usuario:
+        /// - true: ELIMINA la cuenta de usuario (DELETE)
+        /// - false o null: DESHABILITA la cuenta de usuario (UPDATE Estado = INACTIVO)
+        /// </summary>
+        public bool EliminarUsuario { get; set; } = false;
+    }
+
+    // ===========================
+    // ✅ NUEVO: DTO PARA HABILITACIÓN/REACTIVACIÓN DE PERSONAL
+    // Reactiva el Personal pero NO reactiva automáticamente el Usuario por seguridad
+    // ===========================
+    
+    /// <summary>
+    /// DTO vacío para la habilitación/reactivación de Personal
+    /// El endpoint sugiere la acción, no requiere parámetros adicionales
+    /// </summary>
+    public class HabilitarPersonalDTO
+    {
+        // Body vacío o ausente - La acción se infiere del endpoint
     }
 }

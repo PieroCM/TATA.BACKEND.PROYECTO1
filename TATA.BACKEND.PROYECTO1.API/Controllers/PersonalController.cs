@@ -566,5 +566,147 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         // ===========================
         // ENDPOINTS BÁSICOS DE PERSONAL
         // ===========================
+
+        /// <summary>
+        /// Deshabilitación Administrativa Total: Deshabilita Personal y OPCIONALMENTE elimina o deshabilita Usuario
+        /// PATCH /api/personal/deshabilitar/{id}
+        /// </summary>
+        [HttpPatch("deshabilitar/{id}")]
+        public async Task<IActionResult> DeshabilitarPersonalYUsuario(int id, [FromBody] DeshabilitarPersonalDTO? dto)
+        {
+            log.Info($"DeshabilitarPersonalYUsuario iniciado para id: {id}");
+            
+            // Si no se envía el body, usar valores por defecto (eliminarUsuario = false)
+            var eliminarUsuario = dto?.EliminarUsuario ?? false;
+            
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Deshabilitar Personal Y Usuario {id}",
+                Detalles = $"Iniciando deshabilitación administrativa para Personal ID: {id}, Eliminar Usuario: {eliminarUsuario}",
+                IdUsuario = null
+            });
+
+            try
+            {
+                var success = await _personalService.DeshabilitarPersonalYUsuarioAsync(id, eliminarUsuario);
+                
+                if (!success)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para deshabilitar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para deshabilitar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = null
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"DeshabilitarPersonalYUsuario completado correctamente para id: {id}");
+                
+                var mensaje = eliminarUsuario 
+                    ? "Personal deshabilitado y cuenta de usuario eliminada correctamente"
+                    : "Personal y cuenta de usuario deshabilitados correctamente";
+                
+                var detalles = eliminarUsuario
+                    ? "El Personal ha sido marcado como INACTIVO y su cuenta de usuario ha sido ELIMINADA permanentemente de la base de datos."
+                    : "El Personal y su cuenta de usuario asociada (si existe) han sido marcados como INACTIVOS. Esta acción es reversible.";
+                
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Deshabilitar Personal Y Usuario",
+                    Detalles = $"Personal {id} - Eliminar Usuario: {eliminarUsuario}. {detalles}",
+                    IdUsuario = null
+                });
+
+                return Ok(new { 
+                    message = mensaje,
+                    detalles = detalles,
+                    eliminarUsuario = eliminarUsuario
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante DeshabilitarPersonalYUsuario para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = null
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Habilitación/Reactivación de Personal: Reactiva el Personal pero NO reactiva automáticamente el Usuario
+        /// PATCH /api/personal/habilitar/{id}
+        /// 🚨 SEGURIDAD: El Usuario debe habilitarse MANUALMENTE por el administrador
+        /// </summary>
+        [HttpPatch("habilitar/{id}")]
+        public async Task<IActionResult> HabilitarPersonal(int id)
+        {
+            log.Info($"HabilitarPersonal iniciado para id: {id}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Habilitar/Reactivar Personal {id}",
+                Detalles = $"Iniciando habilitación de Personal ID: {id}",
+                IdUsuario = null
+            });
+
+            try
+            {
+                var success = await _personalService.HabilitarPersonalAsync(id);
+                
+                if (!success)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para habilitar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para habilitar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = null
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"HabilitarPersonal completado correctamente para id: {id}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Habilitar Personal",
+                    Detalles = $"Personal {id} reactivado (Estado = ACTIVO). Usuario NO reactivado automáticamente por seguridad.",
+                    IdUsuario = null
+                });
+
+                return Ok(new { 
+                    message = "Personal reactivado correctamente",
+                    detalles = "El Personal ha sido marcado como ACTIVO. " +
+                              "⚠️ IMPORTANTE: Si el Personal tiene una cuenta de usuario, esta PERMANECE INACTIVA por seguridad. " +
+                              "El administrador debe habilitarla manualmente usando el botón de 'Habilitar/Bloquear Acceso' " +
+                              "después de verificar el rol y restablecer la contraseña si es necesario.",
+                    seguridadCritica = true,
+                    accionRequerida = "Habilitar manualmente el acceso del usuario desde el módulo de gestión de usuarios"
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante HabilitarPersonal para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = null
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
     }
 }

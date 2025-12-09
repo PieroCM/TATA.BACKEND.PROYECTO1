@@ -84,5 +84,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
                 .FirstOrDefaultAsync(u => u.token_recuperacion == token 
                                        && u.expiracion_token > DateTime.UtcNow);
         }
+
+        // ⚠️ NUEVO: Buscar usuario por IdPersonal (para deshabilitación administrativa)
+        public async Task<Usuario?> GetByPersonalIdAsync(int idPersonal)
+        {
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation)
+                .FirstOrDefaultAsync(u => u.IdPersonal == idPersonal);
+        }
     }
 }
