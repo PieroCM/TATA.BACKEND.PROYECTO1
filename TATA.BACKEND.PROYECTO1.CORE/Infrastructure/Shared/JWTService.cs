@@ -23,12 +23,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+            // ⚠️ Obtener correo del Personal vinculado
+            var email = usuario.PersonalNavigation?.CorreoCorporativo ?? usuario.Username;
+
             var claims = new[]
             {
                 new Claim(ClaimTypes.Name, usuario.Username),
-                new Claim(ClaimTypes.Email, usuario.Correo),
+                new Claim(ClaimTypes.Email, email), // ⚠️ Ahora usa el correo del Personal
                 new Claim(ClaimTypes.Role, usuario.IdRolSistema.ToString()),
-                new Claim("UserId", usuario.IdUsuario.ToString())
+                new Claim(ClaimTypes.NameIdentifier, usuario.IdUsuario.ToString()),
+                //new Claim("UserId", usuario.IdUsuario.ToString()),
+                new Claim("IdPersonal", usuario.IdPersonal?.ToString() ?? "0") // ⚠️ Agregar IdPersonal al token
             };
 
             var token = new JwtSecurityToken(

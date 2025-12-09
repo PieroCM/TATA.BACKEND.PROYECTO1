@@ -1,0 +1,209 @@
+{
+  "info": {
+    "name": "Sistema SLA - Autenticación y Recuperación",
+    "description": "Collection para probar endpoints de autenticación y recuperación de contraseña",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5260",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. SignIn (Login)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var response = pm.response.json();",
+              "if (response.token) {",
+              "    pm.environment.set(\"token\", response.token);",
+              "    pm.collectionVariables.set(\"token\", response.token);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"usuario@example.com\",\n  \"password\": \"Password123!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuario/signin",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario", "signin"]
+        },
+        "description": "Iniciar sesión en el sistema. Devuelve un token JWT para acceder a endpoints protegidos."
+      },
+      "response": []
+    },
+    {
+      "name": "2. SignUp (Registro)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"juanperez\",\n  \"correo\": \"juan.perez@example.com\",\n  \"password\": \"Password123!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuario/signup",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario", "signup"]
+        },
+        "description": "Registrar un nuevo usuario en el sistema."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Solicitar Recuperación de Contraseña",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"usuario@example.com\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuario/solicitar-recuperacion",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario", "solicitar-recuperacion"]
+        },
+        "description": "Solicitar token de recuperación de contraseña. El token se envía por email."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Restablecer Contraseña con Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"usuario@example.com\",\n  \"token\": \"PEGAR_AQUI_EL_TOKEN_DEL_EMAIL\",\n  \"nuevaPassword\": \"NuevaPassword123!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuario/restablecer-password",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario", "restablecer-password"]
+        },
+        "description": "Restablecer contraseña usando el token recibido por email."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Cambiar Contraseña (Usuario Logueado)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"usuario@example.com\",\n  \"passwordActual\": \"Password123!\",\n  \"nuevaPassword\": \"NuevaPassword456!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuario/cambiar-password",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario", "cambiar-password"]
+        },
+        "description": "Cambiar contraseña cuando el usuario está logueado (requiere token JWT)."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Obtener Todos los Usuarios",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/usuario",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario"]
+        },
+        "description": "Obtener lista de todos los usuarios (requiere autenticación)."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Obtener Usuario por ID",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/usuario/1",
+          "host": ["{{base_url}}"],
+          "path": ["api", "usuario", "1"]
+        },
+        "description": "Obtener un usuario específico por su ID (requiere autenticación)."
+      },
+      "response": []
+    }
+  ]
+}

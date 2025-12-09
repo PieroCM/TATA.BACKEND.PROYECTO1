@@ -9,11 +9,11 @@ public partial class Usuario
 
     public string Username { get; set; } = null!;
 
-    public string Correo { get; set; } = null!;
-
-    public string PasswordHash { get; set; } = null!;
+    public string? PasswordHash { get; set; } // ⚠️ Nullable para cuentas pendientes de activación
 
     public int IdRolSistema { get; set; }
+
+    public int? IdPersonal { get; set; } // ⚠️ FK nullable - Relación 1:0..1 con Personal
 
     public string? Estado { get; set; }
 
@@ -23,11 +23,16 @@ public partial class Usuario
 
     public DateTime? ActualizadoEn { get; set; }
 
+    public string? token_recuperacion { get; set; }
+
+    public DateTime? expiracion_token { get; set; }
+
+    // Navegación
     public virtual RolesSistema IdRolSistemaNavigation { get; set; } = null!;
+    
+    public virtual Personal? PersonalNavigation { get; set; } // ⚠️ Navegación 1:0..1 con Personal
 
     public virtual ICollection<LogSistema> LogSistema { get; set; } = new List<LogSistema>();
-
-    public virtual ICollection<Personal> Personal { get; set; } = new List<Personal>();
 
     public virtual ICollection<Reporte> Reporte { get; set; } = new List<Reporte>();
 
