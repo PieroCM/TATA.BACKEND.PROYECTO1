@@ -52,7 +52,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Seed
                 new { Codigo = "CONFIGURAR_EMAIL", Nombre = "Configurar Email" },
                 new { Codigo = "LOGS", Nombre = "Logs del Sistema" },
                 new { Codigo = "GESTION_USUARIOS", Nombre = "Gestión de Usuarios" },
-                new { Codigo = "CONFIGURACIONES", Nombre = "Configuraciones" }
+                new { Codigo = "CONFIGURACIONES", Nombre = "Configuraciones" },
+                // Nuevos permisos para módulos de predicción
+                new { Codigo = "DASHBOARD_PREDICCIONES", Nombre = "Dashboard de Predicciones" },
+                new { Codigo = "PREDICCIONES_RIESGO_SLA", Nombre = "Predicciones de Riesgo SLA" }
             };
 
             foreach (var p in permisosACrear)
@@ -119,20 +122,23 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Seed
             {
                 "DASHBOARD_EJECUTIVO", "ANALISIS_INTERACTIVO", "CARGA_DATOS",
                 "GESTION_SOLICITUD", "REPORTE_CUMPLIMIENTO", "HISTORIAL_REPORTES",
-                "GESTION_ALERTAS", "CONFIGURAR_EMAIL", "LOGS", "GESTION_USUARIOS", "CONFIGURACIONES"
+                "GESTION_ALERTAS", "CONFIGURAR_EMAIL", "LOGS", "GESTION_USUARIOS", "CONFIGURACIONES",
+                "DASHBOARD_PREDICCIONES", "PREDICCIONES_RIESGO_SLA"
             };
 
             var permisosParaAdmin = new[]
             {
                 "DASHBOARD_EJECUTIVO", "ANALISIS_INTERACTIVO", "CARGA_DATOS",
                 "GESTION_SOLICITUD", "REPORTE_CUMPLIMIENTO", "HISTORIAL_REPORTES",
-                "GESTION_ALERTAS", "CONFIGURAR_EMAIL", "GESTION_USUARIOS"
+                "GESTION_ALERTAS", "CONFIGURAR_EMAIL", "GESTION_USUARIOS",
+                "DASHBOARD_PREDICCIONES", "PREDICCIONES_RIESGO_SLA"
             };
 
             var permisosParaAnalista = new[]
             {
                 "DASHBOARD_EJECUTIVO", "ANALISIS_INTERACTIVO",
-                "REPORTE_CUMPLIMIENTO", "HISTORIAL_REPORTES"
+                "REPORTE_CUMPLIMIENTO", "HISTORIAL_REPORTES",
+                "DASHBOARD_PREDICCIONES", "PREDICCIONES_RIESGO_SLA"
             };
 
             var permisosParaEspecialista = new[]
