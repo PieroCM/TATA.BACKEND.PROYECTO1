@@ -4,7 +4,9 @@ using System.Data;
 using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -15,9 +17,9 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         private static readonly ILog log = LogManager.GetLogger(typeof(RolRegistroController));
         
         private readonly IRolRegistroService _service;
-        private readonly ILogSistemaService _logService;
+        private readonly ILogService _logService;
 
-        public RolRegistroController(IRolRegistroService service, ILogSistemaService logService)
+        public RolRegistroController(IRolRegistroService service, ILogService logService)
         {
             _service = service;
             _logService = logService;
@@ -28,40 +30,27 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<RolRegistroDTO>>> Get([FromQuery] bool soloActivos = true)
         {
-            log.Info($"Get iniciado con soloActivos: {soloActivos}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Petición recibida: GetAll RolRegistro",
-                Detalles = $"Obteniendo RolRegistro con soloActivos: {soloActivos}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Get iniciado con soloActivos: {soloActivos}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetAll RolRegistro", 
+                $"Obteniendo RolRegistro con soloActivos: {soloActivos}", userId);
 
             try
             {
                 var list = await _service.GetAllAsync(soloActivos);
                 
-                log.Info("Get completado correctamente");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: GetAll RolRegistro",
-                    Detalles = $"Total RolRegistro obtenidos: {list.Count()}",
-                    IdUsuario = null
-                });
+                log.Info($"Get completado correctamente, {list.Count()} registros obtenidos");
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetAll RolRegistro", 
+                    $"Total RolRegistro obtenidos: {list.Count()}", userId);
                 
                 return Ok(list);
             }
             catch (Exception ex)
             {
                 log.Error("Error inesperado durante Get", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en GetAll RolRegistro", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -70,14 +59,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("{id:int}", Name = "GetRolRegistroById")]
         public async Task<ActionResult<RolRegistroDTO>> GetById(int id)
         {
-            log.Info($"GetById iniciado para id: {id}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = $"Petición recibida: GetById RolRegistro {id}",
-                Detalles = $"Buscando RolRegistro con id: {id}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"GetById iniciado para id: {id}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetById RolRegistro", 
+                $"Buscando RolRegistro con id: {id}", userId);
 
             try
             {
@@ -86,37 +72,22 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 if (item is null)
                 {
                     log.Warn($"RolRegistro con id {id} no encontrado");
-                    await _logService.AddAsync(new LogSistemaCreateDTO
-                    {
-                        Nivel = "WARN",
-                        Mensaje = $"RolRegistro no encontrado: {id}",
-                        Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
-                    });
+                    await _logService.RegistrarLogAsync("WARN", $"RolRegistro no encontrado: {id}", 
+                        "Recurso solicitado no existe", userId);
                     return NotFound();
                 }
 
                 log.Info($"GetById completado correctamente para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: GetById RolRegistro",
-                    Detalles = $"RolRegistro {id} obtenido exitosamente",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetById RolRegistro", 
+                    $"RolRegistro {id} obtenido exitosamente", userId);
 
                 return Ok(item);
             }
             catch (Exception ex)
             {
                 log.Error($"Error inesperado durante GetById para id: {id}", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en GetById RolRegistro", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -125,38 +96,25 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost]
         public async Task<ActionResult<int>> Post([FromBody] RolRegistroCreateDTO dto)
         {
-            log.Info("Post iniciado");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Petición recibida: Create RolRegistro",
-                Detalles = $"Creando RolRegistro: {dto?.NombreRol}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Post iniciado para usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: Create RolRegistro", 
+                $"Creando RolRegistro: {dto?.NombreRol}", userId);
 
             if (dto == null)
             {
                 log.Warn("Post recibió dto nulo");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: dto nulo",
-                    Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: dto nulo", 
+                    "El cuerpo de la petición es nulo", userId);
                 return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
             }
 
             if (!ModelState.IsValid)
             {
                 log.Warn("Post: Validación de ModelState fallida");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: ModelState inválido",
-                    Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
                 return BadRequest(ModelState);
             }
 
@@ -165,38 +123,23 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 var id = await _service.CreateAsync(null, dto);
                 
                 log.Info($"Post completado correctamente, IdRolRegistro: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: Create RolRegistro",
-                    Detalles = $"RolRegistro creado con id: {id}",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: Create RolRegistro", 
+                    $"RolRegistro creado con id: {id}", userId);
 
                 return CreatedAtRoute("GetRolRegistroById", new { id }, id);
             }
             catch (DuplicateNameException ex)
             {
                 log.Warn($"NombreRol duplicado: {ex.Message}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Conflicto: NombreRol ya existe",
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Conflicto: NombreRol ya existe", 
+                    ex.ToString(), userId);
                 return Conflict(new { message = "NombreRol ya existe" });
             }
             catch (Exception ex)
             {
                 log.Error("Error inesperado durante Post", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en Create RolRegistro", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -205,38 +148,25 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Put(int id, [FromBody] RolRegistroUpdateDTO dto)
         {
-            log.Info($"Put iniciado para id: {id}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = $"Petición recibida: Update RolRegistro {id}",
-                Detalles = $"Actualizando RolRegistro con id: {id}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Put iniciado para id: {id}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: Update RolRegistro", 
+                $"Actualizando RolRegistro con id: {id}", userId);
 
             if (dto is null)
             {
                 log.Warn($"Put recibió dto nulo para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: dto nulo",
-                    Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: dto nulo", 
+                    "El cuerpo de la petición es nulo", userId);
                 return BadRequest();
             }
 
             if (!ModelState.IsValid)
             {
                 log.Warn($"Put: Validación de ModelState fallida para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: ModelState inválido",
-                    Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
                 return BadRequest(ModelState);
             }
 
@@ -247,37 +177,22 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 if (!ok)
                 {
                     log.Warn($"RolRegistro con id {id} no encontrado para actualizar");
-                    await _logService.AddAsync(new LogSistemaCreateDTO
-                    {
-                        Nivel = "WARN",
-                        Mensaje = $"RolRegistro no encontrado para actualizar: {id}",
-                        Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
-                    });
+                    await _logService.RegistrarLogAsync("WARN", $"RolRegistro no encontrado para actualizar: {id}", 
+                        "Recurso solicitado no existe", userId);
                     return NotFound();
                 }
 
                 log.Info($"Put completado correctamente para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: Update RolRegistro",
-                    Detalles = $"RolRegistro {id} actualizado exitosamente",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: Update RolRegistro", 
+                    $"RolRegistro {id} actualizado exitosamente", userId);
 
                 return NoContent();
             }
             catch (Exception ex)
             {
                 log.Error($"Error inesperado durante Put para id: {id}", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en Update RolRegistro", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -286,14 +201,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
-            log.Info($"Delete iniciado para id: {id}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = $"Petición recibida: Delete RolRegistro {id}",
-                Detalles = $"Eliminando RolRegistro con id: {id}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Delete iniciado para id: {id}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: Delete RolRegistro", 
+                $"Eliminando RolRegistro con id: {id}", userId);
 
             try
             {
@@ -302,37 +214,22 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 if (!ok)
                 {
                     log.Warn($"RolRegistro con id {id} no encontrado para eliminar");
-                    await _logService.AddAsync(new LogSistemaCreateDTO
-                    {
-                        Nivel = "WARN",
-                        Mensaje = $"RolRegistro no encontrado para eliminar: {id}",
-                        Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
-                    });
+                    await _logService.RegistrarLogAsync("WARN", $"RolRegistro no encontrado para eliminar: {id}", 
+                        "Recurso solicitado no existe", userId);
                     return NotFound();
                 }
 
                 log.Info($"Delete completado correctamente para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: Delete RolRegistro",
-                    Detalles = $"RolRegistro {id} eliminado exitosamente",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: Delete RolRegistro", 
+                    $"RolRegistro {id} eliminado exitosamente", userId);
 
                 return NoContent();
             }
             catch (Exception ex)
             {
                 log.Error($"Error inesperado durante Delete para id: {id}", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en Delete RolRegistro", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }

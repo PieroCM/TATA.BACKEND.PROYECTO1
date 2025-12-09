@@ -2,6 +2,7 @@
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -25,13 +26,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ConfigSlaDTO>>> Get([FromQuery] bool soloActivos = true)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Get iniciado con soloActivos: {soloActivos}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: GetAll ConfigSla",
                 Detalles = $"Obteniendo ConfigSla con soloActivos: {soloActivos}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -44,7 +47,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetAll ConfigSla",
                     Detalles = $"Total ConfigSla obtenidos: {list.Count()}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 
                 return Ok(list);
@@ -57,7 +60,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -67,13 +70,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("{id:int}", Name = "GetConfigSlaById")]
         public async Task<ActionResult<ConfigSlaDTO>> GetById(int id)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"GetById iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: GetById ConfigSla {id}",
                 Detalles = $"Buscando ConfigSla con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -88,7 +93,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"ConfigSla no encontrado: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound();
                 }
@@ -99,7 +104,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetById ConfigSla",
                     Detalles = $"ConfigSla {id} obtenido exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(item);
@@ -112,7 +117,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -122,13 +127,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost]
         public async Task<ActionResult<int>> Post([FromBody] ConfigSlaCreateDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("Post iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: Create ConfigSla",
                 Detalles = $"Creando ConfigSla con código: {dto?.CodigoSla}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (dto is null)
@@ -139,7 +146,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: dto nulo",
                     Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest();
             }
@@ -154,7 +161,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Create ConfigSla",
                     Detalles = $"ConfigSla creado con id: {id}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return CreatedAtRoute("GetConfigSlaById", new { id }, id);
@@ -167,7 +174,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -177,13 +184,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Put(int id, [FromBody] ConfigSlaUpdateDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Put iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: Update ConfigSla {id}",
                 Detalles = $"Actualizando ConfigSla con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (dto is null)
@@ -194,7 +203,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: dto nulo",
                     Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest();
             }
@@ -211,7 +220,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"ConfigSla no encontrado para actualizar: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound();
                 }
@@ -222,7 +231,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Update ConfigSla",
                     Detalles = $"ConfigSla {id} actualizado exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return NoContent();
@@ -235,7 +244,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -245,13 +254,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Delete iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: Delete ConfigSla {id}",
                 Detalles = $"Eliminando ConfigSla con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -266,7 +277,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"ConfigSla no encontrado para eliminar: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound();
                 }
@@ -277,7 +288,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Delete ConfigSla",
                     Detalles = $"ConfigSla {id} eliminado exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return NoContent();
@@ -290,7 +301,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }

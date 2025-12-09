@@ -31,7 +31,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared
                 new Claim(ClaimTypes.Name, usuario.Username),
                 new Claim(ClaimTypes.Email, email), // ⚠️ Ahora usa el correo del Personal
                 new Claim(ClaimTypes.Role, usuario.IdRolSistema.ToString()),
-                new Claim("UserId", usuario.IdUsuario.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, usuario.IdUsuario.ToString()),
+                //new Claim("UserId", usuario.IdUsuario.ToString()),
                 new Claim("IdPersonal", usuario.IdPersonal?.ToString() ?? "0") // ⚠️ Agregar IdPersonal al token
             };
 

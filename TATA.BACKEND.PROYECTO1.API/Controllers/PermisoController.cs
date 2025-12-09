@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -24,13 +25,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("GetAll iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: GetAll Permisos",
                 Detalles = "Obteniendo todos los permisos",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -43,7 +46,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetAll Permisos",
                     Detalles = $"Total permisos obtenidos: {list.Count}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 
                 return Ok(list);
@@ -56,7 +59,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -65,13 +68,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"GetById iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: GetById Permiso {id}",
                 Detalles = $"Buscando permiso con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -86,7 +91,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"Permiso no encontrado: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound();
                 }
@@ -97,7 +102,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetById Permiso",
                     Detalles = $"Permiso {id} obtenido exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(item);
@@ -110,7 +115,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -119,13 +124,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] PermisoCreateDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("Create iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: Create Permiso",
                 Detalles = $"Creando permiso con código: {dto?.Codigo}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (dto == null)
@@ -136,7 +143,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: dto nulo",
                     Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
             }
@@ -149,7 +156,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: ModelState inválido",
                     Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(ModelState);
             }
@@ -164,7 +171,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Create Permiso",
                     Detalles = $"Permiso creado con id: {created.IdPermiso}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return CreatedAtAction(nameof(GetById), new { id = created.IdPermiso }, created);
@@ -177,7 +184,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -186,13 +193,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] PermisoUpdateDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Update iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: Update Permiso {id}",
                 Detalles = $"Actualizando permiso con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (dto == null)
@@ -203,7 +212,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: dto nulo",
                     Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
             }
@@ -216,7 +225,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: ModelState inválido",
                     Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(ModelState);
             }
@@ -233,7 +242,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"Permiso no encontrado para actualizar: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound();
                 }
@@ -244,7 +253,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Update Permiso",
                     Detalles = $"Permiso {id} actualizado exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return NoContent();
@@ -257,7 +266,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -266,13 +275,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Delete iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: Delete Permiso {id}",
                 Detalles = $"Eliminando permiso con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -287,7 +298,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"Permiso no encontrado para eliminar: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound();
                 }
@@ -298,7 +309,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Delete Permiso",
                     Detalles = $"Permiso {id} eliminado exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return NoContent();
@@ -311,7 +322,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }

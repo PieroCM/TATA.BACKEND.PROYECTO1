@@ -33,6 +33,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
         {
             return await _context.Usuario
                 .Include(u => u.IdRolSistemaNavigation)
+                    .ThenInclude(r => r.IdPermiso) // ⚠️ Incluir permisos del rol
                 .Include(u => u.PersonalNavigation)
                 .FirstOrDefaultAsync(u => u.PersonalNavigation != null && 
                                        u.PersonalNavigation.CorreoCorporativo == email);
@@ -82,6 +83,15 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
                 .Include(u => u.PersonalNavigation) // ⚠️ Incluir Personal
                 .FirstOrDefaultAsync(u => u.token_recuperacion == token 
                                        && u.expiracion_token > DateTime.UtcNow);
+        }
+
+        // ⚠️ NUEVO: Buscar usuario por IdPersonal (para deshabilitación administrativa)
+        public async Task<Usuario?> GetByPersonalIdAsync(int idPersonal)
+        {
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation)
+                .FirstOrDefaultAsync(u => u.IdPersonal == idPersonal);
         }
     }
 }

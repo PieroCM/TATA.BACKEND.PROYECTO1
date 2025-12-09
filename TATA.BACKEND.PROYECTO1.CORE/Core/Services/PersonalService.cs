@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
@@ -17,19 +18,22 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         private readonly IEmailService _emailService;
         private readonly ILogger<PersonalService> _logger;
         private readonly Proyecto1SlaDbContext _context; // ⚠️ NUEVO: Para transacciones
+        private readonly string _frontendBaseUrl;
 
         public PersonalService(
             IPersonalRepository personalRepository,
             IUsuarioRepository usuarioRepository,
             IEmailService emailService,
             ILogger<PersonalService> logger,
-            Proyecto1SlaDbContext context) // ⚠️ NUEVO
+            Proyecto1SlaDbContext context,
+            IConfiguration configuration)
         {
             _personalRepository = personalRepository;
             _usuarioRepository = usuarioRepository;
             _emailService = emailService;
             _logger = logger;
-            _context = context; // ⚠️ NUEVO
+            _context = context;
+            _frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"] ?? "http://localhost:9000";
         }
 
         public async Task<IEnumerable<PersonalResponseDTO>> GetAllAsync()
@@ -165,9 +169,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 _logger.LogInformation("Transacción completada exitosamente para Personal {Id}", personal.IdPersonal);
 
-                // ⚠️ PASO 7: Construir URL de activación y enviar email (FUERA de la transacción)
-                // Using relative path because frontend URL is managed externally (Quasar)
-                var activacionUrl = $"/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
+                // ⚠️ PASO 7: Construir URL absoluta de activación y enviar email (FUERA de la transacción)
+                var path = $"/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
+                var activacionUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
 
@@ -304,6 +308,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         Apellidos = personal.Apellidos,
                         Documento = personal.Documento,
                         CorreoCorporativo = personal.CorreoCorporativo,
+                        EstadoPersonal = personal.Estado,
 
                         // ========== DATOS DE USUARIO (Pueden ser NULL) ==========
                         IdUsuario = usuario?.IdUsuario,
@@ -327,6 +332,84 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 _logger.LogError(ex, "Error al generar listado unificado de Personal y Usuarios");
                 throw;
+            }
+        }
+
+        // ===========================
+        // ✅ NUEVO: DESHABILITACIÓN ADMINISTRATIVA TOTAL CON ELIMINACIÓN CONDICIONAL (TRANSACCIONAL)
+        // Desactiva el Personal (estado = INACTIVO) y OPCIONALMENTE:
+        // - ELIMINA el Usuario vinculado (si eliminarUsuario = true)
+        // - DESHABILITA el Usuario vinculado (si eliminarUsuario = false)
+        // ===========================
+        public async Task<bool> DeshabilitarPersonalYUsuarioAsync(int idPersonal, bool eliminarUsuario = false)
+        {
+            _logger.LogInformation("Iniciando deshabilitación administrativa para Personal ID: {IdPersonal}, Eliminar Usuario: {EliminarUsuario}", 
+                idPersonal, eliminarUsuario);
+
+            // ⚠️ INICIAR TRANSACCIÓN ATÓMICA
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // ⚠️ PASO 1: Verificar que el Personal existe
+                var personal = await _personalRepository.GetByIdAsync(idPersonal);
+                if (personal == null)
+                {
+                    _logger.LogWarning("Personal con ID {IdPersonal} no encontrado", idPersonal);
+                    return false;
+                }
+
+                // ⚠️ PASO 2: Actualizar estado del Personal a INACTIVO (SIEMPRE)
+                personal.Estado = "INACTIVO";
+                personal.ActualizadoEn = DateTime.UtcNow;
+                await _personalRepository.UpdateAsync(personal);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Personal ID {IdPersonal} deshabilitado (Estado = INACTIVO)", idPersonal);
+
+                // ⚠️ PASO 3: Buscar si existe Usuario vinculado a este Personal
+                var usuario = await _usuarioRepository.GetByPersonalIdAsync(idPersonal);
+
+                if (usuario != null)
+                {
+                    if (eliminarUsuario)
+                    {
+                        // ⚠️ OPCIÓN A: ELIMINAR la cuenta de usuario (DELETE)
+                        await _usuarioRepository.DeleteAsync(usuario.IdUsuario);
+                        await _context.SaveChangesAsync();
+
+                        _logger.LogInformation("Usuario ID {IdUsuario} (vinculado a Personal {IdPersonal}) ELIMINADO permanentemente", 
+                            usuario.IdUsuario, idPersonal);
+                    }
+                    else
+                    {
+                        // ⚠️ OPCIÓN B: DESHABILITAR la cuenta de usuario (UPDATE Estado = INACTIVO)
+                        usuario.Estado = "INACTIVO";
+                        usuario.ActualizadoEn = DateTime.UtcNow;
+                        await _usuarioRepository.UpdateAsync(usuario);
+                        await _context.SaveChangesAsync();
+
+                        _logger.LogInformation("Usuario ID {IdUsuario} (vinculado a Personal {IdPersonal}) deshabilitado (Estado = INACTIVO)", 
+                            usuario.IdUsuario, idPersonal);
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("Personal ID {IdPersonal} no tiene cuenta de usuario vinculada, solo se deshabilitó el Personal", idPersonal);
+                }
+
+                // ⚠️ PASO 4: COMMIT de la transacción
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Deshabilitación administrativa completada exitosamente para Personal ID: {IdPersonal}", idPersonal);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // ⚠️ ROLLBACK en caso de error
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error al deshabilitar Personal ID {IdPersonal}. Transacción revertida", idPersonal);
+                return false;
             }
         }
 
@@ -359,6 +442,80 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 rng.GetBytes(randomBytes);
             }
             return Convert.ToHexString(randomBytes);
+        }
+
+        // ===========================
+        // ✅ NUEVO: HABILITACIÓN/REACTIVACIÓN DE PERSONAL (SIN REACTIVAR USUARIO AUTOMÁTICAMENTE)
+        // 🚨 REGLA DE SEGURIDAD CRÍTICA: El Usuario NO se reactiva automáticamente
+        // El administrador debe habilitarlo manualmente para garantizar seguridad
+        // ===========================
+        public async Task<bool> HabilitarPersonalAsync(int idPersonal)
+        {
+            _logger.LogInformation("Iniciando habilitación/reactivación de Personal ID: {IdPersonal}", idPersonal);
+
+            // ⚠️ INICIAR TRANSACCIÓN ATÓMICA
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // ⚠️ PASO 1: Verificar que el Personal existe
+                var personal = await _personalRepository.GetByIdAsync(idPersonal);
+                if (personal == null)
+                {
+                    _logger.LogWarning("Personal con ID {IdPersonal} no encontrado", idPersonal);
+                    return false;
+                }
+
+                // ⚠️ PASO 2: Actualizar estado del Personal a ACTIVO
+                personal.Estado = "ACTIVO";
+                personal.ActualizadoEn = DateTime.UtcNow;
+                await _personalRepository.UpdateAsync(personal);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Personal ID {IdPersonal} reactivado (Estado = ACTIVO)", idPersonal);
+
+                // 🚨 PASO 3: VERIFICAR SI EXISTE USUARIO VINCULADO (SOLO PARA LOG)
+                var usuario = await _usuarioRepository.GetByPersonalIdAsync(idPersonal);
+
+                if (usuario != null)
+                {
+                    // ⚠️ IMPORTANTE: NO SE REACTIVA EL USUARIO AUTOMÁTICAMENTE
+                    // Esta es una decisión de SEGURIDAD
+                    
+                    if (usuario.Estado == "INACTIVO")
+                    {
+                        _logger.LogWarning(
+                            "SEGURIDAD: Personal ID {IdPersonal} reactivado, pero Usuario ID {IdUsuario} PERMANECE INACTIVO. " +
+                            "El administrador debe habilitarlo manualmente para garantizar seguridad (verificación de rol, restablecimiento de contraseña, etc.)",
+                            idPersonal, usuario.IdUsuario
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "Personal ID {IdPersonal} reactivado. Usuario ID {IdUsuario} ya está ACTIVO.",
+                            idPersonal, usuario.IdUsuario
+                        );
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("Personal ID {IdPersonal} reactivado. No tiene cuenta de usuario vinculada.", idPersonal);
+                }
+
+                // ⚠️ PASO 4: COMMIT de la transacción
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Habilitación de Personal completada exitosamente para ID: {IdPersonal}", idPersonal);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // ⚠️ ROLLBACK en caso de error
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error al habilitar Personal ID {IdPersonal}. Transacción revertida", idPersonal);
+                return false;
+            }
         }
     }
 }

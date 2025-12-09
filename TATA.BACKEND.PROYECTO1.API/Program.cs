@@ -1,4 +1,3 @@
-
 using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
@@ -113,6 +112,9 @@ builder.Services.AddHttpClient<ISlaMLService, SlaMLService>(client =>
 
 // BACKGROUND WORKER - Resumen diario automático
 builder.Services.AddHostedService<DailySummaryWorker>();
+
+// Worker 2: Recálculo diario de SLA a medianoche (hora Perú) - INDEPENDIENTE de alertas
+builder.Services.AddHostedService<SlaDailyWorker>();
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);

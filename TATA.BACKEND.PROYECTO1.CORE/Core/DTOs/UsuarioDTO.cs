@@ -15,6 +15,24 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string Email { get; set; } = string.Empty; // ⚠️ CAMBIO: Ahora usa Email (CorreoCorporativo)
         public string Password { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// DTO de respuesta completa del login con datos del usuario, rol y permisos
+    /// </summary>
+    public class SignInResponseDTO
+    {
+        public string Token { get; set; } = string.Empty;
+        public int IdUsuario { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public int? IdPersonal { get; set; }
+        public string? Nombres { get; set; }
+        public string? Apellidos { get; set; }
+        public int IdRolSistema { get; set; }
+        public string RolCodigo { get; set; } = string.Empty;
+        public string RolNombre { get; set; } = string.Empty;
+        public List<string> Permisos { get; set; } = new List<string>();
+    }
     
     public class SignUpRequestDTO
     {

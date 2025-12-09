@@ -109,7 +109,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasDefaultValue(true)
                 .HasColumnName("es_activo");
             entity.Property(e => e.TipoSolicitud)
-                .HasMaxLength(20)
+                .HasMaxLength(50)
                 .HasColumnName("tipo_solicitud");
         });
 
