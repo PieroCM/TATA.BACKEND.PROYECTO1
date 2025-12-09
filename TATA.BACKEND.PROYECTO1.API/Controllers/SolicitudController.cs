@@ -2,7 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -13,9 +15,9 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         private static readonly ILog log = LogManager.GetLogger(typeof(SolicitudController));
         
         private readonly ISolicitudService _solicitudService;
-        private readonly ILogSistemaService _logService;
+        private readonly ILogService _logService;
 
-        public SolicitudController(ISolicitudService solicitudService, ILogSistemaService logService)
+        public SolicitudController(ISolicitudService solicitudService, ILogService logService)
         {
             _solicitudService = solicitudService;
             _logService = logService;
@@ -26,40 +28,27 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            log.Info("GetAll iniciado");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Petición recibida: GetAll Solicitudes",
-                Detalles = "Obteniendo todas las solicitudes",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"GetAll iniciado para usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetAll Solicitudes", 
+                "Obteniendo todas las solicitudes", userId);
 
             try
             {
                 var data = await _solicitudService.GetAllAsync();
                 
-                log.Info("GetAll completado correctamente");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: GetAll Solicitudes",
-                    Detalles = $"Total solicitudes obtenidas: {data.Count}",
-                    IdUsuario = null
-                });
+                log.Info($"GetAll completado correctamente, {data.Count} solicitudes obtenidas");
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetAll Solicitudes", 
+                    $"Total solicitudes obtenidas: {data.Count}", userId);
                 
                 return Ok(data);
             }
             catch (Exception ex)
             {
                 log.Error("Error inesperado durante GetAll", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en GetAll Solicitudes", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -68,14 +57,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
-            log.Info($"GetById iniciado para id: {id}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = $"Petición recibida: GetById Solicitud {id}",
-                Detalles = $"Buscando solicitud con id: {id}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"GetById iniciado para id: {id}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetById Solicitud", 
+                $"Buscando solicitud con id: {id}", userId);
 
             try
             {
@@ -84,37 +70,22 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 if (data == null)
                 {
                     log.Warn($"Solicitud con id {id} no encontrada");
-                    await _logService.AddAsync(new LogSistemaCreateDTO
-                    {
-                        Nivel = "WARN",
-                        Mensaje = $"Solicitud no encontrada: {id}",
-                        Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
-                    });
+                    await _logService.RegistrarLogAsync("WARN", $"Solicitud no encontrada: {id}", 
+                        "Recurso solicitado no existe", userId);
                     return NotFound();
                 }
 
                 log.Info($"GetById completado correctamente para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: GetById Solicitud",
-                    Detalles = $"Solicitud {id} obtenida exitosamente",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetById Solicitud", 
+                    $"Solicitud {id} obtenida exitosamente", userId);
 
                 return Ok(data);
             }
             catch (Exception ex)
             {
                 log.Error($"Error inesperado durante GetById para id: {id}", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en GetById Solicitud", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -123,38 +94,25 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SolicitudCreateDto dto)
         {
-            log.Info("Create iniciado");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Petición recibida: Create Solicitud",
-                Detalles = $"Creando solicitud para personal: {dto?.IdPersonal}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Create iniciado para usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: Create Solicitud", 
+                $"Creando solicitud para personal: {dto?.IdPersonal}", userId);
 
             if (dto == null)
             {
                 log.Warn("Create recibió dto nulo");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: dto nulo",
-                    Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: dto nulo", 
+                    "El cuerpo de la petición es nulo", userId);
                 return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
             }
 
             if (!ModelState.IsValid)
             {
                 log.Warn("Create: Validación de ModelState fallida");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: ModelState inválido",
-                    Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
                 return BadRequest(ModelState);
             }
 
@@ -163,26 +121,16 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 var created = await _solicitudService.CreateAsync(dto);
 
                 log.Info($"Create completado correctamente, IdSolicitud: {created.IdSolicitud}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: Create Solicitud",
-                    Detalles = $"Solicitud creada con id: {created.IdSolicitud}",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: Create Solicitud", 
+                    $"Solicitud creada con id: {created.IdSolicitud}", userId);
 
                 return CreatedAtAction(nameof(GetById), new { id = created.IdSolicitud }, created);
             }
             catch (Exception ex)
             {
                 log.Error("Error inesperado durante Create", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en Create Solicitud", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -191,38 +139,25 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] SolicitudUpdateDto dto)
         {
-            log.Info($"Update iniciado para id: {id}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = $"Petición recibida: Update Solicitud {id}",
-                Detalles = $"Actualizando solicitud con id: {id}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Update iniciado para id: {id}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: Update Solicitud", 
+                $"Actualizando solicitud con id: {id}", userId);
 
             if (dto == null)
             {
                 log.Warn($"Update recibió dto nulo para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: dto nulo",
-                    Detalles = "El cuerpo de la petición es nulo",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: dto nulo", 
+                    "El cuerpo de la petición es nulo", userId);
                 return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
             }
 
             if (!ModelState.IsValid)
             {
                 log.Warn($"Update: Validación de ModelState fallida para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Validación fallida: ModelState inválido",
-                    Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
+                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)), userId);
                 return BadRequest(ModelState);
             }
 
@@ -233,37 +168,22 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 if (updated == null)
                 {
                     log.Warn($"Solicitud con id {id} no encontrada para actualizar");
-                    await _logService.AddAsync(new LogSistemaCreateDTO
-                    {
-                        Nivel = "WARN",
-                        Mensaje = $"Solicitud no encontrada para actualizar: {id}",
-                        Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
-                    });
+                    await _logService.RegistrarLogAsync("WARN", $"Solicitud no encontrada para actualizar: {id}", 
+                        "Recurso solicitado no existe", userId);
                     return NotFound();
                 }
 
                 log.Info($"Update completado correctamente para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: Update Solicitud",
-                    Detalles = $"Solicitud {id} actualizada exitosamente",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: Update Solicitud", 
+                    $"Solicitud {id} actualizada exitosamente", userId);
 
                 return Ok(updated);
             }
             catch (Exception ex)
             {
                 log.Error($"Error inesperado durante Update para id: {id}", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en Update Solicitud", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }
@@ -272,14 +192,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
-            log.Info($"Delete iniciado para id: {id}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = $"Petición recibida: Delete Solicitud {id}",
-                Detalles = $"Eliminando solicitud con id: {id}",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Delete iniciado para id: {id}, usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: Delete Solicitud", 
+                $"Eliminando solicitud con id: {id}", userId);
 
             try
             {
@@ -288,37 +205,22 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 if (!ok)
                 {
                     log.Warn($"Solicitud con id {id} no encontrada para eliminar");
-                    await _logService.AddAsync(new LogSistemaCreateDTO
-                    {
-                        Nivel = "WARN",
-                        Mensaje = $"Solicitud no encontrada para eliminar: {id}",
-                        Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
-                    });
+                    await _logService.RegistrarLogAsync("WARN", $"Solicitud no encontrada para eliminar: {id}", 
+                        "Recurso solicitado no existe", userId);
                     return NotFound();
                 }
 
                 log.Info($"Delete completado correctamente para id: {id}");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: Delete Solicitud",
-                    Detalles = $"Solicitud {id} eliminada exitosamente",
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: Delete Solicitud", 
+                    $"Solicitud {id} eliminada exitosamente", userId);
 
                 return NoContent();
             }
             catch (Exception ex)
             {
                 log.Error($"Error inesperado durante Delete para id: {id}", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en Delete Solicitud", 
+                    ex.ToString(), userId);
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
         }

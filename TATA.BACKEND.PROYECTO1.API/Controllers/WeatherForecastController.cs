@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -17,9 +19,9 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         };
 
         private readonly ILogger<WeatherForecastController> _logger;
-        private readonly ILogSistemaService _logService;
+        private readonly ILogService _logService;
 
-        public WeatherForecastController(ILogger<WeatherForecastController> logger, ILogSistemaService logService)
+        public WeatherForecastController(ILogger<WeatherForecastController> logger, ILogService logService)
         {
             _logger = logger;
             _logService = logService;
@@ -29,14 +31,11 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet(Name = "GetWeatherForecast")]
         public async Task<IEnumerable<WeatherForecast>> Get()
         {
-            log.Info("Get iniciado");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Petición recibida: GetWeatherForecast",
-                Detalles = "Obteniendo pronóstico del clima",
-                IdUsuario = null
-            });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Get iniciado para usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: GetWeatherForecast", 
+                "Obteniendo pronóstico del clima", userId);
 
             try
             {
@@ -48,27 +47,17 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                 })
                 .ToArray();
 
-                log.Info("Get completado correctamente");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "INFO",
-                    Mensaje = "Operación completada correctamente: GetWeatherForecast",
-                    Detalles = $"Total pronósticos generados: {forecast.Length}",
-                    IdUsuario = null
-                });
+                log.Info($"Get completado correctamente, {forecast.Length} pronósticos generados");
+                await _logService.RegistrarLogAsync("INFO", "Operación completada correctamente: GetWeatherForecast", 
+                    $"Total pronósticos generados: {forecast.Length}", userId);
 
                 return forecast;
             }
             catch (Exception ex)
             {
                 log.Error("Error inesperado durante Get", ex);
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "ERROR",
-                    Mensaje = ex.Message,
-                    Detalles = ex.ToString(),
-                    IdUsuario = null
-                });
+                await _logService.RegistrarLogAsync("ERROR", "Error inesperado en GetWeatherForecast", 
+                    ex.ToString(), userId);
                 throw;
             }
         }
