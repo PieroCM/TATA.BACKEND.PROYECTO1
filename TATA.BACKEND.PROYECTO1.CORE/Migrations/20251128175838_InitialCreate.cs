@@ -20,7 +20,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Migrations
                     codigo_sla = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     descripcion = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
                     dias_umbral = table.Column<int>(type: "int", nullable: false),
-                    tipo_solicitud = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    tipo_solicitud = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     es_activo = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     creado_en = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "(sysutcdatetime())"),
                     actualizado_en = table.Column<DateTime>(type: "datetime2", nullable: true)
