@@ -97,7 +97,21 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
-// BACKGROUND WORKER - Resumen diario autom�tico
+// =====================================================
+// MACHINE LEARNING - Predicción SLA
+// =====================================================
+builder.Services.AddTransient<ISlaMLRepository, SlaMLRepository>();
+
+// HttpClient para microservicio ML (entrenamiento y predicción)
+builder.Services.AddHttpClient<ISlaMLService, SlaMLService>(client =>
+{
+    var mlBaseUrl = builder.Configuration["MLService:BaseUrl"] ?? "http://localhost:8500";
+    var timeoutMinutes = int.TryParse(builder.Configuration["MLService:TimeoutMinutes"], out var t) ? t : 5;
+    client.BaseAddress = new Uri(mlBaseUrl);
+    client.Timeout = TimeSpan.FromMinutes(timeoutMinutes);
+});
+
+// BACKGROUND WORKER - Resumen diario automático
 builder.Services.AddHostedService<DailySummaryWorker>();
 
 // Shared Infrastructure (JWT, etc.)
