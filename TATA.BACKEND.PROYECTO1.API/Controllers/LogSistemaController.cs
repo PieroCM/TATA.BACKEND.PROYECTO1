@@ -2,6 +2,7 @@
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -22,6 +23,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
+            // No extraemos userId aquí para evitar recursión en logs de logs
             log.Info("GetAll iniciado");
             // No registramos en BD aquí para evitar recursión infinita con logs de logs
             
@@ -42,6 +44,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(long id)
         {
+            // No extraemos userId aquí para evitar recursión en logs de logs
             log.Info($"GetById iniciado para id: {id}");
             
             try
@@ -67,6 +70,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] LogSistemaCreateDTO dto)
         {
+            // No extraemos userId aquí para evitar recursión en logs de logs
             log.Info("Create iniciado");
             
             if (dto == null)
@@ -98,6 +102,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(long id)
         {
+            // No extraemos userId aquí para evitar recursión en logs de logs
             log.Info($"Delete iniciado para id: {id}");
             
             try
