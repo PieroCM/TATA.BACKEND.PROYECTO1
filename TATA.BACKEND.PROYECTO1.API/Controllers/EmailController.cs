@@ -23,7 +23,7 @@ public class EmailController(
     /// <summary>
     /// Envío masivo de correos (Broadcast) según filtros
     /// POST /api/email/broadcast
-    /// Body: { "idRol": 1, "idSla": 2, "asunto": "...", "mensajeHtml": "..." }
+    /// Body: { "asunto": "...", "mensajeHtml": "...", "idRol": 1, "idSla": 2, "esPrueba": true, "emailPrueba": "test@correo.com" }
     /// </summary>
     [HttpPost("broadcast")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -52,11 +52,21 @@ public class EmailController(
             });
         }
 
+        // Validar que si es prueba, debe tener email de prueba
+        if (dto.EsPrueba && string.IsNullOrWhiteSpace(dto.EmailPrueba))
+        {
+            _logger.LogWarning("EmailPrueba vacío cuando EsPrueba es true");
+            return BadRequest(new
+            {
+                mensaje = "El campo 'emailPrueba' es obligatorio cuando 'esPrueba' es true"
+            });
+        }
+
         try
         {
             _logger.LogInformation(
-                "Solicitud de broadcast recibida. IdRol={IdRol}, IdSla={IdSla}, Asunto='{Asunto}'",
-                dto.IdRol, dto.IdSla, dto.Asunto);
+                "Solicitud de broadcast recibida. Modo: {Modo}, IdRol={IdRol}, IdSla={IdSla}, Asunto='{Asunto}'",
+                dto.EsPrueba ? "PRUEBA" : "PRODUCCIÓN", dto.IdRol, dto.IdSla, dto.Asunto);
 
             await _emailAutomationService.SendBroadcastAsync(dto);
 
@@ -64,8 +74,11 @@ public class EmailController(
 
             return Ok(new
             {
-                mensaje = "Broadcast enviado exitosamente",
+                mensaje = dto.EsPrueba 
+                    ? $"Correo de prueba enviado exitosamente a {dto.EmailPrueba}" 
+                    : "Broadcast enviado exitosamente",
                 fecha = DateTime.UtcNow,
+                modo = dto.EsPrueba ? "PRUEBA" : "PRODUCCIÓN",
                 filtros = new
                 {
                     idRol = dto.IdRol,
@@ -409,6 +422,108 @@ public class EmailController(
                 stackTrace = ex.StackTrace?.Split('\n').Take(5).ToArray(),
                 fecha = DateTime.UtcNow,
                 duracionSegundos = stopwatch.Elapsed.TotalSeconds
+            });
+        }
+    }
+
+    /// <summary>
+    /// Obtener lista de roles activos para selectores
+    /// GET /api/email/roles
+    /// </summary>
+    [HttpGet("roles")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> GetRoles()
+    {
+        try
+        {
+            _logger.LogInformation("Solicitud de roles activos para selector");
+
+            var roles = await _emailAutomationService.GetRolesActivosAsync();
+
+            _logger.LogInformation("Se retornaron {Count} roles activos", roles.Count);
+
+            return Ok(new
+            {
+                total = roles.Count,
+                roles = roles
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener roles");
+            return StatusCode(500, new
+            {
+                mensaje = "Error al obtener roles. Por favor, contacte al administrador.",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Obtener lista de SLAs activos para selectores
+    /// GET /api/email/slas
+    /// </summary>
+    [HttpGet("slas")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> GetSlas()
+    {
+        try
+        {
+            _logger.LogInformation("Solicitud de SLAs activos para selector");
+
+            var slas = await _emailAutomationService.GetSlasActivosAsync();
+
+            _logger.LogInformation("Se retornaron {Count} SLAs activos", slas.Count);
+
+            return Ok(new
+            {
+                total = slas.Count,
+                slas = slas
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener SLAs");
+            return StatusCode(500, new
+            {
+                mensaje = "Error al obtener SLAs. Por favor, contacte al administrador.",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Vista previa de destinatarios según filtros
+    /// GET /api/email/preview-destinatarios?idRol=1&idSla=2
+    /// </summary>
+    [HttpGet("preview-destinatarios")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> GetPreviewDestinatarios([FromQuery] int? idRol, [FromQuery] int? idSla)
+    {
+        try
+        {
+            _logger.LogInformation("Solicitud de preview de destinatarios. IdRol={IdRol}, IdSla={IdSla}", idRol, idSla);
+
+            var destinatarios = await _emailAutomationService.GetDestinatariosPreviewAsync(idRol, idSla);
+
+            _logger.LogInformation("Se retornaron {Count} destinatarios para preview", destinatarios.Count);
+
+            return Ok(new
+            {
+                total = destinatarios.Count,
+                destinatarios = destinatarios
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener preview de destinatarios");
+            return StatusCode(500, new
+            {
+                mensaje = "Error al obtener preview de destinatarios. Por favor, contacte al administrador.",
+                error = ex.Message
             });
         }
     }

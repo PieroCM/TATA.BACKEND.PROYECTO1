@@ -27,6 +27,7 @@ public class EmailAutomationService(
 
     /// <summary>
     /// Envío masivo (Broadcast) según filtros de Rol y/o SLA
+    /// VERSIÓN ACTUALIZADA: Soporta modo de prueba
     /// </summary>
     public async Task SendBroadcastAsync(BroadcastDto dto)
     {
@@ -36,35 +37,53 @@ public class EmailAutomationService(
         if (string.IsNullOrWhiteSpace(dto.MensajeHtml))
             throw new ArgumentException("El mensaje HTML no puede estar vacío", nameof(dto.MensajeHtml));
 
-        _logger.LogInformation("Iniciando envío de broadcast. Filtros: IdRol={IdRol}, IdSla={IdSla}", 
-            dto.IdRol, dto.IdSla);
+        _logger.LogInformation("Iniciando envío de broadcast. Modo: {Modo}, Filtros: IdRol={IdRol}, IdSla={IdSla}", 
+            dto.EsPrueba ? "PRUEBA" : "PRODUCCIÓN", dto.IdRol, dto.IdSla);
 
         try
         {
-            // Construir query con filtros
-            var query = _context.Solicitud
-                .AsNoTracking()
-                .Include(s => s.IdPersonalNavigation)
-                .Include(s => s.IdRolRegistroNavigation)
-                .Include(s => s.IdSlaNavigation)
-                .Where(s => s.EstadoSolicitud != "CERRADO" && s.EstadoSolicitud != "ELIMINADO");
+            // CASO PRUEBA: Envío simple a un solo correo
+            if (dto.EsPrueba)
+            {
+                if (string.IsNullOrWhiteSpace(dto.EmailPrueba))
+                {
+                    throw new ArgumentException("Debe especificar un email de prueba cuando EsPrueba es true", nameof(dto.EmailPrueba));
+                }
 
+                _logger.LogInformation("Modo PRUEBA activado. Enviando a: {Email}", dto.EmailPrueba);
+
+                await _emailService.SendAsync(dto.EmailPrueba, dto.Asunto, dto.MensajeHtml);
+
+                await RegistrarEmailLog("BROADCAST_PRUEBA", dto.EmailPrueba, "OK", 
+                    "Envío de prueba exitoso");
+
+                _logger.LogInformation("Broadcast de prueba enviado exitosamente a {Email}", dto.EmailPrueba);
+                return;
+            }
+
+            // CASO PRODUCCIÓN: Envío masivo según filtros
+            var query = _context.Personal
+                .AsNoTracking()
+                .Where(p => p.Estado == "ACTIVO" && !string.IsNullOrWhiteSpace(p.CorreoCorporativo));
+
+            // Aplicar filtros dinámicos
             if (dto.IdRol.HasValue)
             {
-                query = query.Where(s => s.IdRolRegistro == dto.IdRol.Value);
+                // Filtrar por personas que tienen solicitudes con ese rol
+                query = query.Where(p => p.Solicitud.Any(s => s.IdRolRegistro == dto.IdRol.Value));
                 _logger.LogDebug("Aplicado filtro por Rol: {IdRol}", dto.IdRol.Value);
             }
 
             if (dto.IdSla.HasValue)
             {
-                query = query.Where(s => s.IdSla == dto.IdSla.Value);
+                // Filtrar por personas que tienen solicitudes con ese SLA
+                query = query.Where(p => p.Solicitud.Any(s => s.IdSla == dto.IdSla.Value));
                 _logger.LogDebug("Aplicado filtro por SLA: {IdSla}", dto.IdSla.Value);
             }
 
-            // Obtener correos únicos y válidos
+            // Obtener correos únicos
             var correos = await query
-                .Select(s => s.IdPersonalNavigation.CorreoCorporativo)
-                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Select(p => p.CorreoCorporativo!)
                 .Distinct()
                 .ToListAsync();
 
@@ -423,6 +442,123 @@ public class EmailAutomationService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener logs de email");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Obtener lista de destinatarios según filtros (Preview antes del envío)
+    /// </summary>
+    public async Task<List<DestinatarioPreviewDto>> GetDestinatariosPreviewAsync(int? idRol, int? idSla)
+    {
+        _logger.LogInformation("Obteniendo preview de destinatarios. IdRol={IdRol}, IdSla={IdSla}", idRol, idSla);
+
+        try
+        {
+            var query = _context.Personal
+                .AsNoTracking()
+                .Include(p => p.Solicitud)
+                    .ThenInclude(s => s.IdRolRegistroNavigation)
+                .Where(p => p.Estado == "ACTIVO" && !string.IsNullOrWhiteSpace(p.CorreoCorporativo));
+
+            // Aplicar filtros dinámicos
+            if (idRol.HasValue)
+            {
+                query = query.Where(p => p.Solicitud.Any(s => s.IdRolRegistro == idRol.Value));
+                _logger.LogDebug("Aplicado filtro por Rol: {IdRol}", idRol.Value);
+            }
+
+            if (idSla.HasValue)
+            {
+                query = query.Where(p => p.Solicitud.Any(s => s.IdSla == idSla.Value));
+                _logger.LogDebug("Aplicado filtro por SLA: {IdSla}", idSla.Value);
+            }
+
+            var personal = await query.ToListAsync();
+
+            var destinatarios = personal
+                .Select(p => new DestinatarioPreviewDto
+                {
+                    IdPersonal = p.IdPersonal,
+                    NombreCompleto = $"{p.Nombres} {p.Apellidos}",
+                    Cargo = p.Solicitud.FirstOrDefault()?.IdRolRegistroNavigation?.NombreRol,
+                    FotoUrl = null, // Agregar campo FotoUrl en Personal si se requiere
+                    Correo = p.CorreoCorporativo!
+                })
+                .GroupBy(d => d.Correo)
+                .Select(g => g.First())
+                .OrderBy(d => d.NombreCompleto)
+                .ToList();
+
+            _logger.LogInformation("Se obtuvieron {Count} destinatarios para preview", destinatarios.Count);
+
+            return destinatarios;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener preview de destinatarios");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Obtener roles activos para selectores
+    /// </summary>
+    public async Task<List<RolSelectorDto>> GetRolesActivosAsync()
+    {
+        _logger.LogDebug("Obteniendo roles activos para selector");
+
+        try
+        {
+            var roles = await _context.RolRegistro
+                .AsNoTracking()
+                .Where(r => r.EsActivo)
+                .OrderBy(r => r.NombreRol)
+                .Select(r => new RolSelectorDto
+                {
+                    Id = r.IdRolRegistro,
+                    Descripcion = r.NombreRol
+                })
+                .ToListAsync();
+
+            _logger.LogInformation("Se obtuvieron {Count} roles activos", roles.Count);
+
+            return roles;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener roles activos");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Obtener SLAs activos para selectores
+    /// </summary>
+    public async Task<List<SlaSelectorDto>> GetSlasActivosAsync()
+    {
+        _logger.LogDebug("Obteniendo SLAs activos para selector");
+
+        try
+        {
+            var slas = await _context.ConfigSla
+                .AsNoTracking()
+                .Where(s => s.EsActivo)
+                .OrderBy(s => s.CodigoSla)
+                .Select(s => new SlaSelectorDto
+                {
+                    Id = s.IdSla,
+                    Descripcion = s.CodigoSla
+                })
+                .ToListAsync();
+
+            _logger.LogInformation("Se obtuvieron {Count} SLAs activos", slas.Count);
+
+            return slas;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener SLAs activos");
             throw;
         }
     }

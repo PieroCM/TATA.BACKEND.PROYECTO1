@@ -25,5 +25,20 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         /// Obtener últimos 100 logs de envío
         /// </summary>
         Task<List<EmailLog>> GetLogsAsync();
+
+        /// <summary>
+        /// Obtener lista de destinatarios según filtros (Preview)
+        /// </summary>
+        Task<List<DestinatarioPreviewDto>> GetDestinatariosPreviewAsync(int? idRol, int? idSla);
+
+        /// <summary>
+        /// Obtener roles activos para selectores
+        /// </summary>
+        Task<List<RolSelectorDto>> GetRolesActivosAsync();
+
+        /// <summary>
+        /// Obtener SLAs activos para selectores
+        /// </summary>
+        Task<List<SlaSelectorDto>> GetSlasActivosAsync();
     }
 }
