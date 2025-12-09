@@ -144,8 +144,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Migrations
 
                     b.Property<string>("TipoSolicitud")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("tipo_solicitud");
 
                     b.HasKey("IdSla");

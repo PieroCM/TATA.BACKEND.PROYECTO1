@@ -18,6 +18,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
     /// - NO crea usuarios nuevos.
     /// - SÍ crea Personal cuando no existe.
     /// - Usa el idUsuarioCreador recibido como parámetro.
+    /// - VALIDA duplicados antes de crear solicitudes.
     /// </summary>
     public class SubidaVolumenServices : ISubidaVolumenServices
     {
@@ -76,6 +77,22 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             var configSlaList = (await _configSlaRepository.GetAllAsync()).ToList();
             var rolRegistroList = (await _rolRegistroRepository.GetAllAsync()).ToList();
             var personalList = (await _personalRepository.GetAllAsync()).ToList();
+            var solicitudesExistentes = (await _solicitudRepository.GetSolicitudsAsync()).ToList();
+
+            // ⚠️ NUEVO: Construir HashSet de claves de solicitudes existentes para validar duplicados
+            var solicitudKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in solicitudesExistentes)
+            {
+                var key = BuildSolicitudKey(
+                    s.IdPersonal,
+                    s.IdSla,
+                    s.IdRolRegistro,
+                    s.FechaSolicitud
+                );
+                solicitudKeys.Add(key);
+            }
+
+            log.Info($"[SubidaVolumen] Solicitudes existentes cargadas: {solicitudKeys.Count} claves únicas.");
 
             // Diccionarios para búsquedas rápidas O(1) - case-insensitive
             var configSlaByCodigo = configSlaList
@@ -182,6 +199,28 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         row.RolRegistroDescripcion,
                         rolRegistroByNombre);
 
+                    // ⚠️ NUEVO: Validar duplicado ANTES de crear la solicitud
+                    var fechaSolicitudOnly = DateOnly.FromDateTime(fechaSolicitud);
+                    var nuevaKey = BuildSolicitudKey(
+                        personal.IdPersonal,
+                        configSla.IdSla,
+                        rolRegistro.IdRolRegistro,
+                        fechaSolicitudOnly
+                    );
+
+                    if (solicitudKeys.Contains(nuevaKey))
+                    {
+                        // Solicitud duplicada detectada
+                        log.Debug($"[SubidaVolumen] Fila {rowIndex} - Solicitud duplicada detectada: {nuevaKey}");
+                        RegistrarError(result, rowIndex,
+                            "Solicitud duplicada: ya existe una solicitud para este personal, SLA, rol y fecha de solicitud.");
+                        rowIndex++;
+                        continue;
+                    }
+
+                    // Agregar la nueva clave al HashSet para evitar duplicados dentro del mismo lote
+                    solicitudKeys.Add(nuevaKey);
+
                     // 2.4) Calcular SLA y crear Solicitud
                     var solicitud = CrearSolicitud(
                         row,
@@ -212,6 +251,20 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         // ----------------- Métodos privados auxiliares -----------------
+
+        /// <summary>
+        /// Construye una clave determinística única para identificar solicitudes duplicadas.
+        /// Combina IdPersonal, IdSla, IdRolRegistro y FechaSolicitud.
+        /// </summary>
+        /// <param name="idPersonal">ID del personal</param>
+        /// <param name="idSla">ID del SLA</param>
+        /// <param name="idRolRegistro">ID del rol de registro</param>
+        /// <param name="fechaSolicitud">Fecha de solicitud</param>
+        /// <returns>String con formato: "idPersonal|idSla|idRolRegistro|yyyy-MM-dd"</returns>
+        private static string BuildSolicitudKey(int idPersonal, int idSla, int idRolRegistro, DateOnly fechaSolicitud)
+        {
+            return $"{idPersonal}|{idSla}|{idRolRegistro}|{fechaSolicitud:yyyy-MM-dd}";
+        }
 
         /// <summary>
         /// Valida que todos los campos obligatorios estén presentes
