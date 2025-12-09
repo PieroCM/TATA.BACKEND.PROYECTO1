@@ -96,11 +96,21 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// BACKGROUND WORKERS (Procesos automáticos que corren en segundo plano)
-// ═══════════════════════════════════════════════════════════════════════════════
+// =====================================================
+// MACHINE LEARNING - Predicción SLA
+// =====================================================
+builder.Services.AddTransient<ISlaMLRepository, SlaMLRepository>();
 
-// Worker 1: Resumen diario de ALERTAS por email (usa EmailConfig.HoraResumen)
+// HttpClient para microservicio ML (entrenamiento y predicción)
+builder.Services.AddHttpClient<ISlaMLService, SlaMLService>(client =>
+{
+    var mlBaseUrl = builder.Configuration["MLService:BaseUrl"] ?? "http://localhost:8500";
+    var timeoutMinutes = int.TryParse(builder.Configuration["MLService:TimeoutMinutes"], out var t) ? t : 5;
+    client.BaseAddress = new Uri(mlBaseUrl);
+    client.Timeout = TimeSpan.FromMinutes(timeoutMinutes);
+});
+
+// BACKGROUND WORKER - Resumen diario automático
 builder.Services.AddHostedService<DailySummaryWorker>();
 
 // Worker 2: Recálculo diario de SLA a medianoche (hora Perú) - INDEPENDIENTE de alertas
