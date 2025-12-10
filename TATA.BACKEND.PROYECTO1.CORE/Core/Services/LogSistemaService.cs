@@ -6,6 +6,7 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Shared;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 {
@@ -30,7 +31,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         private static LogSistema ToEntity(LogSistemaCreateDTO dto) => new()
         {
-            FechaHora = DateTime.UtcNow,
+            FechaHora = PeruTimeProvider.NowPeru,
             Nivel = dto.Nivel,
             Mensaje = dto.Mensaje,
             Detalles = dto.Detalles,

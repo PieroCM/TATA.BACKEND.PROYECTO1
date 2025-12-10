@@ -6,14 +6,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Shared;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Workers;
 
 /// <summary>
-/// Background Worker que envía el resumen diario de alertas automáticamente
-/// Utiliza Primary Constructor (.NET 9)
-/// Se ejecuta cada 60 segundos y verifica la hora configurada
+/// Background Worker dedicado EXCLUSIVAMENTE al envío del resumen diario de alertas por correo.
+/// Se ejecuta cada 60 segundos y verifica la hora configurada en EmailConfig.HoraResumen.
+/// 
+/// RESPONSABILIDAD ÚNICA: Enviar resumen de alertas por email.
+/// NO hace recálculo de SLA (eso lo hace SlaDailyWorker).
+/// 
+/// Usa la zona horaria de Perú (UTC-5) para todas las operaciones de tiempo.
 /// </summary>
 public class DailySummaryWorker(
     IServiceScopeFactory scopeFactory,
@@ -25,7 +30,10 @@ public class DailySummaryWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("?? DailySummaryWorker iniciado correctamente");
+        _logger.LogInformation(
+            "?? DailySummaryWorker iniciado correctamente. Zona horaria: {TimeZone}. " +
+            "NOTA: Este worker solo envía resúmenes de alertas por email. El recálculo de SLA lo hace SlaDailyWorker.",
+            PeruTimeProvider.TimeZoneName);
 
         // Esperar 10 segundos antes de comenzar para asegurar que todos los servicios estén listos
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
@@ -69,7 +77,7 @@ public class DailySummaryWorker(
 
         try
         {
-            // Obtener configuración
+            // Obtener configuración de email
             var config = await context.EmailConfig
                 .AsNoTracking()
                 .FirstOrDefaultAsync(stoppingToken);
@@ -86,41 +94,48 @@ public class DailySummaryWorker(
                 return;
             }
 
-            var horaActual = DateTime.UtcNow.TimeOfDay;
+            // Usar hora de Perú para la comparación
+            var ahoraPeru = PeruTimeProvider.NowPeru;
+            var horaActual = ahoraPeru.TimeOfDay;
             var horaResumen = config.HoraResumen;
-            var hoy = DateTime.UtcNow.Date;
+            var hoy = ahoraPeru.Date;
 
-            // Verificar si estamos en la hora configurada (± 1 minuto de tolerancia)
+            // Verificar si estamos en la hora configurada (± 1.5 minutos de tolerancia)
             var diferencia = Math.Abs((horaActual - horaResumen).TotalMinutes);
 
-            // Verificar si ya se envió hoy
+            // Verificar si ya se envió hoy (usando fecha de Perú)
             var yaEnviadoHoy = _lastExecutionDate.Date == hoy;
 
             if (diferencia <= 1.5 && !yaEnviadoHoy)
             {
                 _logger.LogInformation(
-                    "? Hora de envío alcanzada: {HoraActual} ? {HoraResumen}. Enviando resumen diario...",
+                    "? Hora de envío de resumen alcanzada en Perú: {HoraActual} ? {HoraResumen}. Enviando resumen de alertas...",
                     horaActual.ToString(@"hh\:mm\:ss"),
                     horaResumen.ToString(@"hh\:mm\:ss"));
 
                 try
                 {
+                    // ??????????????????????????????????????????????????????????????
+                    // RESPONSABILIDAD ÚNICA: Solo enviar el resumen de alertas
+                    // El recálculo de SLA lo hace SlaDailyWorker a medianoche
+                    // ??????????????????????????????????????????????????????????????
                     await emailAutomationService.SendDailySummaryAsync();
-                    _lastExecutionDate = DateTime.UtcNow;
+                    _lastExecutionDate = ahoraPeru; // Guardar fecha de Perú
 
-                    _logger.LogInformation("? Resumen diario enviado exitosamente a las {Hora}",
-                        DateTime.UtcNow.ToString("HH:mm:ss"));
+                    _logger.LogInformation(
+                        "?? Resumen diario de alertas enviado exitosamente a las {Hora} (Hora Perú)",
+                        ahoraPeru.ToString("HH:mm:ss"));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "? Error al enviar resumen diario");
+                    _logger.LogError(ex, "? Error al enviar resumen diario de alertas");
                     // No actualizar _lastExecutionDate para reintentar mañana
                 }
             }
             else
             {
                 _logger.LogTrace(
-                    "Verificación periódica: Hora actual {HoraActual}, Hora configurada {HoraResumen}, Diferencia {Diferencia:F2} min, Ya enviado hoy: {YaEnviado}",
+                    "Verificación periódica (Hora Perú): Actual {HoraActual}, Configurada {HoraResumen}, Diferencia {Diferencia:F2} min, Ya enviado hoy: {YaEnviado}",
                     horaActual.ToString(@"hh\:mm\:ss"),
                     horaResumen.ToString(@"hh\:mm\:ss"),
                     diferencia,

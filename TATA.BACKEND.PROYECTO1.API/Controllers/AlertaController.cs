@@ -9,7 +9,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers;
 
 /// <summary>
 /// Controlador moderno de Alertas con Primary Constructor (.NET 9)
-/// Expone endpoints para Dashboard inteligente, sincronización y CRUD básico
+/// Expone endpoints para Dashboard inteligente, sincronización y CRUD básicocokmsmsedmes
 /// </summary>
 [Route("api/alertas")]
 [ApiController]

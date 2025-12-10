@@ -1,4 +1,3 @@
-
 using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
@@ -97,8 +96,25 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
-// BACKGROUND WORKER - Resumen diario autom�tico
+// =====================================================
+// MACHINE LEARNING - Predicción SLA
+// =====================================================
+builder.Services.AddTransient<ISlaMLRepository, SlaMLRepository>();
+
+// HttpClient para microservicio ML (entrenamiento y predicción)
+builder.Services.AddHttpClient<ISlaMLService, SlaMLService>(client =>
+{
+    var mlBaseUrl = builder.Configuration["MLService:BaseUrl"] ?? "http://localhost:8500";
+    var timeoutMinutes = int.TryParse(builder.Configuration["MLService:TimeoutMinutes"], out var t) ? t : 5;
+    client.BaseAddress = new Uri(mlBaseUrl);
+    client.Timeout = TimeSpan.FromMinutes(timeoutMinutes);
+});
+
+// BACKGROUND WORKER - Resumen diario automático
 builder.Services.AddHostedService<DailySummaryWorker>();
+
+// Worker 2: Recálculo diario de SLA a medianoche (hora Perú) - INDEPENDIENTE de alertas
+builder.Services.AddHostedService<SlaDailyWorker>();
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
@@ -120,7 +136,12 @@ builder.Services.AddCors(options =>
         });
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
 builder.Services.AddOpenApi();
 
 // Configurar HttpClient para el servicio de predicción
