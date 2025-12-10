@@ -141,67 +141,416 @@ public class EmailAutomationService(
 
     /// <summary>
     /// Envío automático del resumen diario de alertas críticas/vencidas
-    /// VERSIÓN REFORZADA: Con validaciones, guard clause, logs extremadamente detallados y respuesta dinámica
+    /// VERSIÓN REFACTORIZADA: 
+    /// - Destinatarios dinámicos (Administradores y Analistas desde BD)
+    /// - Notificación "Sin Pendientes" cuando no hay alertas
+    /// - HTML generado una sola vez antes de enviar
     /// </summary>
     public async Task<EmailSummaryResponseDto> SendDailySummaryAsync()
     {
-        _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogCritical("?? [PASO 1/7] INICIANDO envío de resumen diario");
-        _logger.LogCritical("?????????????????????????????????????????");
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("?? [RESUMEN DIARIO] INICIANDO proceso automático");
+        _logger.LogCritical("=================================================================");
 
-        // PASO 1: Obtener configuración
-        _logger.LogInformation("?? [PASO 2/7] Consultando EmailConfig en base de datos...");
-        var config = await _context.EmailConfig.FirstOrDefaultAsync();
-        
-        if (config == null)
+        try
         {
-            var error = "? [FATAL] No existe registro en tabla email_config";
-            _logger.LogCritical(error);
-            await RegistrarEmailLog("RESUMEN", "", "ERROR", error);
-            throw new InvalidOperationException(error);
-        }
+            // PASO 1: Verificar configuración
+            _logger.LogInformation("?? [PASO 1/6] Consultando EmailConfig...");
+            var config = await _context.EmailConfig.FirstOrDefaultAsync();
 
-        _logger.LogInformation("? EmailConfig encontrado: Id={Id}", config.Id);
-        _logger.LogInformation("   ?? ResumenDiario: {ResumenDiario}", config.ResumenDiario);
-        _logger.LogInformation("   ?? DestinatarioResumen: '{Destinatario}'", config.DestinatarioResumen ?? "NULL");
-        _logger.LogInformation("   ? HoraResumen: {Hora}", config.HoraResumen);
+            if (config == null)
+            {
+                var error = "? [FATAL] No existe registro en tabla email_config";
+                _logger.LogCritical(error);
+                await RegistrarEmailLog("RESUMEN_DIARIO", "", "ERROR", error);
+                throw new InvalidOperationException(error);
+            }
 
-        if (!config.ResumenDiario)
-        {
-            _logger.LogWarning("?? ResumenDiario está DESACTIVADO. Abortando envío.");
-            
-            // ?? NO registrar en email_log cuando está desactivado (no se envía correo)
+            if (!config.ResumenDiario)
+            {
+                _logger.LogWarning("?? ResumenDiario está DESACTIVADO. Abortando envío.");
+                return new EmailSummaryResponseDto
+                {
+                    Exito = true,
+                    Mensaje = "Resumen diario desactivado en la configuración",
+                    CantidadAlertas = 0,
+                    CorreoEnviado = false
+                };
+            }
+
+            _logger.LogInformation("? Configuración validada: ResumenDiario = ACTIVADO");
+
+            // PASO 2: Obtener destinatarios dinámicos (Administradores y Analistas)
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 2/6] Obteniendo destinatarios desde BD (Admin & Analistas)");
+            _logger.LogCritical("=================================================================");
+
+            var destinatarios = await ObtenerDestinatariosAdminYAnalistasAsync();
+
+            if (!destinatarios.Any())
+            {
+                var error = "? No se encontraron Administradores ni Analistas ACTIVOS con correo corporativo";
+                _logger.LogWarning(error);
+                await RegistrarEmailLog("RESUMEN_DIARIO", "", "ERROR", error);
+                return new EmailSummaryResponseDto
+                {
+                    Exito = false,
+                    Mensaje = error,
+                    CantidadAlertas = 0,
+                    CorreoEnviado = false
+                };
+            }
+
+            _logger.LogInformation("? Se encontraron {Count} destinatarios:", destinatarios.Count);
+            foreach (var dest in destinatarios)
+            {
+                _logger.LogInformation("   ?? {Email} ({Rol})", dest, 
+                    destinatarios.IndexOf(dest) < destinatarios.Count / 2 ? "Administrador" : "Analista");
+            }
+
+            // PASO 3: Consultar alertas CRITICO/ALTO
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 3/6] Consultando alertas CRITICO/ALTO en BD");
+            _logger.LogCritical("=================================================================");
+
+            var hoy = DateTime.UtcNow.Date;
+
+            var alertasCriticas = await _context.Alerta
+                .AsNoTracking()
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdPersonalNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdSlaNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdRolRegistroNavigation)
+                .Where(a => a.Estado == "ACTIVA" &&
+                           (a.Nivel == "CRITICO" || a.Nivel == "ALTO"))
+                .OrderByDescending(a => a.FechaCreacion)
+                .ToListAsync();
+
+            _logger.LogInformation("?? Consulta completada: {Count} alertas encontradas", alertasCriticas.Count);
+
+            // PASO 4: Generar HTML según si hay o no alertas
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 4/6] Generando contenido HTML del correo");
+            _logger.LogCritical("=================================================================");
+
+            string htmlBody;
+            string asunto;
+            string tipoCorreo;
+
+            if (!alertasCriticas.Any())
+            {
+                // ? CONDICIÓN B: No hay alertas ? Generar HTML "Sin Pendientes"
+                _logger.LogInformation("? No hay alertas críticas/altas. Generando HTML 'Sin Pendientes'...");
+
+                htmlBody = GenerarHtmlSinPendientes(hoy);
+                asunto = $"? [RESUMEN DIARIO SLA] {hoy:dd/MM/yyyy} - Todo en Orden";
+                tipoCorreo = "RESUMEN_SIN_PENDIENTES";
+
+                _logger.LogInformation("? HTML 'Sin Pendientes' generado: {Length} caracteres", htmlBody.Length);
+            }
+            else
+            {
+                // ? CONDICIÓN A: Hay alertas ? Generar HTML con reporte
+                _logger.LogInformation("?? Se encontraron {Count} alertas. Generando HTML de reporte...", alertasCriticas.Count);
+
+                // Mostrar primeras 3 alertas
+                _logger.LogInformation("?? Primeras 3 alertas a incluir:");
+                foreach (var alerta in alertasCriticas.Take(3))
+                {
+                    _logger.LogInformation("   ?? [{Id}] {Nivel}: {Mensaje}",
+                        alerta.IdAlerta,
+                        alerta.Nivel,
+                        alerta.Mensaje.Length > 50 ? alerta.Mensaje.Substring(0, 50) + "..." : alerta.Mensaje);
+                }
+
+                htmlBody = GenerarHtmlResumenDiario(alertasCriticas, hoy);
+                asunto = $"?? [RESUMEN DIARIO SLA] {hoy:dd/MM/yyyy} - {alertasCriticas.Count} alertas críticas";
+                tipoCorreo = "RESUMEN_CON_ALERTAS";
+
+                _logger.LogInformation("? HTML con alertas generado: {Length} caracteres", htmlBody.Length);
+            }
+
+            // Validar que el HTML no esté vacío
+            if (string.IsNullOrWhiteSpace(htmlBody))
+            {
+                throw new InvalidOperationException("? HTML generado está vacío");
+            }
+
+            // PASO 5: Enviar a cada destinatario
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 5/6] Enviando correos a {Count} destinatarios", destinatarios.Count);
+            _logger.LogCritical("=================================================================");
+
+            var resultados = new List<EnvioResultadoDto>();
+            var exitosos = 0;
+            var fallidos = 0;
+
+            foreach (var destinatario in destinatarios)
+            {
+                _logger.LogInformation("?? Enviando a: {Email}", destinatario);
+
+                try
+                {
+                    await _emailService.SendAsync(destinatario, asunto, htmlBody);
+
+                    exitosos++;
+                    resultados.Add(new EnvioResultadoDto
+                    {
+                        Destinatario = destinatario,
+                        Exitoso = true
+                    });
+
+                    _logger.LogInformation("? Enviado exitosamente a {Email}", destinatario);
+
+                    // Registrar en email_log individualmente
+                    await RegistrarEmailLog(tipoCorreo, destinatario, "OK",
+                        alertasCriticas.Any()
+                            ? $"Resumen enviado con {alertasCriticas.Count} alertas"
+                            : "Resumen 'Sin Pendientes' enviado");
+                }
+                catch (Exception ex)
+                {
+                    fallidos++;
+                    var errorMsg = $"{ex.GetType().Name}: {ex.Message}";
+
+                    resultados.Add(new EnvioResultadoDto
+                    {
+                        Destinatario = destinatario,
+                        Exitoso = false,
+                        MensajeError = errorMsg
+                    });
+
+                    _logger.LogError(ex, "? Error al enviar a {Email}", destinatario);
+
+                    // Registrar error en email_log
+                    await RegistrarEmailLog(tipoCorreo, destinatario, "ERROR", errorMsg);
+                }
+            }
+
+            // PASO 6: Resumen final
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("? [PASO 6/6] Proceso completado");
+            _logger.LogCritical("=================================================================");
+            _logger.LogInformation("?? Estadísticas:");
+            _logger.LogInformation("   ? Exitosos: {Exitosos}", exitosos);
+            _logger.LogInformation("   ? Fallidos: {Fallidos}", fallidos);
+            _logger.LogInformation("   ?? Alertas incluidas: {Total}", alertasCriticas.Count);
+            _logger.LogInformation("   ?? Destinatarios: {Count}", destinatarios.Count);
+            _logger.LogInformation("   ?? Tipo: {Tipo}", tipoCorreo);
+
+            var mensajeFinal = exitosos == destinatarios.Count
+                ? $"Resumen diario enviado exitosamente a {exitosos} destinatario(s)"
+                : $"Resumen enviado parcialmente: {exitosos} exitosos, {fallidos} fallidos de {destinatarios.Count} destinatarios";
+
+            if (alertasCriticas.Any())
+            {
+                mensajeFinal += $" con {alertasCriticas.Count} alertas";
+            }
+            else
+            {
+                mensajeFinal += " (Sin alertas pendientes)";
+            }
+
             return new EmailSummaryResponseDto
             {
-                Exito = true,
-                Mensaje = "Resumen diario desactivado en la configuración",
+                Exito = exitosos > 0,
+                Mensaje = mensajeFinal,
+                CantidadAlertas = alertasCriticas.Count,
+                CorreoEnviado = exitosos > 0,
+                Destinatarios = destinatarios,
+                ResultadosEnvios = resultados
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "?? Error crítico en SendDailySummaryAsync");
+            _logger.LogCritical("Tipo: {Type}", ex.GetType().FullName);
+            _logger.LogCritical("Mensaje: {Message}", ex.Message);
+
+            await RegistrarEmailLog("RESUMEN_DIARIO", "", "ERROR", $"Error crítico: {ex.Message}");
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Obtiene lista de correos corporativos de usuarios ACTIVOS con rol Administrador (1) o Analista (2)
+    /// Optimizado: Una sola consulta a BD con proyección directa a List de strings
+    /// </summary>
+    private async Task<List<string>> ObtenerDestinatariosAdminYAnalistasAsync()
+    {
+        _logger.LogDebug("?? Consultando destinatarios (Admin & Analistas) en BD...");
+
+        try
+        {
+            var correos = await _context.Usuario
+                .AsNoTracking()
+                .Where(u => u.Estado == "ACTIVO" &&
+                           (u.IdRolSistema == 1 || u.IdRolSistema == 2) && // Admin o Analista
+                           u.PersonalNavigation != null &&
+                           !string.IsNullOrWhiteSpace(u.PersonalNavigation.CorreoCorporativo))
+                .Select(u => u.PersonalNavigation!.CorreoCorporativo!)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+
+            _logger.LogDebug("? Consulta completada: {Count} correos únicos encontrados", correos.Count);
+
+            return correos;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "? Error al consultar destinatarios");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Genera HTML "Sin Pendientes" cuando no hay alertas críticas/altas
+    /// Mensaje positivo: "Todo en orden, no hay alertas próximas a vencer hoy"
+    /// </summary>
+    private string GenerarHtmlSinPendientes(DateTime fecha)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html lang='es'><head><meta charset='UTF-8'><style>");
+        sb.AppendLine("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }");
+        sb.AppendLine(".container { max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }");
+        sb.AppendLine(".header { background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 40px 30px; text-align: center; }");
+        sb.AppendLine(".header h1 { margin: 0; font-size: 32px; }");
+        sb.AppendLine(".header p { margin: 15px 0 0 0; opacity: 0.9; font-size: 16px; }");
+        sb.AppendLine(".icon-success { font-size: 80px; margin: 20px 0; }");
+        sb.AppendLine(".content { padding: 40px 30px; text-align: center; }");
+        sb.AppendLine(".message-box { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-left: 4px solid #4caf50; padding: 30px; border-radius: 8px; margin: 20px 0; }");
+        sb.AppendLine(".message-box h2 { margin: 0 0 15px 0; color: #2e7d32; font-size: 24px; }");
+        sb.AppendLine(".message-box p { margin: 10px 0; color: #1b5e20; font-size: 16px; line-height: 1.6; }");
+        sb.AppendLine(".stats-box { display: flex; justify-content: center; gap: 30px; margin: 30px 0; flex-wrap: wrap; }");
+        sb.AppendLine(".stat-item { background: #f8f9fa; padding: 20px 30px; border-radius: 8px; text-align: center; min-width: 150px; }");
+        sb.AppendLine(".stat-number { font-size: 48px; font-weight: bold; color: #4caf50; margin: 0; }");
+        sb.AppendLine(".stat-label { font-size: 14px; color: #666; margin: 10px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }");
+        sb.AppendLine(".footer { padding: 30px; background-color: #f8f9fa; text-align: center; color: #666; font-size: 14px; border-top: 1px solid #e0e0e0; }");
+        sb.AppendLine(".footer strong { color: #4caf50; }");
+        sb.AppendLine(".check-icon { color: #4caf50; font-size: 24px; margin-right: 10px; }");
+        sb.AppendLine("</style></head><body><div class='container'>");
+
+        // Header
+        sb.AppendLine("<div class='header'>");
+        sb.AppendLine("<div class='icon-success'>?</div>");
+        sb.AppendLine("<h1>Resumen Diario SLA</h1>");
+        sb.AppendLine($"<p>{fecha:dddd, dd 'de' MMMM 'de' yyyy}</p>");
+        sb.AppendLine("</div>");
+
+        // Content
+        sb.AppendLine("<div class='content'>");
+
+        // Mensaje principal
+        sb.AppendLine("<div class='message-box'>");
+        sb.AppendLine("<h2><span class='check-icon'>?</span> ¡Todo en Orden!</h2>");
+        sb.AppendLine("<p><strong>No hay alertas críticas ni de alta prioridad pendientes en este momento.</strong></p>");
+        sb.AppendLine("<p>Todas las solicitudes SLA se encuentran dentro de los plazos establecidos.</p>");
+        sb.AppendLine("<p>El sistema continúa monitoreando activamente todas las solicitudes.</p>");
+        sb.AppendLine("</div>");
+
+        // Estadísticas
+        sb.AppendLine("<div class='stats-box'>");
+        sb.AppendLine("<div class='stat-item'>");
+        sb.AppendLine("<p class='stat-number'>0</p>");
+        sb.AppendLine("<p class='stat-label'>Alertas Críticas</p>");
+        sb.AppendLine("</div>");
+        sb.AppendLine("<div class='stat-item'>");
+        sb.AppendLine("<p class='stat-number'>0</p>");
+        sb.AppendLine("<p class='stat-label'>Alertas Altas</p>");
+        sb.AppendLine("</div>");
+        sb.AppendLine("<div class='stat-item'>");
+        sb.AppendLine("<p class='stat-number'>?</p>");
+        sb.AppendLine("<p class='stat-label'>Estado del Sistema</p>");
+        sb.AppendLine("</div>");
+        sb.AppendLine("</div>");
+
+        // Información adicional
+        sb.AppendLine("<div style='margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 8px; text-align: left;'>");
+        sb.AppendLine("<h3 style='margin: 0 0 15px 0; color: #1565c0;'>?? Información</h3>");
+        sb.AppendLine("<ul style='margin: 0; padding-left: 20px; color: #0d47a1;'>");
+        sb.AppendLine("<li style='margin: 10px 0;'>Este resumen se genera automáticamente todos los días</li>");
+        sb.AppendLine("<li style='margin: 10px 0;'>Se incluyen alertas de nivel CRÍTICO y ALTO activas</li>");
+        sb.AppendLine("<li style='margin: 10px 0;'>Recibirás notificación inmediata si surge alguna alerta</li>");
+        sb.AppendLine("<li style='margin: 10px 0;'>El sistema monitorea solicitudes próximas a vencer (0, 1, 2 días)</li>");
+        sb.AppendLine("</ul>");
+        sb.AppendLine("</div>");
+
+        sb.AppendLine("</div>");
+
+        // Footer
+        sb.AppendLine("<div class='footer'>");
+        sb.AppendLine("<p><strong>? Estado: OPERATIVO</strong></p>");
+        sb.AppendLine("<p>Sistema de Gestión de Alertas SLA TATA</p>");
+        sb.AppendLine($"<p>Generado automáticamente el {DateTime.UtcNow:dd/MM/yyyy 'a las' HH:mm:ss} UTC</p>");
+        sb.AppendLine("<p style='margin-top: 15px; font-size: 12px; color: #999;'>Este es un correo automático. Por favor, no respondas a este mensaje.</p>");
+        sb.AppendLine("</div>");
+
+        sb.AppendLine("</div></body></html>");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Envío de resumen diario a múltiples destinatarios seleccionados
+    /// </summary>
+    public async Task<EmailSummaryResponseDto> SendDailySummaryToRecipientsAsync(List<string> destinatarios)
+    {
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("?? [ENVÍO MÚLTIPLE] INICIANDO resumen diario a {Count} destinatarios", destinatarios.Count);
+        _logger.LogCritical("=================================================================");
+
+        if (destinatarios == null || !destinatarios.Any())
+        {
+            var error = "? No se proporcionaron destinatarios";
+            _logger.LogWarning(error);
+            return new EmailSummaryResponseDto
+            {
+                Exito = false,
+                Mensaje = error,
                 CantidadAlertas = 0,
                 CorreoEnviado = false
             };
         }
 
-        var destinatario = config.DestinatarioResumen?.Trim();
-        if (string.IsNullOrWhiteSpace(destinatario))
+        // Filtrar destinatarios válidos
+        var destinatariosValidos = destinatarios
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .Select(d => d.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!destinatariosValidos.Any())
         {
-            var error = "? [FATAL] DestinatarioResumen está vacío o NULL";
-            _logger.LogCritical(error);
-            _logger.LogCritical("   ?? Valor actual: '{Valor}'", config.DestinatarioResumen ?? "NULL");
-            await RegistrarEmailLog("RESUMEN", "", "ERROR", error);
-            throw new InvalidOperationException(error);
+            var error = "? No se proporcionaron destinatarios válidos";
+            _logger.LogWarning(error);
+            return new EmailSummaryResponseDto
+            {
+                Exito = false,
+                Mensaje = error,
+                CantidadAlertas = 0,
+                CorreoEnviado = false
+            };
         }
 
-        _logger.LogInformation("? Destinatario validado: '{Destinatario}'", destinatario);
+        _logger.LogInformation("?? Destinatarios válidos: {Count}", destinatariosValidos.Count);
+        foreach (var destinatario in destinatariosValidos)
+        {
+            _logger.LogInformation("   ?? {Email}", destinatario);
+        }
 
-        // PASO 2: Obtener alertas
-        _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogCritical("?? [PASO 3/7] Consultando alertas CRITICO/ALTO en BD");
-        _logger.LogCritical("?????????????????????????????????????????");
-        
+        // PASO 1: Obtener alertas
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("?? [PASO 1/3] Consultando alertas CRITICO/ALTO en BD");
+        _logger.LogCritical("=================================================================");
+
         var hoy = DateTime.UtcNow.Date;
-        
-        // Query con logging detallado
-        _logger.LogDebug("   Buscando: Estado = 'ACTIVA' AND (Nivel = 'CRITICO' OR Nivel = 'ALTO')");
-        
+
         var alertasCriticas = await _context.Alerta
             .AsNoTracking()
             .Include(a => a.IdSolicitudNavigation)
@@ -217,30 +566,18 @@ public class EmailAutomationService(
 
         _logger.LogInformation("?? Consulta completada: {Count} alertas encontradas", alertasCriticas.Count);
 
-        // ???????????????????????????????????????????????????????????????
-        // ?? GUARD CLAUSE: Validar si hay alertas antes de continuar
-        // ???????????????????????????????????????????????????????????????
+        // GUARD CLAUSE: Validar si hay alertas antes de continuar
         if (!alertasCriticas.Any())
         {
-            _logger.LogWarning("?????????????????????????????????????????");
             _logger.LogWarning("?? No se encontraron alertas para enviar");
-            _logger.LogWarning("?????????????????????????????????????????");
-            _logger.LogInformation("   ?? No hay alertas con Estado='ACTIVA' y Nivel IN ('CRITICO','ALTO')");
-            _logger.LogInformation("   ? Proceso finalizado correctamente sin envío de correo");
-            _logger.LogInformation("   ?? Sugerencia: Verifica la consulta con:");
-            _logger.LogInformation("      SELECT * FROM alerta WHERE Estado='ACTIVA' AND Nivel IN ('CRITICO','ALTO')");
-            
-            // ?? NO registrar en email_log cuando no se envía correo
-            // await RegistrarEmailLog("RESUMEN", destinatario, "OK", "No se encontraron alertas para enviar"); ? ELIMINADO
-            
-            // ? EARLY RETURN con mensaje dinámico (sin registro en BD)
+
             return new EmailSummaryResponseDto
             {
                 Exito = true,
                 Mensaje = "No se encontraron alertas para enviar",
                 CantidadAlertas = 0,
                 CorreoEnviado = false,
-                Destinatario = destinatario
+                Destinatarios = destinatariosValidos
             };
         }
 
@@ -248,140 +585,112 @@ public class EmailAutomationService(
         _logger.LogInformation("?? Primeras 3 alertas a incluir:");
         foreach (var alerta in alertasCriticas.Take(3))
         {
-            _logger.LogInformation("   ?? [{Id}] {Nivel}: {Mensaje}", 
-                alerta.IdAlerta, 
-                alerta.Nivel, 
+            _logger.LogInformation("   ?? [{Id}] {Nivel}: {Mensaje}",
+                alerta.IdAlerta,
+                alerta.Nivel,
                 alerta.Mensaje.Length > 50 ? alerta.Mensaje.Substring(0, 50) + "..." : alerta.Mensaje);
         }
 
-        // PASO 3: Generar HTML
-        _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogCritical("?? [PASO 4/7] Generando HTML del resumen");
-        _logger.LogCritical("?????????????????????????????????????????");
+        // PASO 2: Generar HTML
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("?? [PASO 2/3] Generando HTML del resumen");
+        _logger.LogCritical("=================================================================");
 
         string htmlBody;
         try
         {
             htmlBody = GenerarHtmlResumenDiario(alertasCriticas, hoy);
-            _logger.LogInformation("? HTML generado: {Length} caracteres, {Bytes} bytes", 
-                htmlBody.Length, 
+            _logger.LogInformation("? HTML generado: {Length} caracteres, {Bytes} bytes",
+                htmlBody.Length,
                 System.Text.Encoding.UTF8.GetByteCount(htmlBody));
-            
-            // Validar que el HTML no esté vacío
-            if (string.IsNullOrWhiteSpace(htmlBody))
-            {
-                throw new InvalidOperationException("HTML generado está vacío");
-            }
-            
-            // Log de preview del HTML
-            var preview = htmlBody.Length > 200 ? htmlBody.Substring(0, 200) + "..." : htmlBody;
-            _logger.LogDebug("   Preview HTML: {Preview}", preview);
         }
         catch (Exception ex)
         {
             var error = $"? Error al generar HTML: {ex.Message}";
             _logger.LogCritical(ex, error);
-            await RegistrarEmailLog("RESUMEN", destinatario, "ERROR", error);
-            throw new InvalidOperationException(error, ex);
-        }
-
-        // PASO 4: Preparar asunto
-        var asunto = $"[RESUMEN DIARIO SLA] {hoy:dd/MM/yyyy} - {alertasCriticas.Count} alertas críticas";
-        
-        _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogCritical("?? [PASO 5/7] Preparando envío de correo");
-        _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogInformation("   ?? Destinatario: {To}", destinatario);
-        _logger.LogInformation("   ?? Asunto: {Subject}", asunto);
-        _logger.LogInformation("   ?? Tamaño HTML: {Size} caracteres", htmlBody.Length);
-
-        // PASO 5: ENVIAR - AQUÍ ES CRÍTICO
-        _logger.LogCritical("?????????????????????????????????????????");
-        _logger.LogCritical("?? [PASO 6/7] LLAMANDO A EmailService.SendAsync");
-        _logger.LogCritical("?????????????????????????????????????????");
-        
-        var envioComienzo = DateTime.UtcNow;
-        var envioExitoso = false;
-
-        try
-        {
-            _logger.LogWarning("?? Llamando a _emailService.SendAsync...");
-            _logger.LogWarning("   Si no ves logs después de esto, el error está en EmailService");
-            
-            await _emailService.SendAsync(destinatario, asunto, htmlBody);
-
-            envioExitoso = true;
-            var duracion = (DateTime.UtcNow - envioComienzo).TotalSeconds;
-            
-            _logger.LogCritical("?? [ÉXITO] EmailService.SendAsync completado en {Duracion:F2}s", duracion);
-            _logger.LogCritical("?????????????????????????????????????????");
-        }
-        catch (Exception ex)
-        {
-            var duracion = (DateTime.UtcNow - envioComienzo).TotalSeconds;
-            
-            _logger.LogCritical("?????????????????????????????????????????");
-            _logger.LogCritical("?? [ERROR CAPTURADO] Falló después de {Duracion:F2}s", duracion);
-            _logger.LogCritical("?????????????????????????????????????????");
-            _logger.LogCritical("Tipo: {Type}", ex.GetType().FullName);
-            _logger.LogCritical("Mensaje: {Message}", ex.Message);
-            _logger.LogCritical("InnerException: {Inner}", ex.InnerException?.Message ?? "NULL");
-            _logger.LogCritical("StackTrace:");
-            _logger.LogCritical("{Stack}", ex.StackTrace);
-
-            await RegistrarEmailLog("RESUMEN", destinatario, "ERROR", 
-                $"[{ex.GetType().Name}] {ex.Message}");
-
-            throw new InvalidOperationException(
-                $"? FALLO SMTP al enviar resumen a {destinatario}. " +
-                $"Tipo: {ex.GetType().Name}. Error: {ex.Message}", 
-                ex);
-        }
-
-        // PASO 6: Registrar éxito y retornar respuesta
-        if (envioExitoso)
-        {
-            _logger.LogCritical("?????????????????????????????????????????");
-            _logger.LogCritical("?? [PASO 7/7] Registrando en email_log");
-            _logger.LogCritical("?????????????????????????????????????????");
-
-            var mensajeExito = $"Resumen diario enviado exitosamente con {alertasCriticas.Count} alertas";
-
-            await RegistrarEmailLog("RESUMEN", destinatario, "OK", mensajeExito);
-
-            _logger.LogCritical("?? [COMPLETADO] {Mensaje}", mensajeExito);
-            _logger.LogCritical("   ?? Destinatario: {To}", destinatario);
-            _logger.LogCritical("   ?? Alertas incluidas: {Count}", alertasCriticas.Count);
-            _logger.LogCritical("   ? Timestamp: {Time}", DateTime.UtcNow);
-            _logger.LogCritical("?????????????????????????????????????????");
-            
-            // VERIFICACIÓN FINAL
-            _logger.LogWarning("?? VERIFICACIÓN POST-ENVÍO:");
-            _logger.LogWarning("   Si no ves el correo en tu bandeja:");
-            _logger.LogWarning("   1. Revisa SPAM / Correo no deseado");
-            _logger.LogWarning("   2. Busca: from:mellamonose19@gmail.com");
-            _logger.LogWarning("   3. Busca: subject:[RESUMEN DIARIO SLA]");
-            _logger.LogWarning("   4. El correo SÍ se envió, puede estar bloqueado por Gmail");
-
-            // Retornar respuesta con mensaje dinámico
             return new EmailSummaryResponseDto
             {
-                Exito = true,
-                Mensaje = mensajeExito,
+                Exito = false,
+                Mensaje = error,
                 CantidadAlertas = alertasCriticas.Count,
-                CorreoEnviado = true,
-                Destinatario = destinatario
+                CorreoEnviado = false,
+                Destinatarios = destinatariosValidos
             };
         }
 
-        // Este código nunca debería ejecutarse, pero por seguridad:
+        // PASO 3: Enviar a cada destinatario
+        var asunto = $"[RESUMEN DIARIO SLA] {hoy:dd/MM/yyyy} - {alertasCriticas.Count} alertas críticas";
+
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("?? [PASO 3/3] Enviando correos a {Count} destinatarios", destinatariosValidos.Count);
+        _logger.LogCritical("=================================================================");
+
+        var resultados = new List<EnvioResultadoDto>();
+        var exitosos = 0;
+        var fallidos = 0;
+
+        foreach (var destinatario in destinatariosValidos)
+        {
+            _logger.LogInformation("?? Enviando a: {Email}", destinatario);
+
+            try
+            {
+                await _emailService.SendAsync(destinatario, asunto, htmlBody);
+
+                exitosos++;
+                resultados.Add(new EnvioResultadoDto
+                {
+                    Destinatario = destinatario,
+                    Exitoso = true
+                });
+
+                _logger.LogInformation("? Enviado exitosamente a {Email}", destinatario);
+
+                // Registrar en email_log individualmente
+                await RegistrarEmailLog("RESUMEN_MULTIPLE", destinatario, "OK",
+                    $"Resumen diario enviado exitosamente con {alertasCriticas.Count} alertas");
+            }
+            catch (Exception ex)
+            {
+                fallidos++;
+                var errorMsg = $"{ex.GetType().Name}: {ex.Message}";
+
+                resultados.Add(new EnvioResultadoDto
+                {
+                    Destinatario = destinatario,
+                    Exitoso = false,
+                    MensajeError = errorMsg
+                });
+
+                _logger.LogError(ex, "? Error al enviar a {Email}", destinatario);
+
+                // Registrar error en email_log
+                await RegistrarEmailLog("RESUMEN_MULTIPLE", destinatario, "ERROR", errorMsg);
+            }
+        }
+
+        // Resumen final
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("? [COMPLETADO] Envío de resumen diario múltiple");
+        _logger.LogCritical("=================================================================");
+        _logger.LogInformation("?? Resumen:");
+        _logger.LogInformation("   ? Exitosos: {Exitosos}", exitosos);
+        _logger.LogInformation("   ? Fallidos: {Fallidos}", fallidos);
+        _logger.LogInformation("   ?? Alertas incluidas: {Total}", alertasCriticas.Count);
+        _logger.LogInformation("   ?? Destinatarios: {Count}", destinatariosValidos.Count);
+
+        var mensajeFinal = exitosos == destinatariosValidos.Count
+            ? $"Resumen enviado exitosamente a {exitosos} destinatario(s) con {alertasCriticas.Count} alertas"
+            : $"Resumen enviado parcialmente: {exitosos} exitosos, {fallidos} fallidos de {destinatariosValidos.Count} destinatarios";
+
         return new EmailSummaryResponseDto
         {
-            Exito = false,
-            Mensaje = "Error desconocido en el envío",
-            CantidadAlertas = 0,
-            CorreoEnviado = false,
-            Destinatario = destinatario
+            Exito = exitosos > 0,
+            Mensaje = mensajeFinal,
+            CantidadAlertas = alertasCriticas.Count,
+            CorreoEnviado = exitosos > 0,
+            Destinatarios = destinatariosValidos,
+            ResultadosEnvios = resultados
         };
     }
 
@@ -719,6 +1028,63 @@ public class EmailAutomationService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener SLAs activos");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Obtener usuarios administradores y analistas con sus correos
+    /// IdRolSistema 1 = Administrador, 2 = Analista
+    /// VERSIÓN CORREGIDA: Sin string.Format para evitar errores de traducción LINQ
+    /// </summary>
+    public async Task<List<UsuarioEmailDto>> GetAdministradoresYAnalistasAsync()
+    {
+        _logger.LogDebug("Obteniendo usuarios administradores y analistas");
+
+        try
+        {
+            var usuarios = await _context.Usuario
+                .AsNoTracking()
+                .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation)
+                .Where(u => u.Estado == "ACTIVO" && 
+                           (u.IdRolSistema == 1 || u.IdRolSistema == 2) && // Administrador o Analista
+                           u.PersonalNavigation != null &&
+                           !string.IsNullOrWhiteSpace(u.PersonalNavigation.CorreoCorporativo))
+                .Select(u => new UsuarioEmailDto
+                {
+                    IdUsuario = u.IdUsuario,
+                    Username = u.Username,
+                    CorreoCorporativo = u.PersonalNavigation.CorreoCorporativo,
+                    IdRolSistema = u.IdRolSistema,
+                    NombreRol = u.IdRolSistemaNavigation != null ? u.IdRolSistemaNavigation.Nombre : "Sin Rol",
+                    // ? CORRECCIÓN: Usar concatenación simple en lugar de string.Format
+                    NombreCompleto = u.PersonalNavigation != null 
+                        ? (u.PersonalNavigation.Nombres ?? "") + " " + (u.PersonalNavigation.Apellidos ?? "")
+                        : u.Username,
+                    TieneCorreo = !string.IsNullOrWhiteSpace(u.PersonalNavigation.CorreoCorporativo)
+                })
+                .ToListAsync();
+
+            // ? CORRECCIÓN: Limpiar espacios en blanco extra DESPUÉS de traer los datos de la BD (en memoria)
+            foreach (var usuario in usuarios)
+            {
+                usuario.NombreCompleto = usuario.NombreCompleto?.Trim() ?? usuario.Username;
+            }
+
+            // ? CORRECCIÓN: Ordenar EN MEMORIA después de obtener los datos
+            var usuariosOrdenados = usuarios
+                .OrderBy(u => u.NombreRol)
+                .ThenBy(u => u.NombreCompleto)
+                .ToList();
+
+            _logger.LogInformation("Se obtuvieron {Count} administradores y analistas activos", usuariosOrdenados.Count);
+
+            return usuariosOrdenados;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener administradores y analistas");
             throw;
         }
     }

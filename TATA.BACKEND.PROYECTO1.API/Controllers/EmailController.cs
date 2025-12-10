@@ -520,6 +520,120 @@ public class EmailController(
     }
 
     /// <summary>
+    /// Obtener administradores y analistas con sus correos para selección de destinatarios
+    /// GET /api/email/administradores-analistas
+    /// </summary>
+    [HttpGet("administradores-analistas")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> GetAdministradoresYAnalistas()
+    {
+        try
+        {
+            _logger.LogInformation("?? Solicitud de administradores y analistas para envío de resumen");
+
+            var usuarios = await _emailAutomationService.GetAdministradoresYAnalistasAsync();
+
+            _logger.LogInformation("? Se retornaron {Count} administradores y analistas", usuarios.Count);
+
+            return Ok(new
+            {
+                success = true,
+                total = usuarios.Count,
+                usuarios = usuarios,
+                mensaje = $"Se encontraron {usuarios.Count} administradores y analistas con correo corporativo"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "? Error al obtener administradores y analistas");
+            return StatusCode(500, new
+            {
+                success = false,
+                mensaje = "Error al obtener administradores y analistas. Por favor, contacte al administrador.",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Enviar resumen diario a múltiples destinatarios seleccionados
+    /// POST /api/email/send-summary-multiple
+    /// Body: { "destinatarios": ["admin@correo.com", "analista@correo.com"] }
+    /// </summary>
+    [HttpPost("send-summary-multiple")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> SendSummaryToMultiple([FromBody] SendSummaryToMultipleDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("? Modelo inválido en SendSummaryToMultiple");
+            return BadRequest(new
+            {
+                success = false,
+                mensaje = "Datos inválidos",
+                errores = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+            });
+        }
+
+        if (dto.Destinatarios == null || !dto.Destinatarios.Any())
+        {
+            _logger.LogWarning("? No se proporcionaron destinatarios");
+            return BadRequest(new
+            {
+                success = false,
+                mensaje = "Debe proporcionar al menos un destinatario"
+            });
+        }
+
+        try
+        {
+            _logger.LogInformation("?? Solicitud de envío de resumen a {Count} destinatarios", dto.Destinatarios.Count);
+            foreach (var destinatario in dto.Destinatarios)
+            {
+                _logger.LogInformation("   ?? {Email}", destinatario);
+            }
+
+            var resultado = await _emailAutomationService.SendDailySummaryToRecipientsAsync(dto.Destinatarios);
+
+            if (resultado.Exito)
+            {
+                _logger.LogInformation("? Resumen enviado exitosamente");
+                return Ok(new
+                {
+                    success = true,
+                    mensaje = resultado.Mensaje,
+                    data = resultado,
+                    fecha = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                _logger.LogWarning("?? Resumen con errores: {Mensaje}", resultado.Mensaje);
+                return Ok(new
+                {
+                    success = false,
+                    mensaje = resultado.Mensaje,
+                    data = resultado,
+                    fecha = DateTime.UtcNow
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "? Error al enviar resumen a múltiples destinatarios");
+            return StatusCode(500, new
+            {
+                success = false,
+                mensaje = "Error al enviar resumen. Por favor, contacte al administrador.",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// TEST: Comparar envío personalizado vs resumen (para debugging)
     /// POST /api/email/test-comparison
     /// </summary>

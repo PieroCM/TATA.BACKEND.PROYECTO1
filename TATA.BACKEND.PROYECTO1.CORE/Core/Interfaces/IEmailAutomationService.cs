@@ -17,6 +17,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<EmailSummaryResponseDto> SendDailySummaryAsync();
 
         /// <summary>
+        /// Envío de resumen diario a múltiples destinatarios seleccionados
+        /// </summary>
+        Task<EmailSummaryResponseDto> SendDailySummaryToRecipientsAsync(List<string> destinatarios);
+
+        /// <summary>
         /// Envío automático de notificaciones individuales personalizadas
         /// (Método utilizado por EmailAutomationWorker)
         /// </summary>
@@ -46,5 +51,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         /// Obtener SLAs activos para selectores
         /// </summary>
         Task<List<SlaSelectorDto>> GetSlasActivosAsync();
+
+        /// <summary>
+        /// Obtener usuarios administradores y analistas con sus correos
+        /// </summary>
+        Task<List<UsuarioEmailDto>> GetAdministradoresYAnalistasAsync();
     }
 }

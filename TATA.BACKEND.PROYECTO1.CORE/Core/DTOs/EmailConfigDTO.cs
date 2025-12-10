@@ -95,7 +95,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public bool CorreoEnviado { get; set; }
 
         /// <summary>
-        /// Destinatario del correo (si aplica)
+        /// Destinatario(s) del correo (si aplica)
         /// </summary>
         public string? Destinatario { get; set; }
 
@@ -103,6 +103,26 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         /// Timestamp de la operación
         /// </summary>
         public DateTime Fecha { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Lista de destinatarios cuando se envía a múltiples
+        /// </summary>
+        public List<string>? Destinatarios { get; set; }
+
+        /// <summary>
+        /// Resultado de envíos individuales cuando hay múltiples destinatarios
+        /// </summary>
+        public List<EnvioResultadoDto>? ResultadosEnvios { get; set; }
+    }
+
+    /// <summary>
+    /// DTO para resultado de envío individual
+    /// </summary>
+    public class EnvioResultadoDto
+    {
+        public string Destinatario { get; set; } = string.Empty;
+        public bool Exitoso { get; set; }
+        public string? MensajeError { get; set; }
     }
 
     /// <summary>
@@ -155,5 +175,30 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string? Cargo { get; set; }
         public string? FotoUrl { get; set; }
         public string Correo { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// DTO para usuarios con correo (Administradores y Analistas)
+    /// Se usa para seleccionar destinatarios del resumen diario
+    /// </summary>
+    public class UsuarioEmailDto
+    {
+        public int IdUsuario { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string? CorreoCorporativo { get; set; }
+        public int IdRolSistema { get; set; }
+        public string NombreRol { get; set; } = string.Empty;
+        public string? NombreCompleto { get; set; }
+        public bool TieneCorreo { get; set; }
+    }
+
+    /// <summary>
+    /// DTO para solicitud de envío de resumen a múltiples destinatarios
+    /// </summary>
+    public class SendSummaryToMultipleDto
+    {
+        [Required(ErrorMessage = "Debe proporcionar al menos un destinatario")]
+        [MinLength(1, ErrorMessage = "Debe proporcionar al menos un destinatario")]
+        public List<string> Destinatarios { get; set; } = new List<string>();
     }
 }
