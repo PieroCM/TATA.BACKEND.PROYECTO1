@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -27,13 +28,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("GetAll iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: GetAll Personal",
                 Detalles = "Obteniendo todos los registros de Personal",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -46,7 +49,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetAll Personal",
                     Detalles = $"Total Personal obtenidos: {personales.Count()}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 
                 return Ok(personales);
@@ -59,7 +62,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -69,13 +72,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"GetById iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: GetById Personal {id}",
                 Detalles = $"Buscando Personal con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -90,7 +95,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"Personal no encontrado: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound(new { message = "Personal no encontrado" });
                 }
@@ -101,7 +106,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetById Personal",
                     Detalles = $"Personal {id} obtenido exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(personal);
@@ -114,7 +119,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -124,13 +129,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] PersonalCreateDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("Create iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: Create Personal",
                 Detalles = $"Creando Personal: {dto?.Nombres} {dto?.Apellidos}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (dto == null || string.IsNullOrWhiteSpace(dto.Nombres) || string.IsNullOrWhiteSpace(dto.Apellidos))
@@ -141,7 +148,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: Nombres y Apellidos son obligatorios",
                     Detalles = "El cuerpo de la petición no cumple con los requisitos",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(new { message = "Nombres y Apellidos son obligatorios" });
             }
@@ -160,7 +167,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Detalles = !string.IsNullOrWhiteSpace(dto.Documento) 
                             ? "El documento proporcionado ya está registrado en el sistema" 
                             : "Verifica que todos los datos sean válidos",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return BadRequest(new { 
                         message = "Error al registrar personal",
@@ -176,7 +183,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Create Personal",
                     Detalles = $"Personal creado: {dto.Nombres} {dto.Apellidos}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(new { message = "Personal registrado correctamente" });
@@ -189,7 +196,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -202,13 +209,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPost("with-account")]
         public async Task<IActionResult> CreateWithAccount([FromBody] PersonalCreateWithAccountDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("CreateWithAccount iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: Create Personal With Account",
                 Detalles = $"Creando Personal con cuenta: {dto?.CrearCuentaUsuario}, Nombres: {dto?.Nombres} {dto?.Apellidos}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (dto == null || string.IsNullOrWhiteSpace(dto.Nombres) || string.IsNullOrWhiteSpace(dto.Apellidos))
@@ -219,7 +228,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: Nombres y Apellidos son obligatorios",
                     Detalles = "El cuerpo de la petición no cumple con los requisitos",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(new { message = "Nombres y Apellidos son obligatorios" });
             }
@@ -235,7 +244,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = "Validación fallida: Username es obligatorio cuando se crea cuenta de usuario",
                         Detalles = "Falta Username para crear cuenta",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return BadRequest(new { message = "Username es obligatorio cuando se crea cuenta de usuario" });
                 }
@@ -248,7 +257,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = "Validación fallida: Correo corporativo es obligatorio cuando se crea cuenta de usuario",
                         Detalles = "Falta Correo Corporativo para crear cuenta",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return BadRequest(new { message = "Correo corporativo es obligatorio cuando se crea cuenta de usuario" });
                 }
@@ -277,7 +286,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = mensaje,
                         Detalles = detalle,
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     
                     return BadRequest(new { 
@@ -294,7 +303,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Detalles = dto.CrearCuentaUsuario 
                         ? $"Personal creado con cuenta de usuario: {dto.Username}" 
                         : $"Personal creado sin cuenta: {dto.Nombres} {dto.Apellidos}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(new { 
@@ -316,7 +325,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -326,13 +335,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] PersonalUpdateDTO dto)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Update iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: Update Personal {id}",
                 Detalles = $"Actualizando Personal con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -350,7 +361,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                             Nivel = "WARN",
                             Mensaje = $"No se pudo actualizar el personal: {id}",
                             Detalles = "El documento proporcionado ya está registrado en otro personal o el personal no existe",
-                            IdUsuario = null
+                            IdUsuario = userId
                         });
                         return BadRequest(new { 
                             message = "No se pudo actualizar el personal",
@@ -364,7 +375,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"Personal no encontrado para actualizar: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound(new { message = "Personal no encontrado" });
                 }
@@ -375,7 +386,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Update Personal",
                     Detalles = $"Personal {id} actualizado exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(new { message = "Personal actualizado correctamente" });
@@ -388,7 +399,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -398,13 +409,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"Delete iniciado para id: {id}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = $"Petición recibida: Delete Personal {id}",
                 Detalles = $"Eliminando Personal con id: {id}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -419,7 +432,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                         Nivel = "WARN",
                         Mensaje = $"Personal no encontrado para eliminar: {id}",
                         Detalles = "Recurso solicitado no existe",
-                        IdUsuario = null
+                        IdUsuario = userId
                     });
                     return NotFound(new { message = "Personal no encontrado" });
                 }
@@ -430,7 +443,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Delete Personal",
                     Detalles = $"Personal {id} eliminado exitosamente",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(new { message = "Personal eliminado correctamente" });
@@ -443,7 +456,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -456,13 +469,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("verificar-documento/{documento}")]
         public async Task<IActionResult> VerificarDocumento(string documento)
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info($"VerificarDocumento iniciado para documento: {documento}");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: Verificar Documento",
                 Detalles = $"Verificando si el documento {documento} existe",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             if (string.IsNullOrWhiteSpace(documento))
@@ -473,7 +488,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "WARN",
                     Mensaje = "Validación fallida: Documento es requerido",
                     Detalles = "No se proporcionó documento para verificar",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return BadRequest(new { message = "Documento es requerido" });
             }
@@ -489,7 +504,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: Verificar Documento",
                     Detalles = $"Documento {documento} - Existe: {existe}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
 
                 return Ok(new { 
@@ -508,7 +523,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -525,13 +540,15 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [HttpGet("gestion-usuarios")]
         public async Task<IActionResult> GetGestionUsuarios()
         {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
             log.Info("GetGestionUsuarios iniciado");
             await _logService.AddAsync(new LogSistemaCreateDTO
             {
                 Nivel = "INFO",
                 Mensaje = "Petición recibida: GetGestionUsuarios",
                 Detalles = "Obteniendo listado unificado de Personal con Usuarios",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             try
@@ -544,7 +561,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "INFO",
                     Mensaje = "Operación completada correctamente: GetGestionUsuarios",
                     Detalles = $"Total registros obtenidos: {lista.Count()}",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 
                 return Ok(lista);
@@ -557,7 +574,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
                     Nivel = "ERROR",
                     Mensaje = ex.Message,
                     Detalles = ex.ToString(),
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
             }
@@ -566,5 +583,147 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         // ===========================
         // ENDPOINTS BÁSICOS DE PERSONAL
         // ===========================
+
+        /// <summary>
+        /// Deshabilitación Administrativa Total: Deshabilita Personal y OPCIONALMENTE elimina o deshabilita Usuario
+        /// PATCH /api/personal/deshabilitar/{id}
+        /// </summary>
+        [HttpPatch("deshabilitar/{id}")]
+        public async Task<IActionResult> DeshabilitarPersonalYUsuario(int id, [FromBody] DeshabilitarPersonalDTO? dto)
+        {
+            log.Info($"DeshabilitarPersonalYUsuario iniciado para id: {id}");
+            
+            // Si no se envía el body, usar valores por defecto (eliminarUsuario = false)
+            var eliminarUsuario = dto?.EliminarUsuario ?? false;
+            
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Deshabilitar Personal Y Usuario {id}",
+                Detalles = $"Iniciando deshabilitación administrativa para Personal ID: {id}, Eliminar Usuario: {eliminarUsuario}",
+                IdUsuario = null
+            });
+
+            try
+            {
+                var success = await _personalService.DeshabilitarPersonalYUsuarioAsync(id, eliminarUsuario);
+                
+                if (!success)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para deshabilitar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para deshabilitar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = null
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"DeshabilitarPersonalYUsuario completado correctamente para id: {id}");
+                
+                var mensaje = eliminarUsuario 
+                    ? "Personal deshabilitado y cuenta de usuario eliminada correctamente"
+                    : "Personal y cuenta de usuario deshabilitados correctamente";
+                
+                var detalles = eliminarUsuario
+                    ? "El Personal ha sido marcado como INACTIVO y su cuenta de usuario ha sido ELIMINADA permanentemente de la base de datos."
+                    : "El Personal y su cuenta de usuario asociada (si existe) han sido marcados como INACTIVOS. Esta acción es reversible.";
+                
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Deshabilitar Personal Y Usuario",
+                    Detalles = $"Personal {id} - Eliminar Usuario: {eliminarUsuario}. {detalles}",
+                    IdUsuario = null
+                });
+
+                return Ok(new { 
+                    message = mensaje,
+                    detalles = detalles,
+                    eliminarUsuario = eliminarUsuario
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante DeshabilitarPersonalYUsuario para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = null
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Habilitación/Reactivación de Personal: Reactiva el Personal pero NO reactiva automáticamente el Usuario
+        /// PATCH /api/personal/habilitar/{id}
+        /// 🚨 SEGURIDAD: El Usuario debe habilitarse MANUALMENTE por el administrador
+        /// </summary>
+        [HttpPatch("habilitar/{id}")]
+        public async Task<IActionResult> HabilitarPersonal(int id)
+        {
+            log.Info($"HabilitarPersonal iniciado para id: {id}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Habilitar/Reactivar Personal {id}",
+                Detalles = $"Iniciando habilitación de Personal ID: {id}",
+                IdUsuario = null
+            });
+
+            try
+            {
+                var success = await _personalService.HabilitarPersonalAsync(id);
+                
+                if (!success)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para habilitar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para habilitar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = null
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"HabilitarPersonal completado correctamente para id: {id}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Habilitar Personal",
+                    Detalles = $"Personal {id} reactivado (Estado = ACTIVO). Usuario NO reactivado automáticamente por seguridad.",
+                    IdUsuario = null
+                });
+
+                return Ok(new { 
+                    message = "Personal reactivado correctamente",
+                    detalles = "El Personal ha sido marcado como ACTIVO. " +
+                              "⚠️ IMPORTANTE: Si el Personal tiene una cuenta de usuario, esta PERMANECE INACTIVA por seguridad. " +
+                              "El administrador debe habilitarla manualmente usando el botón de 'Habilitar/Bloquear Acceso' " +
+                              "después de verificar el rol y restablecer la contraseña si es necesario.",
+                    seguridadCritica = true,
+                    accionRequerida = "Habilitar manualmente el acceso del usuario desde el módulo de gestión de usuarios"
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante HabilitarPersonal para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = null
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
     }
 }

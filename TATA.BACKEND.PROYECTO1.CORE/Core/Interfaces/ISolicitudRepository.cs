@@ -11,5 +11,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<List<Solicitud>> GetSolicitudsAsync();
         Task<Solicitud?> UpdateSolicitudAsync(int id, Solicitud solicitud);
         Task<ConfigSla?> GetConfigSlaByIdAsync(int idSla);
+        Task<List<Solicitud>> GetSolicitudesParaRecalculoAsync();
     }
 }

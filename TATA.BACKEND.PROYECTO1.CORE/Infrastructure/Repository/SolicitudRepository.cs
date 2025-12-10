@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-
+using TATA.BACKEND.PROYECTO1.CORE.Core.Shared;
 using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
@@ -25,9 +25,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
         {
             return await _context.Solicitud
                 .AsNoTracking()
+                .AsSplitQuery() // ⚠️ Dividir en múltiples consultas para evitar timeout
                 .Where(s => s.EstadoSolicitud != "ELIMINADO" || s.EstadoSolicitud == null)
                 .Include(s => s.CreadoPorNavigation)
-                    .ThenInclude(u => u.PersonalNavigation) // ⚠️ Incluir Personal del Usuario para obtener CorreoCorporativo
+                    .ThenInclude(u => u.PersonalNavigation)
                 .Include(s => s.IdPersonalNavigation)
                 .Include(s => s.IdRolRegistroNavigation)
                 .Include(s => s.IdSlaNavigation)
@@ -119,15 +120,32 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
                 return false;
 
             solicitud.EstadoSolicitud = deletedState;
-            solicitud.ActualizadoEn = DateTime.UtcNow;
+            solicitud.ActualizadoEn = PeruTimeProvider.NowPeru; // ⚠️ Usar hora de Perú
 
             await _context.SaveChangesAsync();
             return true;
         }
 
-
-
-
+        /// <summary>
+        /// Obtiene las solicitudes que necesitan recálculo diario de SLA
+        /// Incluye: ACTIVAS, EN_PROCESO, o pendientes sin fecha de ingreso
+        /// </summary>
+        public async Task<List<Solicitud>> GetSolicitudesParaRecalculoAsync()
+        {
+            return await _context.Solicitud
+                .Include(s => s.IdSlaNavigation) // Necesario para el cálculo de SLA
+                .AsNoTracking()
+                .Where(s =>
+                    s.EstadoSolicitud != "ELIMINADO" &&
+                    (
+                        s.EstadoSolicitud == "ACTIVA" ||
+                        s.EstadoSolicitud == "EN_PROCESO" ||
+                        (s.FechaIngreso == null &&
+                         s.EstadoCumplimientoSla != null &&
+                         s.EstadoCumplimientoSla.StartsWith("EN_PROCESO_"))
+                    ))
+                .ToListAsync();
+        }
     }
 
 }

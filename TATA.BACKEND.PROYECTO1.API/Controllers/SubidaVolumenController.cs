@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
-using log4net; // 1. Agregar el using
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -12,15 +14,14 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
     [Route("api/[controller]")]
     public class SubidaVolumenController : ControllerBase
     {
-        // 2. DECLARACIÓN ESTÁTICA DEL LOGGER
         private static readonly ILog log = LogManager.GetLogger(typeof(SubidaVolumenController));
 
         private readonly ISubidaVolumenServices _subidaVolumenServices;
-        private readonly ILogSistemaService _logService;
+        private readonly ILogService _logService;
 
         public SubidaVolumenController(
             ISubidaVolumenServices subidaVolumenServices, 
-            ILogSistemaService logService)
+            ILogService logService)
         {
             _subidaVolumenServices = subidaVolumenServices;
             _logService = logService;
@@ -48,26 +49,18 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             [FromBody] IEnumerable<SubidaVolumenSolicitudRowDto>? filas,
             [FromQuery] int idUsuarioCreador = 1)
         {
-            // Loguear que se recibió la petición
-            log.Info($"Petición CargarSolicitudes recibida. Usuario creador: {idUsuarioCreador}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Petición CargarSolicitudes recibida",
-                Detalles = $"Petición recibida desde FRONTEND. Usuario creador: {idUsuarioCreador}",
-                IdUsuario = idUsuarioCreador
-            });
+            // Intentar obtener userId del JWT, usar el query param como fallback
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? idUsuarioCreador.ToString());
+            
+            log.Info($"CargarSolicitudes iniciado para usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: CargarSolicitudes", 
+                $"Petición recibida desde FRONTEND. Usuario creador: {userId}", userId);
 
             if (filas is null)
             {
-                log.Warn("Petición CargarSolicitudes recibida con cuerpo nulo.");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Body nulo en CargarSolicitudes",
-                    Detalles = "El frontend envió null",
-                    IdUsuario = idUsuarioCreador
-                });
+                log.Warn("Petición CargarSolicitudes recibida con cuerpo nulo");
+                await _logService.RegistrarLogAsync("WARN", "Body nulo en CargarSolicitudes", 
+                    "El frontend envió null", userId);
                 return BadRequest("El cuerpo de la petición no puede ser nulo.");
             }
 
@@ -76,27 +69,19 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
             // Si no hay filas, devolver resultado vacío con error
             if (lista.Count == 0)
             {
-                log.Warn("Petición CargarSolicitudes recibida sin filas para procesar.");
-                await _logService.AddAsync(new LogSistemaCreateDTO
-                {
-                    Nivel = "WARN",
-                    Mensaje = "Sin filas para procesar",
-                    Detalles = "Lista vacía enviada por frontend",
-                    IdUsuario = idUsuarioCreador
-                });
+                log.Warn("Petición CargarSolicitudes recibida sin filas para procesar");
+                await _logService.RegistrarLogAsync("WARN", "Sin filas para procesar", 
+                    "Lista vacía enviada por frontend", userId);
                 return BadRequest("No se encontraron filas para procesar.");
             }
 
             // Procesar las filas y siempre devolver 200 OK con el resultado
-            var resultado = await _subidaVolumenServices.ProcesarSolicitudesAsync(lista, idUsuarioCreador);
-            log.Info($"Petición CargarSolicitudes finalizada. Filas procesadas: {resultado.TotalFilas}");
-            await _logService.AddAsync(new LogSistemaCreateDTO
-            {
-                Nivel = "INFO",
-                Mensaje = "Carga masiva completada",
-                Detalles = $"Total: {resultado.TotalFilas}, Exitosas: {resultado.FilasExitosas}, Errores: {resultado.FilasConError}",
-                IdUsuario = idUsuarioCreador
-            });
+            var resultado = await _subidaVolumenServices.ProcesarSolicitudesAsync(lista, userId);
+            
+            log.Info($"CargarSolicitudes finalizado. Filas procesadas: {resultado.TotalFilas}");
+            await _logService.RegistrarLogAsync("INFO", "Carga masiva completada", 
+                $"Total: {resultado.TotalFilas}, Exitosas: {resultado.FilasExitosas}, Errores: {resultado.FilasConError}", userId);
+            
             return Ok(resultado);
         }
     }

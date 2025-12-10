@@ -5,12 +5,13 @@ using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
 using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers;
 
 /// <summary>
 /// Controlador moderno de Alertas con Primary Constructor (.NET 9)
-/// Expone endpoints para Dashboard inteligente, sincronización y CRUD básico
+/// Expone endpoints para Dashboard inteligente, sincronización y CRUD básicocokmsmsedmes
 /// </summary>
 [Route("api/alertas")]
 [ApiController]
@@ -173,13 +174,15 @@ public class AlertasController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<List<AlertaDTO>>> GetAll()
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         log.Info("GetAll iniciado");
         await _logService.AddAsync(new LogSistemaCreateDTO
         {
             Nivel = "INFO",
             Mensaje = "Petición recibida: GetAll alertas",
             Detalles = "Obteniendo todas las alertas",
-            IdUsuario = null
+            IdUsuario = userId
         });
 
         try
@@ -192,7 +195,7 @@ public class AlertasController(
                 Nivel = "INFO",
                 Mensaje = "Operación completada correctamente: GetAll",
                 Detalles = $"Total alertas obtenidas: {result.Count}",
-                IdUsuario = null
+                IdUsuario = userId
             });
             
             _logger.LogInformation("Obtenidas {Count} alertas", result.Count);
@@ -206,7 +209,7 @@ public class AlertasController(
                 Nivel = "ERROR",
                 Mensaje = ex.Message,
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogError(ex, "Error al obtener todas las alertas");
             return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
@@ -223,13 +226,15 @@ public class AlertasController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<AlertaDTO>> GetById(int id)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         log.Info($"GetById iniciado para id: {id}");
         await _logService.AddAsync(new LogSistemaCreateDTO
         {
             Nivel = "INFO",
             Mensaje = $"Petición recibida: GetById alerta {id}",
             Detalles = $"Buscando alerta con id: {id}",
-            IdUsuario = null
+            IdUsuario = userId
         });
 
         try
@@ -244,7 +249,7 @@ public class AlertasController(
                     Nivel = "WARN",
                     Mensaje = $"Alerta no encontrada: {id}",
                     Detalles = "Recurso solicitado no existe",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 _logger.LogWarning("Alerta con ID {IdAlerta} no encontrada", id);
                 return NotFound(new { mensaje = $"Alerta con ID {id} no encontrada" });
@@ -256,7 +261,7 @@ public class AlertasController(
                 Nivel = "INFO",
                 Mensaje = "Operación completada correctamente: GetById",
                 Detalles = $"Alerta {id} obtenida exitosamente",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             return Ok(alerta);
@@ -269,7 +274,7 @@ public class AlertasController(
                 Nivel = "ERROR",
                 Mensaje = ex.Message,
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogError(ex, "Error al obtener alerta con ID {IdAlerta}", id);
             return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
@@ -286,13 +291,15 @@ public class AlertasController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<AlertaDTO>> Create([FromBody] AlertaCreateDto dto)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         log.Info("Create iniciado");
         await _logService.AddAsync(new LogSistemaCreateDTO
         {
             Nivel = "INFO",
             Mensaje = "Petición recibida: Create alerta",
             Detalles = $"Creando alerta para solicitud: {dto?.IdSolicitud}",
-            IdUsuario = null
+            IdUsuario = userId
         });
 
         if (dto == null)
@@ -303,7 +310,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = "Validación fallida: dto nulo",
                 Detalles = "El cuerpo de la petición es nulo",
-                IdUsuario = null
+                IdUsuario = userId
             });
             return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
         }
@@ -316,7 +323,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = "Validación fallida: ModelState inválido",
                 Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogWarning("Modelo inválido al crear alerta: {Errors}", 
                 string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
@@ -335,7 +342,7 @@ public class AlertasController(
                 Nivel = "INFO",
                 Mensaje = "Operación completada correctamente: Create alerta",
                 Detalles = $"Alerta creada con id: {creada.IdAlerta}",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             _logger.LogInformation("Alerta {IdAlerta} creada exitosamente", creada.IdAlerta);
@@ -350,7 +357,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = $"Error de validación: {ex.Message}",
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogWarning(ex, "Error de validación al crear alerta");
             return BadRequest(new { mensaje = ex.Message });
@@ -363,7 +370,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = $"Error de operación: {ex.Message}",
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogWarning(ex, "Error de operación al crear alerta");
             return BadRequest(new { mensaje = ex.Message });
@@ -376,7 +383,7 @@ public class AlertasController(
                 Nivel = "ERROR",
                 Mensaje = ex.Message,
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogError(ex, "Error inesperado al crear alerta");
             return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
@@ -394,13 +401,15 @@ public class AlertasController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<AlertaDTO>> Update(int id, [FromBody] AlertaUpdateDto dto)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         log.Info($"Update iniciado para id: {id}");
         await _logService.AddAsync(new LogSistemaCreateDTO
         {
             Nivel = "INFO",
             Mensaje = $"Petición recibida: Update alerta {id}",
             Detalles = $"Actualizando alerta con id: {id}",
-            IdUsuario = null
+            IdUsuario = userId
         });
 
         if (dto == null)
@@ -411,7 +420,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = "Validación fallida: dto nulo",
                 Detalles = "El cuerpo de la petición es nulo",
-                IdUsuario = null
+                IdUsuario = userId
             });
             return BadRequest(new { mensaje = "El cuerpo de la petición no puede ser nulo" });
         }
@@ -424,7 +433,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = "Validación fallida: ModelState inválido",
                 Detalles = string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogWarning("Modelo inválido al actualizar alerta {IdAlerta}", id);
             return BadRequest(ModelState);
@@ -444,7 +453,7 @@ public class AlertasController(
                     Nivel = "WARN",
                     Mensaje = $"Alerta no encontrada para actualizar: {id}",
                     Detalles = "Recurso solicitado no existe",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 _logger.LogWarning("Alerta {IdAlerta} no encontrada para actualizar", id);
                 return NotFound(new { mensaje = $"Alerta con ID {id} no encontrada" });
@@ -456,7 +465,7 @@ public class AlertasController(
                 Nivel = "INFO",
                 Mensaje = "Operación completada correctamente: Update alerta",
                 Detalles = $"Alerta {id} actualizada exitosamente",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             _logger.LogInformation("Alerta {IdAlerta} actualizada exitosamente", id);
@@ -471,7 +480,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = $"Error de validación: {ex.Message}",
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogWarning(ex, "Error de validación al actualizar alerta {IdAlerta}", id);
             return BadRequest(new { mensaje = ex.Message });
@@ -484,7 +493,7 @@ public class AlertasController(
                 Nivel = "WARN",
                 Mensaje = $"Error de operación: {ex.Message}",
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogWarning(ex, "Error de operación al actualizar alerta {IdAlerta}", id);
             return BadRequest(new { mensaje = ex.Message });
@@ -497,7 +506,7 @@ public class AlertasController(
                 Nivel = "ERROR",
                 Mensaje = ex.Message,
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogError(ex, "Error inesperado al actualizar alerta {IdAlerta}", id);
             return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
@@ -514,13 +523,15 @@ public class AlertasController(
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> Delete(int id)
     {
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        
         log.Info($"Delete iniciado para id: {id}");
         await _logService.AddAsync(new LogSistemaCreateDTO
         {
             Nivel = "INFO",
             Mensaje = $"Petición recibida: Delete alerta {id}",
             Detalles = $"Eliminando alerta con id: {id}",
-            IdUsuario = null
+            IdUsuario = userId
         });
 
         try
@@ -537,7 +548,7 @@ public class AlertasController(
                     Nivel = "WARN",
                     Mensaje = $"Alerta no encontrada para eliminar: {id}",
                     Detalles = "Recurso solicitado no existe",
-                    IdUsuario = null
+                    IdUsuario = userId
                 });
                 _logger.LogWarning("Alerta {IdAlerta} no encontrada para eliminar", id);
                 return NotFound(new { mensaje = $"Alerta con ID {id} no encontrada" });
@@ -549,7 +560,7 @@ public class AlertasController(
                 Nivel = "INFO",
                 Mensaje = "Operación completada correctamente: Delete alerta",
                 Detalles = $"Alerta {id} eliminada exitosamente",
-                IdUsuario = null
+                IdUsuario = userId
             });
 
             _logger.LogInformation("Alerta {IdAlerta} eliminada exitosamente", id);
@@ -564,7 +575,7 @@ public class AlertasController(
                 Nivel = "ERROR",
                 Mensaje = ex.Message,
                 Detalles = ex.ToString(),
-                IdUsuario = null
+                IdUsuario = userId
             });
             _logger.LogError(ex, "Error al eliminar alerta {IdAlerta}", id);
             return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
