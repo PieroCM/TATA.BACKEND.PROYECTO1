@@ -1035,7 +1035,7 @@ public class EmailAutomationService(
     /// <summary>
     /// Obtener usuarios administradores y analistas con sus correos
     /// IdRolSistema 1 = Administrador, 2 = Analista
-    /// VERSIÓN CORREGIDA: Sin string.Format para evitar errores de traducción LINQ
+    /// VERSIÓN OPTIMIZADA: Sin campos redundantes
     /// </summary>
     public async Task<List<UsuarioEmailDto>> GetAdministradoresYAnalistasAsync()
     {
@@ -1058,21 +1058,26 @@ public class EmailAutomationService(
                     CorreoCorporativo = u.PersonalNavigation.CorreoCorporativo,
                     IdRolSistema = u.IdRolSistema,
                     NombreRol = u.IdRolSistemaNavigation != null ? u.IdRolSistemaNavigation.Nombre : "Sin Rol",
-                    // ? CORRECCIÓN: Usar concatenación simple en lugar de string.Format
+                    
+                    // ? Concatenación simple (traducible a SQL CONCAT)
                     NombreCompleto = u.PersonalNavigation != null 
                         ? (u.PersonalNavigation.Nombres ?? "") + " " + (u.PersonalNavigation.Apellidos ?? "")
                         : u.Username,
-                    TieneCorreo = !string.IsNullOrWhiteSpace(u.PersonalNavigation.CorreoCorporativo)
+                    
+                    TieneCorreo = !string.IsNullOrWhiteSpace(u.PersonalNavigation.CorreoCorporativo),
+                    
+                    // ? IdPersonal asociado
+                    IdPersonal = u.IdPersonal
                 })
                 .ToListAsync();
 
-            // ? CORRECCIÓN: Limpiar espacios en blanco extra DESPUÉS de traer los datos de la BD (en memoria)
+            // Limpiar espacios en blanco extra DESPUÉS de traer los datos de la BD (en memoria)
             foreach (var usuario in usuarios)
             {
                 usuario.NombreCompleto = usuario.NombreCompleto?.Trim() ?? usuario.Username;
             }
 
-            // ? CORRECCIÓN: Ordenar EN MEMORIA después de obtener los datos
+            // Ordenar EN MEMORIA después de obtener los datos
             var usuariosOrdenados = usuarios
                 .OrderBy(u => u.NombreRol)
                 .ThenBy(u => u.NombreCompleto)

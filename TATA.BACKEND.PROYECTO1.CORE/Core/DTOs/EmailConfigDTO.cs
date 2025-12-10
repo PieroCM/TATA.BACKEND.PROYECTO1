@@ -188,8 +188,19 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string? CorreoCorporativo { get; set; }
         public int IdRolSistema { get; set; }
         public string NombreRol { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// Nombre completo del personal asociado (Nombres + Apellidos)
+        /// </summary>
         public string? NombreCompleto { get; set; }
+        
         public bool TieneCorreo { get; set; }
+        
+        /// <summary>
+        /// ID del Personal asociado al usuario
+        /// Útil para hacer consultas adicionales o mostrar fotos de perfil
+        /// </summary>
+        public int? IdPersonal { get; set; }
     }
 
     /// <summary>
