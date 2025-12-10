@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
 {
@@ -25,6 +26,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public DateTime? FechaIngreso { get; set; }
         public string? EstadoSolicitud { get; set; }
         public string? EstadoCumplimientoSla { get; set; }
+        
+        /// <summary>
+        /// Fecha calculada de vencimiento: FechaSolicitud + DiasUmbral
+        /// Utilizado internamente para filtros de VIGENTE/VENCIDO
+        /// </summary>
+        public DateTime FechaVencimiento { get; set; }
 
         // ========== DATOS DEL RESPONSABLE (PLANOS - CRÍTICO) ==========
         public int IdPersonal { get; set; }
@@ -51,16 +58,5 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         public string IconoEstado { get; set; } = "info"; // Para iconografía del frontend
         public bool EstaVencida { get; set; } // true si DiasRestantes < 0
         public bool EsCritica { get; set; } // true si Nivel == CRITICO
-    }
-
-    /// <summary>
-    /// DTO para envío de Broadcast (Sala de Comunicaciones)
-    /// </summary>
-    public class BroadcastDto
-    {
-        public int? IdRol { get; set; } // Filtro opcional por rol
-        public int? IdSla { get; set; } // Filtro opcional por tipo de SLA
-        public string Asunto { get; set; } = "Comunicado Importante - Sistema SLA";
-        public string MensajeHtml { get; set; } = null!;
     }
 }

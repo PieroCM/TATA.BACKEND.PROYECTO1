@@ -19,14 +19,11 @@ var builder = WebApplication.CreateBuilder(args);
 var _configuration = builder.Configuration;
 var connectionString = _configuration.GetConnectionString("DevConnection");
 
-
-
 // =====================================================
 // 1) Cargar archivo log4net.config (FORMA CORRECTA .NET 9)
 // =====================================================
 var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
 XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
-
 
 // =====================================================
 // 2) Providers de Logging de .NET 9 (NO usar AddLog4Net)
@@ -35,16 +32,15 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole(); // Para ver logs en consola
 builder.Logging.AddDebug();   // Para ver logs en VS Debug Output
 
-
 builder.Services.AddDbContext<Proyecto1SlaDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // SEEEDERA USUARIO PRO
 builder.Services.AddScoped<DataSeeder>();
 
-
 // CORREO Y ALERTAS
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.Configure<EmailAutomationSettings>(builder.Configuration.GetSection("EmailAutomationSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<IAlertaRepository, AlertaRepository>();
 builder.Services.AddTransient<IAlertaService, AlertaService>();
@@ -87,17 +83,17 @@ builder.Services.AddTransient<IPermisoRepository, PermisoRepository>();
 builder.Services.AddTransient<IRolesSistemaService, RolesSistemaService>();
 builder.Services.AddTransient<IPermisoService, PermisoService>();
 
-//Reporte y ReporteDetalle
+// Reporte y ReporteDetalle
 builder.Services.AddTransient<IReporteRepository, ReporteRepository>();
 builder.Services.AddTransient<IReporteService, ReporteService>();
 builder.Services.AddTransient<IReporteDetalleRepository, ReporteDetalleRepository>();
 builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 
-//Subida volumen
+// Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
 // =====================================================
-// MACHINE LEARNING - Predicción SLA
+// MACHINE LEARNING - Predicción SLA (Del Sprint 3)
 // =====================================================
 builder.Services.AddTransient<ISlaMLRepository, SlaMLRepository>();
 
@@ -110,18 +106,27 @@ builder.Services.AddHttpClient<ISlaMLService, SlaMLService>(client =>
     client.Timeout = TimeSpan.FromMinutes(timeoutMinutes);
 });
 
-// BACKGROUND WORKER - Resumen diario automático
-builder.Services.AddHostedService<DailySummaryWorker>();
+// =====================================================
+// BACKGROUND WORKERS (Unificados)
+// =====================================================
 
-// Worker 2: Recálculo diario de SLA a medianoche (hora Perú) - INDEPENDIENTE de alertas
+// 1. Automatización de correos (Resumen diario y notificaciones)
+builder.Services.AddHostedService<EmailAutomationWorker>(); 
+// Nota: DailySummaryWorker parece redundante si EmailAutomationWorker ya hace el resumen. 
+// Si son distintos, mantén ambos. Si EmailAutomationWorker reemplaza a DailySummaryWorker, elimina DailySummaryWorker.
+builder.Services.AddHostedService<DailySummaryWorker>(); 
+
+// 2. Sincronización automática de alertas (Fix AlertaV5 - CRÍTICO)
+builder.Services.AddHostedService<AlertasSyncWorker>();
+
+// 3. Recálculo diario de SLA a medianoche (Sprint 3)
 builder.Services.AddHostedService<SlaDailyWorker>();
+
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);
-//logService
+// logService
 builder.Services.AddTransient<ILogService, LogService>();
-
-
 
 // ⚠️ CONFIGURACIÓN CORS (DEBE ESTAR ANTES DE AddControllers)
 builder.Services.AddCors(options =>
@@ -139,7 +144,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// Configurar HttpClient para el servicio de predicción
+// Configurar HttpClient para el servicio de predicción (Proxy legacy si se usa)
 builder.Services.AddHttpClient<PrediccionProxyService>(client =>
 {
     client.BaseAddress = new Uri("http://localhost:8000");
@@ -170,8 +175,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -182,10 +185,8 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowQuasarApp");
 
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 
 app.MapControllers();
 

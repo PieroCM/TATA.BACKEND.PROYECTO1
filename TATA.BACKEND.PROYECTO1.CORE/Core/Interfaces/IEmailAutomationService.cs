@@ -12,8 +12,20 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 
         /// <summary>
         /// Envío automático del resumen diario
+        /// Retorna información sobre el resultado del envío
         /// </summary>
-        Task SendDailySummaryAsync();
+        Task<EmailSummaryResponseDto> SendDailySummaryAsync();
+
+        /// <summary>
+        /// Envío de resumen diario a múltiples destinatarios seleccionados
+        /// </summary>
+        Task<EmailSummaryResponseDto> SendDailySummaryToRecipientsAsync(List<string> destinatarios);
+
+        /// <summary>
+        /// Envío automático de notificaciones individuales personalizadas
+        /// (Método utilizado por EmailAutomationWorker)
+        /// </summary>
+        Task SendIndividualNotificationsAsync();
 
         /// <summary>
         /// Envío individual de notificación (para botón del Dashboard)
@@ -24,5 +36,25 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         /// Obtener últimos 100 logs de envío
         /// </summary>
         Task<List<EmailLog>> GetLogsAsync();
+
+        /// <summary>
+        /// Obtener lista de destinatarios según filtros (Preview)
+        /// </summary>
+        Task<List<DestinatarioPreviewDto>> GetDestinatariosPreviewAsync(int? idRol, int? idSla);
+
+        /// <summary>
+        /// Obtener roles activos para selectores
+        /// </summary>
+        Task<List<RolSelectorDto>> GetRolesActivosAsync();
+
+        /// <summary>
+        /// Obtener SLAs activos para selectores
+        /// </summary>
+        Task<List<SlaSelectorDto>> GetSlasActivosAsync();
+
+        /// <summary>
+        /// Obtener usuarios administradores y analistas con sus correos
+        /// </summary>
+        Task<List<UsuarioEmailDto>> GetAdministradoresYAnalistasAsync();
     }
 }
