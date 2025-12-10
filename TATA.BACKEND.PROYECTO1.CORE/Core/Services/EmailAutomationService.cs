@@ -423,17 +423,162 @@ public class EmailAutomationService(
 
     /// <summary>
     /// Envío automático de notificaciones individuales personalizadas
-    /// (Método utilizado por EmailAutomationWorker)
-    /// TODO: Implementar lógica de envío de notificaciones individuales
+    /// Envía correos a responsables cuando sus solicitudes están próximas a vencer (2, 1, 0 días)
+    /// VERSIÓN COMPLETA con logs detallados y validaciones
     /// </summary>
     public async Task SendIndividualNotificationsAsync()
     {
-        _logger.LogInformation("SendIndividualNotificationsAsync llamado - Implementación pendiente");
-        
-        // TODO: Implementar la lógica de envío de notificaciones individuales
-        // Por ejemplo, enviar correos a responsables de alertas próximas a vencer
-        
-        await Task.CompletedTask;
+        _logger.LogCritical("=================================================================");
+        _logger.LogCritical("?? [NOTIFICACIONES INDIVIDUALES] INICIANDO proceso automático");
+        _logger.LogCritical("=================================================================");
+
+        try
+        {
+            // PASO 1: Obtener configuración desde EmailConfig (BD)
+            _logger.LogInformation("?? [PASO 1/5] Consultando configuración de notificaciones...");
+            var config = await _context.EmailConfig.FirstOrDefaultAsync();
+
+            if (config == null)
+            {
+                _logger.LogWarning("?? No existe configuración en email_config. Abortando notificaciones individuales.");
+                return;
+            }
+
+            if (!config.EnvioInmediato)
+            {
+                _logger.LogInformation("?? EnvioInmediato está DESACTIVADO en BD. No se enviarán notificaciones.");
+                return;
+            }
+
+            _logger.LogInformation("? Configuración validada: EnvioInmediato = {Estado}", config.EnvioInmediato);
+
+            // PASO 2: Obtener días para notificar desde appsettings (por defecto: 2, 1, 0)
+            var diasParaNotificar = new List<int> { 2, 1, 0 };
+
+            _logger.LogInformation("?? [PASO 2/5] Días para notificar: {Dias}", string.Join(", ", diasParaNotificar));
+
+            // PASO 3: Buscar solicitudes ACTIVAS próximas a vencer
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 3/5] Buscando solicitudes próximas a vencer en BD...");
+            _logger.LogCritical("=================================================================");
+
+            var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+            
+            var solicitudesProximasAVencer = await _context.Solicitud
+                .AsNoTracking()
+                .Include(s => s.IdPersonalNavigation)
+                .Include(s => s.IdSlaNavigation)
+                .Include(s => s.IdRolRegistroNavigation)
+                .Where(s => s.EstadoSolicitud == "ACTIVO" && 
+                           s.FechaIngreso.HasValue &&
+                           !string.IsNullOrWhiteSpace(s.IdPersonalNavigation!.CorreoCorporativo))
+                .ToListAsync();
+
+            _logger.LogInformation("?? Solicitudes ACTIVAS encontradas: {Total}", solicitudesProximasAVencer.Count);
+
+            // Filtrar por días restantes
+            var solicitudesParaNotificar = solicitudesProximasAVencer
+                .Where(s =>
+                {
+                    if (!s.FechaIngreso.HasValue || s.IdSlaNavigation == null)
+                        return false;
+
+                    var fechaVencimiento = s.FechaIngreso.Value.AddDays(s.IdSlaNavigation.DiasUmbral);
+                    var diasRestantes = (fechaVencimiento.ToDateTime(TimeOnly.MinValue) - hoy.ToDateTime(TimeOnly.MinValue)).Days;
+
+                    return diasParaNotificar.Contains(diasRestantes);
+                })
+                .ToList();
+
+            _logger.LogInformation("?? Solicitudes que requieren notificación: {Count}", solicitudesParaNotificar.Count);
+
+            if (!solicitudesParaNotificar.Any())
+            {
+                _logger.LogInformation("? No hay solicitudes próximas a vencer (2, 1, 0 días). Proceso finalizado.");
+                return;
+            }
+
+            // PASO 4: Agrupar por destinatario
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 4/5] Agrupando solicitudes por responsable...");
+            _logger.LogCritical("=================================================================");
+
+            var notificacionesPorResponsable = solicitudesParaNotificar
+                .GroupBy(s => new
+                {
+                    Email = s.IdPersonalNavigation!.CorreoCorporativo,
+                    NombreCompleto = $"{s.IdPersonalNavigation.Nombres} {s.IdPersonalNavigation.Apellidos}"
+                })
+                .ToList();
+
+            _logger.LogInformation("?? Destinatarios únicos: {Count}", notificacionesPorResponsable.Count);
+
+            // PASO 5: Enviar correos individuales
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("?? [PASO 5/5] Enviando notificaciones personalizadas...");
+            _logger.LogCritical("=================================================================");
+
+            var exitosos = 0;
+            var fallidos = 0;
+            var solicitudesNotificadas = 0;
+
+            foreach (var grupo in notificacionesPorResponsable)
+            {
+                var destinatario = grupo.Key.Email!;
+                var nombreResponsable = grupo.Key.NombreCompleto;
+                var solicitudesDelResponsable = grupo.ToList();
+
+                _logger.LogInformation("?? Procesando: {Nombre} ({Email}) - {Count} solicitud(es)", 
+                    nombreResponsable, destinatario, solicitudesDelResponsable.Count);
+
+                try
+                {
+                    // Generar HTML personalizado
+                    var htmlBody = GenerarHtmlNotificacionIndividual(nombreResponsable, solicitudesDelResponsable, hoy);
+                    
+                    var cantidadSolicitudes = solicitudesDelResponsable.Count;
+                    var asunto = cantidadSolicitudes == 1
+                        ? $"?? [ALERTA SLA] Tienes 1 solicitud próxima a vencer"
+                        : $"?? [ALERTA SLA] Tienes {cantidadSolicitudes} solicitudes próximas a vencer";
+
+                    // Enviar correo
+                    await _emailService.SendAsync(destinatario, asunto, htmlBody);
+
+                    exitosos++;
+                    solicitudesNotificadas += cantidadSolicitudes;
+
+                    _logger.LogInformation("? Enviado exitosamente a {Email}", destinatario);
+
+                    // Registrar en email_log
+                    await RegistrarEmailLog("NOTIFICACION_INDIVIDUAL", destinatario, "OK",
+                        $"Notificadas {cantidadSolicitudes} solicitud(es) próximas a vencer");
+                }
+                catch (Exception ex)
+                {
+                    fallidos++;
+                    _logger.LogError(ex, "? Error al enviar a {Email}", destinatario);
+
+                    await RegistrarEmailLog("NOTIFICACION_INDIVIDUAL", destinatario, "ERROR",
+                        $"Error: {ex.Message}");
+                }
+            }
+
+            // RESUMEN FINAL
+            _logger.LogCritical("=================================================================");
+            _logger.LogCritical("? [COMPLETADO] Notificaciones individuales finalizadas");
+            _logger.LogCritical("=================================================================");
+            _logger.LogInformation("?? Resumen:");
+            _logger.LogInformation("   ? Correos exitosos: {Exitosos}", exitosos);
+            _logger.LogInformation("   ? Correos fallidos: {Fallidos}", fallidos);
+            _logger.LogInformation("   ?? Solicitudes notificadas: {Total}", solicitudesNotificadas);
+            _logger.LogInformation("   ?? Destinatarios únicos: {Count}", notificacionesPorResponsable.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "?? Error crítico en SendIndividualNotificationsAsync");
+            _logger.LogCritical("Tipo: {Type}", ex.GetType().FullName);
+            _logger.LogCritical("Mensaje: {Message}", ex.Message);
+        }
     }
 
     /// <summary>
@@ -497,7 +642,7 @@ public class EmailAutomationService(
                     IdPersonal = p.IdPersonal,
                     NombreCompleto = $"{p.Nombres} {p.Apellidos}",
                     Cargo = p.Solicitud.FirstOrDefault()?.IdRolRegistroNavigation?.NombreRol,
-                    FotoUrl = null, // Agregar campo FotoUrl en Personal si se requiere
+                    FotoUrl = null,
                     Correo = p.CorreoCorporativo!
                 })
                 .GroupBy(d => d.Correo)
@@ -576,6 +721,87 @@ public class EmailAutomationService(
             _logger.LogError(ex, "Error al obtener SLAs activos");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Genera HTML personalizado para notificación individual de solicitudes próximas a vencer
+    /// </summary>
+    private string GenerarHtmlNotificacionIndividual(string nombreResponsable, List<Solicitud> solicitudes, DateOnly hoy)
+    {
+        var sb = new StringBuilder();
+
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html lang='es'><head><meta charset='UTF-8'><style>");
+        sb.AppendLine("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }");
+        sb.AppendLine(".container { max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
+        sb.AppendLine(".header { background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }");
+        sb.AppendLine(".header h1 { margin: 0; font-size: 24px; }");
+        sb.AppendLine(".header p { margin: 10px 0 0 0; opacity: 0.9; font-size: 14px; }");
+        sb.AppendLine(".content { padding: 30px; }");
+        sb.AppendLine(".greeting { font-size: 16px; margin-bottom: 20px; color: #333; }");
+        sb.AppendLine(".card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 15px; background-color: #fafafa; }");
+        sb.AppendLine(".card.urgent { border-left: 4px solid #d32f2f; background-color: #ffebee; }");
+        sb.AppendLine(".card.warning { border-left: 4px solid #f57c00; background-color: #fff3e0; }");
+        sb.AppendLine(".card.info { border-left: 4px solid #1976d2; background-color: #e3f2fd; }");
+        sb.AppendLine(".card-header { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #333; }");
+        sb.AppendLine(".card-detail { font-size: 14px; margin: 5px 0; color: #666; }");
+        sb.AppendLine(".badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 10px; }");
+        sb.AppendLine(".badge-urgent { background-color: #d32f2f; color: white; }");
+        sb.AppendLine(".badge-warning { background-color: #f57c00; color: white; }");
+        sb.AppendLine(".badge-info { background-color: #1976d2; color: white; }");
+        sb.AppendLine(".footer { padding: 20px 30px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; text-align: center; color: #666; font-size: 12px; }");
+        sb.AppendLine(".footer strong { color: #d32f2f; }");
+        sb.AppendLine("</style></head><body><div class='container'>");
+
+        // Header
+        sb.AppendLine("<div class='header'>");
+        sb.AppendLine("<h1>?? Alerta de Vencimiento de Solicitudes SLA</h1>");
+        sb.AppendLine($"<p>{DateTime.UtcNow:dddd, dd 'de' MMMM 'de' yyyy}</p>");
+        sb.AppendLine("</div>");
+
+        // Content
+        sb.AppendLine("<div class='content'>");
+        sb.AppendLine($"<p class='greeting'>Hola <strong>{nombreResponsable}</strong>,</p>");
+        sb.AppendLine($"<p class='greeting'>Tienes <strong>{solicitudes.Count}</strong> solicitud(es) que están próximas a vencer:</p>");
+
+        // Cards de solicitudes
+        foreach (var solicitud in solicitudes.OrderBy(s => s.FechaIngreso!.Value.AddDays(s.IdSlaNavigation!.DiasUmbral)))
+        {
+            var fechaVencimiento = solicitud.FechaIngreso!.Value.AddDays(solicitud.IdSlaNavigation!.DiasUmbral);
+            var diasRestantes = (fechaVencimiento.ToDateTime(TimeOnly.MinValue) - hoy.ToDateTime(TimeOnly.MinValue)).Days;
+
+            var cardClass = diasRestantes == 0 ? "urgent" : (diasRestantes == 1 ? "warning" : "info");
+            var badgeClass = diasRestantes == 0 ? "badge-urgent" : (diasRestantes == 1 ? "badge-warning" : "badge-info");
+            var badgeText = diasRestantes == 0 ? "VENCE HOY" : (diasRestantes == 1 ? "Vence mañana" : $"Vence en {diasRestantes} días");
+
+            sb.AppendLine($"<div class='card {cardClass}'>");
+            sb.AppendLine($"<div class='card-header'>Solicitud #{solicitud.IdSolicitud} <span class='badge {badgeClass}'>{badgeText}</span></div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Tipo SLA:</strong> {solicitud.IdSlaNavigation.TipoSolicitud}</div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Código SLA:</strong> {solicitud.IdSlaNavigation.CodigoSla}</div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Rol:</strong> {solicitud.IdRolRegistroNavigation?.NombreRol ?? "N/A"}</div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Fecha de Solicitud:</strong> {solicitud.FechaSolicitud:dd/MM/yyyy}</div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Fecha de Ingreso:</strong> {solicitud.FechaIngreso:dd/MM/yyyy}</div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Fecha de Vencimiento:</strong> {fechaVencimiento:dd/MM/yyyy}</div>");
+            sb.AppendLine($"<div class='card-detail'><strong>Días de umbral SLA:</strong> {solicitud.IdSlaNavigation.DiasUmbral}</div>");
+            if (!string.IsNullOrWhiteSpace(solicitud.ResumenSla))
+            {
+                sb.AppendLine($"<div class='card-detail'><strong>Resumen:</strong> {solicitud.ResumenSla}</div>");
+            }
+            sb.AppendLine("</div>");
+        }
+
+        sb.AppendLine("</div>");
+
+        // Footer
+        sb.AppendLine("<div class='footer'>");
+        sb.AppendLine("<p><strong>?? ACCIÓN REQUERIDA:</strong> Por favor, revisa estas solicitudes y toma las acciones necesarias antes del vencimiento.</p>");
+        sb.AppendLine("<p>Este es un correo automático del Sistema de Gestión de Alertas SLA TATA.</p>");
+        sb.AppendLine($"<p>Generado el {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss} UTC</p>");
+        sb.AppendLine("</div>");
+
+        sb.AppendLine("</div></body></html>");
+
+        return sb.ToString();
     }
 
     /// <summary>
