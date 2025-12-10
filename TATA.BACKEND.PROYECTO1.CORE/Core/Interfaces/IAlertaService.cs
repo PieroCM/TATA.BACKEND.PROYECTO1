@@ -19,6 +19,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         /// </summary>
         Task<List<AlertaDashboardDto>> GetAllDashboardAsync();
 
+        /// <summary>
+        /// Obtiene datos del Dashboard con filtrado dinámico avanzado
+        /// Optimizado con EF Core y cálculos en SQL Server
+        /// </summary>
+        Task<List<AlertaDashboardDto>> GetDashboardAsync(DashboardFilterDto filtros);
+
         // ========== MÉTODOS CRUD BÁSICOS (Mantenidos) ==========
         Task<AlertaDTO> CreateAsync(AlertaCreateDto dto);
         Task<List<AlertaDTO>> GetAllAsync();

@@ -12,9 +12,15 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 
         /// <summary>
         /// Envío automático del resumen diario
-        /// Retorna un objeto con el resultado de la operación y mensaje dinámico
+        /// Retorna información sobre el resultado del envío
         /// </summary>
         Task<EmailSummaryResponseDto> SendDailySummaryAsync();
+
+        /// <summary>
+        /// Envío automático de notificaciones individuales personalizadas
+        /// (Método utilizado por EmailAutomationWorker)
+        /// </summary>
+        Task SendIndividualNotificationsAsync();
 
         /// <summary>
         /// Envío individual de notificación (para botón del Dashboard)

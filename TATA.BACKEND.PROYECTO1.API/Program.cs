@@ -1,4 +1,3 @@
-
 using log4net; // Necesario para LogManager
 using log4net.Config; // Necesario para XmlConfigurator
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +44,7 @@ builder.Services.AddScoped<DataSeeder>();
 
 // CORREO Y ALERTAS
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.Configure<EmailAutomationSettings>(builder.Configuration.GetSection("EmailAutomationSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<IAlertaRepository, AlertaRepository>();
 builder.Services.AddTransient<IAlertaService, AlertaService>();
@@ -52,6 +52,10 @@ builder.Services.AddTransient<IAlertaService, AlertaService>();
 // EMAIL AUTOMATION (NUEVOS SERVICIOS)
 builder.Services.AddTransient<IEmailAutomationService, EmailAutomationService>();
 builder.Services.AddTransient<IEmailConfigService, EmailConfigService>();
+
+// BACKGROUND WORKERS
+builder.Services.AddHostedService<DailySummaryWorker>();
+builder.Services.AddHostedService<EmailAutomationWorker>();
 
 // SOLICITUD
 builder.Services.AddTransient<ISolicitudRepository, SolicitudRepository>();
@@ -96,8 +100,11 @@ builder.Services.AddTransient<IReporteDetalleService, ReporteDetalleService>();
 //Subida volumen
 builder.Services.AddTransient<ISubidaVolumenServices, SubidaVolumenServices>();
 
-// BACKGROUND WORKER - Resumen diario autom�tico
+// BACKGROUND WORKER - Resumen diario automático
 builder.Services.AddHostedService<DailySummaryWorker>();
+
+// BACKGROUND WORKER - Sincronización automática de alertas (cada 6 horas)
+builder.Services.AddHostedService<AlertasSyncWorker>();
 
 // Shared Infrastructure (JWT, etc.)
 builder.Services.AddSharedInfrastructure(_configuration);

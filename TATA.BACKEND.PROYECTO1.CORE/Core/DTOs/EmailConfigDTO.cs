@@ -104,4 +104,56 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.DTOs
         /// </summary>
         public DateTime Fecha { get; set; } = DateTime.UtcNow;
     }
+
+    /// <summary>
+    /// DTO para envío masivo de correos (Broadcast)
+    /// </summary>
+    public class BroadcastDto
+    {
+        /// <summary>
+        /// Asunto del correo
+        /// </summary>
+        [Required(ErrorMessage = "El asunto es obligatorio")]
+        [StringLength(200, ErrorMessage = "El asunto no puede exceder 200 caracteres")]
+        public string Asunto { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Mensaje HTML del correo
+        /// </summary>
+        [Required(ErrorMessage = "El mensaje HTML es obligatorio")]
+        public string MensajeHtml { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Filtrar por Rol (opcional)
+        /// </summary>
+        public int? IdRol { get; set; }
+
+        /// <summary>
+        /// Filtrar por SLA (opcional)
+        /// </summary>
+        public int? IdSla { get; set; }
+
+        /// <summary>
+        /// Modo de prueba: envía solo a un correo de prueba
+        /// </summary>
+        public bool EsPrueba { get; set; } = false;
+
+        /// <summary>
+        /// Email de prueba (obligatorio si EsPrueba = true)
+        /// </summary>
+        [EmailAddress(ErrorMessage = "El formato del email de prueba es inválido")]
+        public string? EmailPrueba { get; set; }
+    }
+
+    /// <summary>
+    /// DTO para preview de destinatarios antes del envío
+    /// </summary>
+    public class DestinatarioPreviewDto
+    {
+        public int IdPersonal { get; set; }
+        public string NombreCompleto { get; set; } = string.Empty;
+        public string? Cargo { get; set; }
+        public string? FotoUrl { get; set; }
+        public string Correo { get; set; } = string.Empty;
+    }
 }

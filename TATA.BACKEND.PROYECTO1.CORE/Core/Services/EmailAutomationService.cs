@@ -422,6 +422,21 @@ public class EmailAutomationService(
     }
 
     /// <summary>
+    /// Envío automático de notificaciones individuales personalizadas
+    /// (Método utilizado por EmailAutomationWorker)
+    /// TODO: Implementar lógica de envío de notificaciones individuales
+    /// </summary>
+    public async Task SendIndividualNotificationsAsync()
+    {
+        _logger.LogInformation("SendIndividualNotificationsAsync llamado - Implementación pendiente");
+        
+        // TODO: Implementar la lógica de envío de notificaciones individuales
+        // Por ejemplo, enviar correos a responsables de alertas próximas a vencer
+        
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Obtener últimos 100 logs de envío ordenados por fecha descendente
     /// </summary>
     public async Task<List<EmailLog>> GetLogsAsync()

@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Settings;
 using log4net;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers;
@@ -35,44 +37,101 @@ public class AlertasController(
     {
         try
         {
-            _logger.LogInformation("Solicitud de sincronización de alertas recibida");
+            _logger.LogInformation("Solicitud MANUAL de sincronización de alertas recibida");
             
             await _alertaService.SyncAlertasFromSolicitudesAsync();
             
             return Ok(new
             {
-                mensaje = "Sincronización de alertas completada exitosamente",
-                fecha = DateTime.UtcNow
+                mensaje = "✅ Sincronización de alertas completada exitosamente (MANUAL)",
+                fecha = DateTime.UtcNow,
+                tipo = "MANUAL"
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al sincronizar alertas");
+            _logger.LogError(ex, "Error al sincronizar alertas manualmente");
             return StatusCode(500, new
             {
-                mensaje = "Error al sincronizar alertas. Por favor, contacte al administrador.",
+                mensaje = "❌ Error al sincronizar alertas. Por favor, contacte al administrador.",
                 error = ex.Message
             });
         }
     }
 
     /// <summary>
-    /// Obtiene datos enriquecidos y planos para el Dashboard
+    /// Verifica el estado y configuración del Worker de sincronización
+    /// GET /api/alertas/worker/status
+    /// </summary>
+    [HttpGet("worker/status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetWorkerStatus([FromServices] IOptions<WorkerSettings> workerSettings)
+    {
+        var settings = workerSettings.Value;
+        
+        return Ok(new
+        {
+            workerNombre = "AlertasSyncWorker",
+            estado = settings.EnableAlertasSync ? "✅ ACTIVO" : "🛑 DESHABILITADO",
+            configuracion = new
+            {
+                habilitado = settings.EnableAlertasSync,
+                intervalHoras = settings.AlertasSyncIntervalHours,
+                ejecutarAlIniciar = settings.RunAlertasSyncOnStartup,
+                proximaEjecucionEstimada = settings.EnableAlertasSync 
+                    ? DateTime.UtcNow.AddHours(settings.AlertasSyncIntervalHours).ToString("yyyy-MM-dd HH:mm:ss UTC")
+                    : "N/A (Worker deshabilitado)"
+            },
+            instrucciones = new
+            {
+                cambiarConfiguracion = "Modificar appsettings.json -> WorkerSettings",
+                ejecutarManualmente = "POST /api/alertas/sync",
+                deshabilitarWorker = "Establecer WorkerSettings.EnableAlertasSync = false"
+            }
+        });
+    }
+
+    /// <summary>
+    /// Obtiene datos enriquecidos para el Dashboard con filtros dinámicos
     /// GET /api/alertas/dashboard
+    /// Query params: ?nivel=CRITICO&estadoTiempo=VENCIDO&esLeida=false&idSla=1&busqueda=texto
     /// </summary>
     [HttpGet("dashboard")]
     [ProducesResponseType(typeof(List<AlertaDashboardDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<List<AlertaDashboardDto>>> GetDashboard()
+    public async Task<ActionResult<List<AlertaDashboardDto>>> GetDashboard([FromQuery] DashboardFilterDto filtros)
     {
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Modelo inválido en GetDashboard: {Errors}",
+                string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+            return BadRequest(new
+            {
+                mensaje = "Filtros inválidos",
+                errores = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+            });
+        }
+
         try
         {
-            _logger.LogInformation("Solicitud de datos del dashboard recibida");
-            
-            var result = await _alertaService.GetAllDashboardAsync();
-            
+            _logger.LogInformation("Solicitud de dashboard con filtros recibida");
+
+            List<AlertaDashboardDto> result;
+
+            // Si no hay filtros, usar el método básico (más rápido)
+            if (EsFiltroVacio(filtros))
+            {
+                result = await _alertaService.GetAllDashboardAsync();
+            }
+            else
+            {
+                // Usar método con filtros dinámicos
+                result = await _alertaService.GetDashboardAsync(filtros);
+            }
+
             _logger.LogInformation("Dashboard generado con {Count} alertas", result.Count);
-            
+
             return Ok(result);
         }
         catch (Exception ex)
@@ -84,6 +143,23 @@ public class AlertasController(
                 error = ex.Message
             });
         }
+    }
+
+    /// <summary>
+    /// Verifica si el filtro está vacío (sin ningún parámetro)
+    /// </summary>
+    private bool EsFiltroVacio(DashboardFilterDto filtros)
+    {
+        return filtros.Nivel == null &&
+               filtros.EstadoTiempo == null &&
+               filtros.EsLeida == null &&
+               filtros.IdSla == null &&
+               filtros.IdRol == null &&
+               filtros.Busqueda == null &&
+               filtros.EstadoAlerta == null &&
+               filtros.OrdenarPor == null &&
+               filtros.Pagina == null &&
+               filtros.TamanoPagina == null;
     }
 
     // ========== ENDPOINTS CRUD BÁSICOS ==========

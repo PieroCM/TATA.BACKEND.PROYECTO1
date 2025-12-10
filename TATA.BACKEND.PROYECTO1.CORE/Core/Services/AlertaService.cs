@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Data;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services;
 
@@ -17,11 +19,13 @@ public class AlertaService(
     IAlertaRepository alertaRepository,
     IEmailService emailService,
     ISolicitudRepository solicitudRepository,
+    Proyecto1SlaDbContext context,
     ILogger<AlertaService> logger) : IAlertaService
 {
     private readonly IAlertaRepository _alertaRepository = alertaRepository;
     private readonly IEmailService _emailService = emailService;
     private readonly ISolicitudRepository _solicitudRepository = solicitudRepository;
+    private readonly Proyecto1SlaDbContext _context = context;
     private readonly ILogger<AlertaService> _logger = logger;
 
     // ============================================
@@ -179,6 +183,7 @@ public class AlertaService(
                     FechaIngreso = solicitud.FechaIngreso?.ToDateTime(TimeOnly.MinValue),
                     EstadoSolicitud = solicitud.EstadoSolicitud,
                     EstadoCumplimientoSla = solicitud.EstadoCumplimientoSla,
+                    FechaVencimiento = fechaLimite,
 
                     // Datos del responsable (PLANOS - CRÍTICO)
                     IdPersonal = personal?.IdPersonal ?? 0,
@@ -218,6 +223,268 @@ public class AlertaService(
             _logger.LogError(ex, "Error al generar datos del dashboard");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Obtiene datos del Dashboard con filtrado dinámico avanzado
+    /// Optimizado con EF Core - Cálculos en SQL Server
+    /// CORREGIDO: Usa DateOnly puro sin conversiones en la query
+    /// </summary>
+    public async Task<List<AlertaDashboardDto>> GetDashboardAsync(DashboardFilterDto filtros)
+    {
+        try
+        {
+            _logger.LogInformation("Obteniendo dashboard con filtros: {@Filtros}", filtros);
+
+            // ✅ HOMOGENEIZACIÓN: Usar DateOnly para comparaciones
+            var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // 1. Construir query base con navegación completa
+            var query = _context.Alerta
+                .AsNoTracking() // ✅ Optimización: Solo lectura
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdPersonalNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdRolRegistroNavigation)
+                .Include(a => a.IdSolicitudNavigation)
+                    .ThenInclude(s => s!.IdSlaNavigation)
+                .AsQueryable();
+
+            // 2. FILTROS DINÁMICOS
+
+            // Filtro por Nivel
+            if (!string.IsNullOrWhiteSpace(filtros.Nivel))
+            {
+                query = query.Where(a => a.Nivel == filtros.Nivel.ToUpper());
+                _logger.LogDebug("Aplicado filtro: Nivel={Nivel}", filtros.Nivel);
+            }
+
+            // Filtro por Estado de Alerta
+            if (!string.IsNullOrWhiteSpace(filtros.EstadoAlerta))
+            {
+                query = query.Where(a => a.Estado == filtros.EstadoAlerta.ToUpper());
+                _logger.LogDebug("Aplicado filtro: EstadoAlerta={EstadoAlerta}", filtros.EstadoAlerta);
+            }
+
+            // Filtro por Estado de Lectura (EsLeida)
+            if (filtros.EsLeida.HasValue)
+            {
+                if (filtros.EsLeida.Value)
+                {
+                    // Solo leídas: FechaLectura IS NOT NULL
+                    query = query.Where(a => a.FechaLectura != null);
+                    _logger.LogDebug("Aplicado filtro: Solo alertas LEÍDAS");
+                }
+                else
+                {
+                    // Solo no leídas: FechaLectura IS NULL
+                    query = query.Where(a => a.FechaLectura == null);
+                    _logger.LogDebug("Aplicado filtro: Solo alertas NO LEÍDAS");
+                }
+            }
+
+            // ✅ FILTRO CORREGIDO: Estado Temporal (VIGENTE/VENCIDO)
+            if (!string.IsNullOrWhiteSpace(filtros.EstadoTiempo))
+            {
+                if (filtros.EstadoTiempo.ToUpper() == "VENCIDO")
+                {
+                    // VENCIDO: FechaVencimiento < hoy
+                    // ✅ Cálculo: FechaSolicitud + DiasUmbral < hoy
+                    // ✅ Sin .ToDateTime() - Opera directamente con DateOnly
+                    query = query.Where(a =>
+                        a.IdSolicitudNavigation != null &&
+                        a.IdSolicitudNavigation.IdSlaNavigation != null &&
+                        a.IdSolicitudNavigation.FechaSolicitud.AddDays(
+                            a.IdSolicitudNavigation.IdSlaNavigation.DiasUmbral) < hoy
+                    );
+                    _logger.LogDebug("Aplicado filtro: VENCIDO (FechaVencimiento < Hoy)");
+                }
+                else if (filtros.EstadoTiempo.ToUpper() == "VIGENTE")
+                {
+                    // VIGENTE: FechaVencimiento >= hoy
+                    query = query.Where(a =>
+                        a.IdSolicitudNavigation != null &&
+                        a.IdSolicitudNavigation.IdSlaNavigation != null &&
+                        a.IdSolicitudNavigation.FechaSolicitud.AddDays(
+                            a.IdSolicitudNavigation.IdSlaNavigation.DiasUmbral) >= hoy
+                    );
+                    _logger.LogDebug("Aplicado filtro: VIGENTE (FechaVencimiento >= Hoy)");
+                }
+            }
+
+            // Filtro por IdSla
+            if (filtros.IdSla.HasValue)
+            {
+                query = query.Where(a =>
+                    a.IdSolicitudNavigation != null &&
+                    a.IdSolicitudNavigation.IdSla == filtros.IdSla.Value);
+                _logger.LogDebug("Aplicado filtro: IdSla={IdSla}", filtros.IdSla.Value);
+            }
+
+            // Filtro por IdRol
+            if (filtros.IdRol.HasValue)
+            {
+                query = query.Where(a =>
+                    a.IdSolicitudNavigation != null &&
+                    a.IdSolicitudNavigation.IdRolRegistro == filtros.IdRol.Value);
+                _logger.LogDebug("Aplicado filtro: IdRol={IdRol}", filtros.IdRol.Value);
+            }
+
+            // Filtro por Búsqueda de texto libre
+            if (!string.IsNullOrWhiteSpace(filtros.Busqueda))
+            {
+                var busquedaLower = filtros.Busqueda.ToLower();
+                query = query.Where(a =>
+                    a.Mensaje.ToLower().Contains(busquedaLower) ||
+                    (a.IdSolicitudNavigation != null &&
+                     a.IdSolicitudNavigation.IdPersonalNavigation != null &&
+                     (a.IdSolicitudNavigation.IdPersonalNavigation.Nombres.ToLower().Contains(busquedaLower) ||
+                      a.IdSolicitudNavigation.IdPersonalNavigation.Apellidos.ToLower().Contains(busquedaLower) ||
+                      a.IdSolicitudNavigation.IdPersonalNavigation.CorreoCorporativo.ToLower().Contains(busquedaLower)))
+                );
+                _logger.LogDebug("Aplicado filtro: Búsqueda='{Busqueda}'", filtros.Busqueda);
+            }
+
+            // 3. EJECUTAR QUERY Y MAPEAR A DTO
+            var alertas = await query.ToListAsync();
+
+            var dashboard = alertas.Select(a =>
+            {
+                var solicitud = a.IdSolicitudNavigation;
+                if (solicitud == null)
+                {
+                    _logger.LogWarning("Alerta {IdAlerta} sin solicitud asociada", a.IdAlerta);
+                    return CrearAlertaHuerfana(a);
+                }
+
+                var personal = solicitud.IdPersonalNavigation;
+                var rol = solicitud.IdRolRegistroNavigation;
+                var sla = solicitud.IdSlaNavigation;
+
+                // ✅ CÁLCULOS CORREGIDOS: Trabajar con DateOnly y convertir solo al final
+                var fechaSolicitud = solicitud.FechaSolicitud; // Ya es DateOnly
+                var diasUmbral = sla?.DiasUmbral ?? 0;
+                var fechaLimite = fechaSolicitud.AddDays(diasUmbral); // Suma directa en DateOnly
+                
+                // ✅ Calcular días restantes comparando DateOnly
+                var diasRestantes = fechaLimite.DayNumber - hoy.DayNumber;
+                
+                // Calcular días transcurridos
+                var diasTranscurridos = Math.Max(0, hoy.DayNumber - fechaSolicitud.DayNumber);
+                var porcentaje = diasUmbral > 0
+                    ? Math.Min(100, Math.Max(0, (int)((double)diasTranscurridos / diasUmbral * 100)))
+                    : 100;
+
+                // Colores e iconos según nivel
+                var (color, icono) = ObtenerEstilosPorNivel(a.Nivel);
+
+                // ✅ Conversión a DateTime solo para el DTO de salida
+                var fechaSolicitudDateTime = fechaSolicitud.ToDateTime(TimeOnly.MinValue);
+                var fechaLimiteDateTime = fechaLimite.ToDateTime(TimeOnly.MinValue);
+
+                return new AlertaDashboardDto
+                {
+                    // Datos de la alerta
+                    IdAlerta = a.IdAlerta,
+                    TipoAlerta = a.TipoAlerta,
+                    Nivel = a.Nivel,
+                    Mensaje = a.Mensaje,
+                    Estado = a.Estado,
+                    EnviadoEmail = a.EnviadoEmail,
+                    FechaCreacion = a.FechaCreacion,
+                    FechaLectura = a.FechaLectura,
+
+                    // Datos de la solicitud (PLANOS)
+                    IdSolicitud = solicitud.IdSolicitud,
+                    CodigoSolicitud = $"SOL-{solicitud.IdSolicitud:D6}",
+                    FechaSolicitud = fechaSolicitudDateTime,
+                    FechaIngreso = solicitud.FechaIngreso?.ToDateTime(TimeOnly.MinValue),
+                    FechaVencimiento = fechaLimiteDateTime,
+                    EstadoSolicitud = solicitud.EstadoSolicitud,
+                    EstadoCumplimientoSla = solicitud.EstadoCumplimientoSla,
+
+                    // Datos del responsable (PLANOS - CRÍTICO)
+                    IdPersonal = personal?.IdPersonal ?? 0,
+                    NombreResponsable = personal != null
+                        ? $"{personal.Nombres} {personal.Apellidos}".Trim()
+                        : "Sin asignar",
+                    EmailResponsable = personal?.CorreoCorporativo ?? "",
+                    DocumentoResponsable = personal?.Documento,
+
+                    // Datos del rol (PLANOS)
+                    IdRolRegistro = rol?.IdRolRegistro ?? 0,
+                    NombreRol = rol?.NombreRol,
+                    BloqueTech = rol?.BloqueTech,
+
+                    // Datos del SLA (PLANOS)
+                    IdSla = sla?.IdSla ?? 0,
+                    CodigoSla = sla?.CodigoSla,
+                    NombreSla = sla?.Descripcion,
+                    DiasUmbral = diasUmbral,
+                    TipoSolicitud = sla?.TipoSolicitud,
+
+                    // Cálculos para el Frontend
+                    DiasRestantes = diasRestantes,
+                    PorcentajeProgreso = porcentaje,
+                    ColorEstado = color,
+                    IconoEstado = icono,
+                    EstaVencida = diasRestantes < 0,
+                    EsCritica = a.Nivel == "CRITICO"
+                };
+            }).ToList();
+
+            // 4. ORDENAMIENTO
+            dashboard = AplicarOrdenamiento(dashboard, filtros);
+
+            // 5. PAGINACIÓN (si se especificó)
+            if (filtros.Pagina.HasValue && filtros.TamanoPagina.HasValue)
+            {
+                var skip = (filtros.Pagina.Value - 1) * filtros.TamanoPagina.Value;
+                dashboard = dashboard.Skip(skip).Take(filtros.TamanoPagina.Value).ToList();
+                _logger.LogDebug("Aplicada paginación: Página={Pagina}, Tamaño={Tamaño}",
+                    filtros.Pagina.Value, filtros.TamanoPagina.Value);
+            }
+
+            _logger.LogInformation("Dashboard generado con {Count} alertas filtradas", dashboard.Count);
+            return dashboard;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al generar dashboard con filtros");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Aplica ordenamiento dinámico al resultado
+    /// </summary>
+    private List<AlertaDashboardDto> AplicarOrdenamiento(
+        List<AlertaDashboardDto> alertas,
+        DashboardFilterDto filtros)
+    {
+        var ordenarPor = filtros.OrdenarPor?.ToUpper() ?? "FECHACREACION";
+        var direccion = filtros.DireccionOrden?.ToUpper() ?? "DESC";
+        var esDescendente = direccion == "DESC";
+
+        var resultado = ordenarPor switch
+        {
+            "DIASRESTANTES" => esDescendente
+                ? alertas.OrderByDescending(a => a.DiasRestantes).ToList()
+                : alertas.OrderBy(a => a.DiasRestantes).ToList(),
+
+            "NIVEL" => esDescendente
+                ? alertas.OrderByDescending(a => a.Nivel).ToList()
+                : alertas.OrderBy(a => a.Nivel).ToList(),
+
+            "FECHACREACION" => esDescendente
+                ? alertas.OrderByDescending(a => a.FechaCreacion).ToList()
+                : alertas.OrderBy(a => a.FechaCreacion).ToList(),
+
+            _ => alertas.OrderByDescending(a => a.FechaCreacion).ToList()
+        };
+
+        _logger.LogDebug("Aplicado ordenamiento: {OrdenarPor} {Direccion}", ordenarPor, direccion);
+        return resultado;
     }
 
     // ============================================
@@ -366,6 +633,7 @@ public class AlertaService(
             Estado = a.Estado,
             EnviadoEmail = a.EnviadoEmail,
             FechaCreacion = a.FechaCreacion,
+            FechaVencimiento = DateTime.UtcNow, // Fecha actual para alertas huérfanas
             DiasRestantes = 0,
             PorcentajeProgreso = 0,
             ColorEstado = "#9E9E9E",

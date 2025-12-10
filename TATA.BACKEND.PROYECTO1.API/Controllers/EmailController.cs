@@ -340,88 +340,79 @@ public class EmailController(
     }
 
     /// <summary>
-    /// Enviar resumen diario manualmente (para pruebas o botón administrativo)
+    /// Enviar resumen diario manualmente (para pruebas)
     /// POST /api/email/send-summary
-    /// MODIFICADO: Usa mensaje dinámico del servicio en lugar de texto fijo
     /// </summary>
     [HttpPost("send-summary")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> SendSummary()
     {
-        _logger.LogCritical("???????????????????????????????????????????????????????");
-        _logger.LogCritical("?? [API] Solicitud manual de envío de resumen diario");
-        _logger.LogCritical("???????????????????????????????????????????????????????");
-
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
         try
         {
-            // ?? CAPTURAR EL RESULTADO del servicio
-            var response = await _emailAutomationService.SendDailySummaryAsync();
+            _logger.LogInformation("Solicitud manual de envío de resumen diario");
 
-            stopwatch.Stop();
-            
-            // ? USAR EL MENSAJE DINÁMICO del servicio
-            _logger.LogInformation("?? Resultado del servicio: {Mensaje}", response.Mensaje);
-            _logger.LogInformation("   Exito: {Exito}", response.Exito);
-            _logger.LogInformation("   Correo enviado: {CorreoEnviado}", response.CorreoEnviado);
-            _logger.LogInformation("   Cantidad de alertas: {CantidadAlertas}", response.CantidadAlertas);
-            _logger.LogInformation("   Duración total: {Time:F2}s", stopwatch.Elapsed.TotalSeconds);
+            await _emailAutomationService.SendDailySummaryAsync();
 
-            // ? RETORNAR MENSAJE DINÁMICO en el JSON
+            _logger.LogInformation("Resumen diario enviado exitosamente (manual)");
+
             return Ok(new
             {
-                success = response.Exito,
-                mensaje = response.Mensaje, // ? MENSAJE DINÁMICO del servicio
-                cantidadAlertas = response.CantidadAlertas,
-                correoEnviado = response.CorreoEnviado,
-                destinatario = response.Destinatario,
-                fecha = response.Fecha,
-                tipo = "MANUAL",
-                duracionSegundos = stopwatch.Elapsed.TotalSeconds
+                mensaje = "Resumen diario enviado exitosamente",
+                fecha = DateTime.UtcNow,
+                tipo = "MANUAL"
             });
         }
         catch (InvalidOperationException ex)
         {
-            stopwatch.Stop();
-            _logger.LogCritical("???????????????????????????????????????????????????????");
-            _logger.LogCritical("? [API] No se pudo enviar resumen diario");
-            _logger.LogCritical("   Falló después de: {Time:F2}s", stopwatch.Elapsed.TotalSeconds);
-            _logger.LogCritical("???????????????????????????????????????????????????????");
-            _logger.LogError(ex, "Detalles del error:");
-            
+            _logger.LogWarning(ex, "No se pudo enviar resumen diario");
             return BadRequest(new
             {
-                success = false,
-                mensaje = ex.Message, // ? Mensaje de la excepción
-                error = ex.Message,
-                detalleCompleto = ex.ToString(),
-                tipo = "CONFIGURATION_ERROR",
-                fecha = DateTime.UtcNow,
-                duracionSegundos = stopwatch.Elapsed.TotalSeconds
+                mensaje = ex.Message
             });
         }
         catch (Exception ex)
         {
-            stopwatch.Stop();
-            _logger.LogCritical("???????????????????????????????????????????????????????");
-            _logger.LogCritical("? [API] Error crítico al enviar resumen");
-            _logger.LogCritical("   Falló después de: {Time:F2}s", stopwatch.Elapsed.TotalSeconds);
-            _logger.LogCritical("???????????????????????????????????????????????????????");
-            _logger.LogError(ex, "Error inesperado:");
-            
+            _logger.LogError(ex, "Error al enviar resumen diario manualmente");
             return StatusCode(500, new
             {
-                success = false,
-                mensaje = $"Error crítico al enviar resumen diario: {ex.Message}", // ? Mensaje dinámico del error
-                error = ex.Message,
-                tipoExcepcion = ex.GetType().Name,
-                innerException = ex.InnerException?.Message,
-                stackTrace = ex.StackTrace?.Split('\n').Take(5).ToArray(),
+                mensaje = "Error al enviar resumen diario. Por favor, contacte al administrador.",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Enviar notificaciones individuales manualmente (para pruebas)
+    /// POST /api/email/send-notifications
+    /// </summary>
+    [HttpPost("send-notifications")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult> SendNotifications()
+    {
+        try
+        {
+            _logger.LogInformation("Solicitud manual de envío de notificaciones individuales");
+
+            await _emailAutomationService.SendIndividualNotificationsAsync();
+
+            _logger.LogInformation("Notificaciones individuales enviadas exitosamente (manual)");
+
+            return Ok(new
+            {
+                mensaje = "Notificaciones individuales enviadas exitosamente",
                 fecha = DateTime.UtcNow,
-                duracionSegundos = stopwatch.Elapsed.TotalSeconds
+                tipo = "MANUAL"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al enviar notificaciones individuales manualmente");
+            return StatusCode(500, new
+            {
+                mensaje = "Error al enviar notificaciones individuales. Por favor, contacte al administrador.",
+                error = ex.Message
             });
         }
     }
