@@ -5,6 +5,7 @@ namespace TATA.BACKEND.PROYECTO1.API.DTOs
         public int IdSolicitud { get; set; }
         public string CodigoSla { get; set; } = string.Empty;
         public string NombreRol { get; set; } = string.Empty;
+        public string? EstadoCumplimientoSla { get; set; }
         public double ProbabilidadIncumplimiento { get; set; }
         public string NivelRiesgo { get; set; } = string.Empty;
         public int DiasRestantes { get; set; }
