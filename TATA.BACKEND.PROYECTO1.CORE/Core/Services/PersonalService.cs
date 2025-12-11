@@ -170,7 +170,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 _logger.LogInformation("Transacción completada exitosamente para Personal {Id}", personal.IdPersonal);
 
                 // ⚠️ PASO 7: Construir URL absoluta de activación y enviar email (FUERA de la transacción)
-                var path = $"/activacion-cuenta?username={Uri.EscapeDataString(usuario.Username)}&token={token}";
+                // ✅ CORRECCIÓN: Usar el correo corporativo (email) en lugar de username para consistencia con UsuarioService
+                var path = $"/activacion-cuenta?email={Uri.EscapeDataString(personal.CorreoCorporativo!)}&token={token}";
                 var activacionUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
