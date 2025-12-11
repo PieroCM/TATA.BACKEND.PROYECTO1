@@ -176,51 +176,27 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
 
-                // Generar y enviar email de activación
+                // ✅ CORRECCIÓN: Usar HTML simple sin estilos en <head> ni emojis (Gmail los filtra)
                 var emailBody = $@"
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                            .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
-                            .content {{ background-color: #f8f9fa; padding: 30px; }}
-                            .btn {{ display: inline-block; background-color: #28a745; color: white !important; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-                            .info-box {{ background-color: #e7f3ff; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; }}
-                        </style>
-                    </head>
-                    <body>
-                        <div class='container'>
-                            <div class='header'>
-                                <h1>🔑 Activación de Cuenta</h1>
-                            </div>
-                            <div class='content'>
-                                <h2>Hola {personal.Nombres} {personal.Apellidos},</h2>
-                                <p>Se ha creado una cuenta de usuario para ti en el <strong>Sistema de Gestión SLA</strong>.</p>
-                                <p><strong>Tu nombre de usuario es:</strong> <code>{usuario.Username}</code></p>
-                                
-                                <div class='info-box'>
-                                    <p>Para activar tu cuenta y establecer tu contraseña, haz clic en el siguiente botón:</p>
-                                    <div style='text-align: center;'>
-                                        <a href='{activacionUrl}' class='btn'>Activar Cuenta</a>
-                                    </div>
-                                </div>
-                                
-                                <p><strong>⏰ Este enlace expirará en 24 horas.</strong></p>
-                                <p>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
-                                <p style='word-break: break-all; color: #007bff; font-size: 11px;'>{activacionUrl}</p>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
+                    <h2>Activacion de Cuenta - Sistema SLA</h2>
+                    <p>Hola {personal.Nombres} {personal.Apellidos},</p>
+                    <p>Se ha creado una cuenta de usuario para ti en el <strong>Sistema de Gestion SLA</strong>.</p>
+                    <p><strong>Tu nombre de usuario es:</strong> {usuario.Username}</p>
+                    <p>Para activar tu cuenta y establecer tu contraseña, haz clic en el siguiente enlace:</p>
+                    <p><a href='{activacionUrl}'>Activar mi cuenta</a></p>
+                    <p>O copia y pega este enlace en tu navegador:</p>
+                    <p>{activacionUrl}</p>
+                    <p><strong>Este enlace expirara en 24 horas.</strong></p>
+                    <br/>
+                    <p>Saludos,</p>
+                    <p>El Equipo de SLA Manager</p>
                 ";
 
                 try
                 {
                     await _emailService.SendAsync(
                         personal.CorreoCorporativo,
-                        "Activación de Cuenta - Sistema SLA",
+                        "Activacion de Cuenta - Sistema SLA",
                         emailBody
                     );
 

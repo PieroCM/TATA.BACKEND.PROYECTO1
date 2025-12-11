@@ -659,7 +659,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 await _emailService.SendAsync(
                     personal.CorreoCorporativo,
-                    "¡Bienvenido a SLA Manager! Activa tu Cuenta",
+                    "Bienvenido a SLA Manager - Activa tu Cuenta",
                     emailBody
                 );
 
@@ -682,56 +682,25 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         // TEMPLATE DE EMAIL DE ACTIVACIÓN/BIENVENIDA
         // ===========================
 
+        // ✅ CORRECCIÓN: Usar HTML simple sin estilos en <head> ni emojis (Gmail los filtra)
         private static string BuildActivacionBienvenidaBody(string nombres, string apellidos, string username, string activacionUrl)
         {
             return $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Activación de Cuenta</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px; }}
-        .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; }}
-        .btn {{ display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-        .footer {{ border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; font-size: 12px; color: #999; }}
-        .info-box {{ background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; }}
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <div class='header'>
-            <h1>¡Bienvenido a SLA Manager!</h1>
-        </div>
-        <div class='content'>
-            <h2>¡Hola, {nombres} {apellidos}!</h2>
-            <p>Tu cuenta para el sistema <strong>SLA Manager</strong> ha sido creada por un Administrador.</p>
-            
-            <div class='info-box'>
-                <p><strong>Tu nombre de usuario es:</strong> <code>{username}</code></p>
-            </div>
-            
-            <p>Para activar tu cuenta y establecer tu contraseña por primera vez, haz clic en el siguiente botón. <strong>Este enlace caducará en 24 horas.</strong></p>
-            
-            <div style='text-align: center; margin: 30px 0;'>
-                <a href='{activacionUrl}' class='btn'>Activar Mi Cuenta</a>
-            </div>
-
-            <p>Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
-            <p style='word-break: break-all; font-size: 11px; color: #007bff;'>{activacionUrl}</p>
-
-            <p>Saludos cordiales,</p>
-            <p><strong>El Equipo de SLA Manager</strong></p>
-        </div>
-        <div class='footer'>
-            <p>Si no solicitaste esta activación, puedes ignorar este correo.</p>
-            <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
-        </div>
-    </div>
-</body>
-</html>
-";
+                <h2>Bienvenido a SLA Manager - Activa tu Cuenta</h2>
+                <p>Hola {nombres} {apellidos},</p>
+                <p>Tu cuenta para el sistema <strong>SLA Manager</strong> ha sido creada por un Administrador.</p>
+                <p><strong>Tu nombre de usuario es:</strong> {username}</p>
+                <p>Para activar tu cuenta y establecer tu contraseña por primera vez, haz clic en el siguiente enlace:</p>
+                <p><a href='{activacionUrl}'>Activar mi cuenta</a></p>
+                <p>O copia y pega este enlace en tu navegador:</p>
+                <p>{activacionUrl}</p>
+                <p><strong>Este enlace caducara en 24 horas.</strong></p>
+                <br/>
+                <p>Saludos cordiales,</p>
+                <p>El Equipo de SLA Manager</p>
+                <hr/>
+                <p style='font-size: 11px; color: #999;'>Si no solicitaste esta activacion, puedes ignorar este correo.</p>
+            ";
         }
     }
 }
