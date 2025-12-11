@@ -15,9 +15,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Shared
             // 1️⃣ Configurar JWTSettings desde appsettings.json
             services.Configure<JWTSettings>(_config.GetSection("JWTSettings"));
 
-            // 2️⃣ Configurar FrontendSettings desde appsettings.json
-            services.Configure<FrontendSettings>(_config.GetSection("FrontendSettings"));
-
             // 3️⃣ Registrar servicio de JWT
             services.AddTransient<IJWTService, JWTService>();
 

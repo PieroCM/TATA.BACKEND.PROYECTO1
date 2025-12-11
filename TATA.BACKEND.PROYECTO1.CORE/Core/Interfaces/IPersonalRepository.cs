@@ -1,5 +1,4 @@
-﻿
-using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
+﻿using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
 
 namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
@@ -10,5 +9,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<IEnumerable<Personal>> GetAllAsync();
         Task<Personal?> GetByIdAsync(int id);
         Task UpdateAsync(Personal personal);
+        Task<Personal?> GetByDocumentoAsync(string documento);
+        Task<bool> ExisteDocumentoAsync(string documento);
+        Task<bool> ExisteDocumentoAsync(string documento, int exceptoId);
     }
 }

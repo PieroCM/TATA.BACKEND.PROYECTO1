@@ -5,7 +5,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
     public interface IUsuarioService
     {
         // Autenticación
-        Task<string?> SignInAsync(SignInRequestDTO dto);
+        Task<SignInResponseDTO?> SignInAsync(SignInRequestDTO dto);
         Task<bool> SignUpAsync(SignUpRequestDTO dto);
         
         // CRUD Completo
@@ -20,5 +20,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
         Task<bool> ChangePasswordAsync(UsuarioChangePasswordDTO dto);
         Task<bool> SolicitarRecuperacionPassword(SolicitarRecuperacionDTO request);
         Task<bool> RestablecerPassword(RestablecerPasswordDTO request);
+        
+        // ⚠️ NUEVO: Activación de cuenta
+        Task<bool> ActivarCuenta(ActivarCuentaDTO request);
+
+        // ⚠️ NUEVO: Vincular Personal existente con nueva cuenta Usuario (ADMIN)
+        Task VincularPersonalYActivarAsync(VincularPersonalDTO dto);
     }
 }

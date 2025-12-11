@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Entities;
@@ -37,7 +37,10 @@ public partial class Proyecto1SlaDbContext : DbContext
     public virtual DbSet<Usuario> Usuario { get; set; }
     //Para el reporte detalle
     public virtual DbSet<ReporteDetalle> ReporteDetalle { get; set; }
-
+    
+    // Email Automation
+    public virtual DbSet<EmailConfig> EmailConfig { get; set; }
+    public virtual DbSet<EmailLog> EmailLog { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -106,7 +109,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasDefaultValue(true)
                 .HasColumnName("es_activo");
             entity.Property(e => e.TipoSolicitud)
-                .HasMaxLength(20)
+                .HasMaxLength(50)
                 .HasColumnName("tipo_solicitud");
         });
 
@@ -172,8 +175,6 @@ public partial class Proyecto1SlaDbContext : DbContext
 
             entity.HasIndex(e => e.Estado, "IX_personal_estado");
 
-            entity.HasIndex(e => e.IdUsuario, "IX_personal_usuario");
-
             entity.Property(e => e.IdPersonal).HasColumnName("id_personal");
             entity.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en");
             entity.Property(e => e.Apellidos)
@@ -191,15 +192,9 @@ public partial class Proyecto1SlaDbContext : DbContext
             entity.Property(e => e.Estado)
                 .HasMaxLength(20)
                 .HasColumnName("estado");
-            entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
             entity.Property(e => e.Nombres)
                 .HasMaxLength(120)
                 .HasColumnName("nombres");
-
-            entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.Personal)
-                .HasForeignKey(d => d.IdUsuario)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_personal_usuario");
         });
 
         modelBuilder.Entity<Reporte>(entity =>
@@ -382,15 +377,12 @@ public partial class Proyecto1SlaDbContext : DbContext
 
             entity.HasIndex(e => e.IdRolSistema, "IX_usuario_rol");
 
-            entity.HasIndex(e => e.Correo, "UX_usuario_correo").IsUnique();
-
             entity.HasIndex(e => e.Username, "UX_usuario_username").IsUnique();
+
+            entity.HasIndex(e => e.IdPersonal, "IX_usuario_personal");
 
             entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
             entity.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en");
-            entity.Property(e => e.Correo)
-                .HasMaxLength(190)
-                .HasColumnName("correo");
             entity.Property(e => e.CreadoEn)
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasColumnName("creado_en");
@@ -398,6 +390,7 @@ public partial class Proyecto1SlaDbContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("estado");
             entity.Property(e => e.IdRolSistema).HasColumnName("id_rol_sistema");
+            entity.Property(e => e.IdPersonal).HasColumnName("id_personal");
             entity.Property(e => e.PasswordHash)
                 .HasMaxLength(255)
                 .HasColumnName("password_hash");
@@ -405,31 +398,41 @@ public partial class Proyecto1SlaDbContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(100)
                 .HasColumnName("username");
+            entity.Property(e => e.token_recuperacion)
+                .HasMaxLength(128)
+                .HasColumnName("token_recuperacion");
+            entity.Property(e => e.expiracion_token).HasColumnName("expiracion_token");
 
             entity.HasOne(d => d.IdRolSistemaNavigation).WithMany(p => p.Usuario)
                 .HasForeignKey(d => d.IdRolSistema)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_usuario_rol");
+
+            entity.HasOne(d => d.PersonalNavigation)
+                .WithOne(p => p.UsuarioNavigation)
+                .HasForeignKey<Usuario>(d => d.IdPersonal)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_usuario_personal");
         });
 
-        // ConfiguraciÛn many-to-many entre Reporte y Solicitud usando la entidad explÌcita ReporteDetalle
+        // Configuraci√≥n many-to-many entre Reporte y Solicitud usando la entidad expl√≠cita ReporteDetalle
         modelBuilder.Entity<Reporte>()
             .HasMany(r => r.Solicitudes)
             .WithMany(s => s.IdReporte)
             .UsingEntity<ReporteDetalle>(
-                // relaciÛn desde ReporteDetalle hacia Solicitud
+                // relaci√≥n desde ReporteDetalle hacia Solicitud
                 j => j.HasOne(rd => rd.Solicitud)
-                      .WithMany() // no hay colecciÛn de ReporteDetalle en Solicitud
+                      .WithMany() // no hay colecci√≥n de ReporteDetalle en Solicitud
                       .HasForeignKey(rd => rd.IdSolicitud)
                       .OnDelete(DeleteBehavior.ClientSetNull)
                       .HasConstraintName("FK_repdet_solicitud"),
-                // relaciÛn desde ReporteDetalle hacia Reporte
+                // relaci√≥n desde ReporteDetalle hacia Reporte
                 j => j.HasOne(rd => rd.Reporte)
                       .WithMany(r => r.Detalles)
                       .HasForeignKey(rd => rd.IdReporte)
                       .OnDelete(DeleteBehavior.ClientSetNull)
                       .HasConstraintName("FK_repdet_reporte"),
-                // configuraciÛn de la tabla de uniÛn
+                // configuraci√≥n de la tabla de uni√≥n
                 j =>
                 {
                     j.HasKey(rd => new { rd.IdReporte, rd.IdSolicitud }).HasName("PK_reporte_detalle");
@@ -439,6 +442,75 @@ public partial class Proyecto1SlaDbContext : DbContext
                     j.Property(rd => rd.IdReporte).HasColumnName("id_reporte");
                     j.Property(rd => rd.IdSolicitud).HasColumnName("id_solicitud");
                 });
+
+        // Configuraci√≥n de EmailConfig
+        // Configuraci√≥n de EmailConfig
+        modelBuilder.Entity<EmailConfig>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("email_config");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.DestinatarioResumen)
+                .HasMaxLength(190)
+                .IsRequired()
+                .HasColumnName("destinatario_resumen");
+            entity.Property(e => e.EnvioInmediato)
+                .HasDefaultValue(true)
+                .HasColumnName("envio_inmediato");
+            entity.Property(e => e.ResumenDiario)
+                .HasDefaultValue(false)
+                .HasColumnName("resumen_diario");
+            entity.Property(e => e.HoraResumen)
+                .HasColumnName("hora_resumen");
+            entity.Property(e => e.CreadoEn)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("creado_en");
+            entity.Property(e => e.ActualizadoEn)
+                .HasColumnName("actualizado_en");
+
+            // ‚úÖ Seed SIN valores din√°micos
+            entity.HasData(new EmailConfig
+            {
+                Id = 1,
+                DestinatarioResumen = "22200150@ue.edu.pe",
+                EnvioInmediato = true,
+                ResumenDiario = false,
+                HoraResumen = new TimeSpan(8, 0, 0) // 8:00 AM
+                                                    // CreadoEn lo rellena el defaultValueSql
+            });
+        });
+
+
+        // Configuraci√≥n de EmailLog
+        modelBuilder.Entity<EmailLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("email_log");
+
+            entity.HasIndex(e => e.Fecha, "IX_email_log_fecha").IsDescending();
+            entity.HasIndex(e => e.Tipo, "IX_email_log_tipo");
+            entity.HasIndex(e => e.Estado, "IX_email_log_estado");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Fecha)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("fecha");
+            entity.Property(e => e.Tipo)
+                .HasMaxLength(20)
+                .IsRequired()
+                .HasColumnName("tipo");
+            entity.Property(e => e.Destinatarios)
+                .HasMaxLength(2000)
+                .IsRequired()
+                .HasColumnName("destinatarios");
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .IsRequired()
+                .HasColumnName("estado");
+            entity.Property(e => e.ErrorDetalle)
+                .HasColumnName("error_detalle");
+        });
 
         OnModelCreatingPartial(modelBuilder);
     }

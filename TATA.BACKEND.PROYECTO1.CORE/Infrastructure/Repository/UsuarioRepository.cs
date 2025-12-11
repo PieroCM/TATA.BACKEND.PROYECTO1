@@ -19,22 +19,31 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
             _context = context;
         }
 
-        public async Task<Usuario?> GetByCorreoAsync(string correo)
+        // ⚠️ CAMBIO: GetByCorreoAsync → GetByUsernameAsync
+        public async Task<Usuario?> GetByUsernameAsync(string username)
         {
             return await _context.Usuario
                 .Include(u => u.IdRolSistemaNavigation)
-                .FirstOrDefaultAsync(u => u.Correo == correo);
+                .Include(u => u.PersonalNavigation) // ⚠️ Incluir Personal para obtener correo
+                .FirstOrDefaultAsync(u => u.Username == username);
         }
 
-        public async Task<Usuario?> GetByUsernameAsync(string username)
+        // ⚠️ NUEVO: Buscar usuario por correo (a través de Personal)
+        public async Task<Usuario?> GetByEmailAsync(string email)
         {
-            return await _context.Usuario.FirstOrDefaultAsync(u => u.Username == username);
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                    .ThenInclude(r => r.IdPermiso) // ⚠️ Incluir permisos del rol
+                .Include(u => u.PersonalNavigation)
+                .FirstOrDefaultAsync(u => u.PersonalNavigation != null && 
+                                       u.PersonalNavigation.CorreoCorporativo == email);
         }
 
         public async Task<Usuario?> GetByIdAsync(int id)
         {
             return await _context.Usuario
                 .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation) // ⚠️ Incluir Personal
                 .FirstOrDefaultAsync(u => u.IdUsuario == id);
         }
 
@@ -42,6 +51,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
         {
             return await _context.Usuario
                 .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation) // ⚠️ Incluir Personal
                 .ToListAsync();
         }
 
@@ -70,8 +80,18 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infrastructure.Repository
         public async Task<Usuario?> GetByRecoveryTokenAsync(string token)
         {
             return await _context.Usuario
+                .Include(u => u.PersonalNavigation) // ⚠️ Incluir Personal
                 .FirstOrDefaultAsync(u => u.token_recuperacion == token 
                                        && u.expiracion_token > DateTime.UtcNow);
+        }
+
+        // ⚠️ NUEVO: Buscar usuario por IdPersonal (para deshabilitación administrativa)
+        public async Task<Usuario?> GetByPersonalIdAsync(int idPersonal)
+        {
+            return await _context.Usuario
+                .Include(u => u.IdRolSistemaNavigation)
+                .Include(u => u.PersonalNavigation)
+                .FirstOrDefaultAsync(u => u.IdPersonal == idPersonal);
         }
     }
 }

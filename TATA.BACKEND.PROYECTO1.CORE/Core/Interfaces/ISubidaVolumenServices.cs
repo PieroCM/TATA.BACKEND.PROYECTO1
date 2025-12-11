@@ -4,6 +4,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces
 {
     public interface ISubidaVolumenServices
     {
-        Task<BulkUploadResultDto> ProcesarSolicitudesAsync(IEnumerable<SubidaVolumenSolicitudRowDto> filas);
+        Task<BulkUploadResultDto> ProcesarSolicitudesAsync(
+            IEnumerable<SubidaVolumenSolicitudRowDto> filas,
+            int idUsuarioCreador);
     }
 }

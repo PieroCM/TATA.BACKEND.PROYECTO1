@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -10,64 +12,718 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
     [Authorize] // 🔒 Requiere token JWT válido
     public class PersonalController : ControllerBase
     {
+        private static readonly ILog log = LogManager.GetLogger(typeof(PersonalController));
+        
         private readonly IPersonalService _personalService;
+        private readonly ILogSistemaService _logService;
 
-        public PersonalController(IPersonalService personalService)
+        public PersonalController(IPersonalService personalService, ILogSistemaService logService)
         {
             _personalService = personalService;
+            _logService = logService;
+            log.Debug("PersonalController inicializado.");
         }
 
         // ✅ OBTENER TODOS
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var personales = await _personalService.GetAllAsync();
-            return Ok(personales);
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info("GetAll iniciado");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = "Petición recibida: GetAll Personal",
+                Detalles = "Obteniendo todos los registros de Personal",
+                IdUsuario = userId
+            });
+
+            try
+            {
+                var personales = await _personalService.GetAllAsync();
+                
+                log.Info("GetAll completado correctamente");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: GetAll Personal",
+                    Detalles = $"Total Personal obtenidos: {personales.Count()}",
+                    IdUsuario = userId
+                });
+                
+                return Ok(personales);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error inesperado durante GetAll", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
 
         // ✅ OBTENER UNO POR ID
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var personal = await _personalService.GetByIdAsync(id);
-            if (personal == null)
-                return NotFound(new { message = "Personal no encontrado" });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"GetById iniciado para id: {id}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: GetById Personal {id}",
+                Detalles = $"Buscando Personal con id: {id}",
+                IdUsuario = userId
+            });
 
-            return Ok(personal);
+            try
+            {
+                var personal = await _personalService.GetByIdAsync(id);
+                
+                if (personal == null)
+                {
+                    log.Warn($"Personal con id {id} no encontrado");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = userId
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"GetById completado correctamente para id: {id}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: GetById Personal",
+                    Detalles = $"Personal {id} obtenido exitosamente",
+                    IdUsuario = userId
+                });
+
+                return Ok(personal);
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante GetById para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
 
-        // ✅ CREAR NUEVO
+        // ✅ CREAR NUEVO (Simple - sin cuenta de usuario)
         [HttpPost]
-        [Authorize(Roles = "1")] // opcional: solo admin (idRolSistema = 1)
         public async Task<IActionResult> Create([FromBody] PersonalCreateDTO dto)
         {
-            var ok = await _personalService.CreateAsync(dto);
-            if (!ok)
-                return BadRequest(new { message = "Error al registrar personal" });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info("Create iniciado");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = "Petición recibida: Create Personal",
+                Detalles = $"Creando Personal: {dto?.Nombres} {dto?.Apellidos}",
+                IdUsuario = userId
+            });
 
-            return Ok(new { message = "Personal registrado correctamente" });
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Nombres) || string.IsNullOrWhiteSpace(dto.Apellidos))
+            {
+                log.Warn("Create: Validación fallida - Nombres y Apellidos son obligatorios");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "WARN",
+                    Mensaje = "Validación fallida: Nombres y Apellidos son obligatorios",
+                    Detalles = "El cuerpo de la petición no cumple con los requisitos",
+                    IdUsuario = userId
+                });
+                return BadRequest(new { message = "Nombres y Apellidos son obligatorios" });
+            }
+
+            try
+            {
+                var ok = await _personalService.CreateAsync(dto);
+                
+                if (!ok)
+                {
+                    log.Warn("Create: No se pudo registrar personal - posible documento duplicado");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = "Error al registrar personal",
+                        Detalles = !string.IsNullOrWhiteSpace(dto.Documento) 
+                            ? "El documento proporcionado ya está registrado en el sistema" 
+                            : "Verifica que todos los datos sean válidos",
+                        IdUsuario = userId
+                    });
+                    return BadRequest(new { 
+                        message = "Error al registrar personal",
+                        detalle = !string.IsNullOrWhiteSpace(dto.Documento) 
+                            ? "El documento proporcionado ya está registrado en el sistema" 
+                            : "Verifica que todos los datos sean válidos"
+                    });
+                }
+
+                log.Info("Create completado correctamente");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Create Personal",
+                    Detalles = $"Personal creado: {dto.Nombres} {dto.Apellidos}",
+                    IdUsuario = userId
+                });
+
+                return Ok(new { message = "Personal registrado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error inesperado durante Create", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// ⚠️ NUEVO: Crear Personal con Cuenta de Usuario (Condicional)
+        /// POST /api/personal/with-account
+        /// </summary>
+        [HttpPost("with-account")]
+        public async Task<IActionResult> CreateWithAccount([FromBody] PersonalCreateWithAccountDTO dto)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info("CreateWithAccount iniciado");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = "Petición recibida: Create Personal With Account",
+                Detalles = $"Creando Personal con cuenta: {dto?.CrearCuentaUsuario}, Nombres: {dto?.Nombres} {dto?.Apellidos}",
+                IdUsuario = userId
+            });
+
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Nombres) || string.IsNullOrWhiteSpace(dto.Apellidos))
+            {
+                log.Warn("CreateWithAccount: Validación fallida - Nombres y Apellidos son obligatorios");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "WARN",
+                    Mensaje = "Validación fallida: Nombres y Apellidos son obligatorios",
+                    Detalles = "El cuerpo de la petición no cumple con los requisitos",
+                    IdUsuario = userId
+                });
+                return BadRequest(new { message = "Nombres y Apellidos son obligatorios" });
+            }
+
+            if (dto.CrearCuentaUsuario)
+            {
+                // Validaciones adicionales si se va a crear cuenta de usuario
+                if (string.IsNullOrWhiteSpace(dto.Username))
+                {
+                    log.Warn("CreateWithAccount: Validación fallida - Username obligatorio cuando se crea cuenta");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = "Validación fallida: Username es obligatorio cuando se crea cuenta de usuario",
+                        Detalles = "Falta Username para crear cuenta",
+                        IdUsuario = userId
+                    });
+                    return BadRequest(new { message = "Username es obligatorio cuando se crea cuenta de usuario" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.CorreoCorporativo))
+                {
+                    log.Warn("CreateWithAccount: Validación fallida - Correo corporativo obligatorio cuando se crea cuenta");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = "Validación fallida: Correo corporativo es obligatorio cuando se crea cuenta de usuario",
+                        Detalles = "Falta Correo Corporativo para crear cuenta",
+                        IdUsuario = userId
+                    });
+                    return BadRequest(new { message = "Correo corporativo es obligatorio cuando se crea cuenta de usuario" });
+                }
+            }
+
+            try
+            {
+                var success = await _personalService.CreateWithAccountAsync(dto);
+                
+                if (!success)
+                {
+                    var mensaje = "No se pudo crear el personal";
+                    var detalle = dto.CrearCuentaUsuario 
+                        ? "Verifica que el username no exista y que todos los datos sean válidos" 
+                        : "Verifica que los datos sean válidos";
+                    
+                    // Si se proporcionó documento, probablemente sea duplicado
+                    if (!string.IsNullOrWhiteSpace(dto.Documento))
+                    {
+                        detalle = "El documento proporcionado ya está registrado en el sistema";
+                    }
+                    
+                    log.Warn($"CreateWithAccount: {mensaje} - {detalle}");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = mensaje,
+                        Detalles = detalle,
+                        IdUsuario = userId
+                    });
+                    
+                    return BadRequest(new { 
+                        message = mensaje,
+                        detalle = detalle
+                    });
+                }
+
+                log.Info("CreateWithAccount completado correctamente");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Create Personal With Account",
+                    Detalles = dto.CrearCuentaUsuario 
+                        ? $"Personal creado con cuenta de usuario: {dto.Username}" 
+                        : $"Personal creado sin cuenta: {dto.Nombres} {dto.Apellidos}",
+                    IdUsuario = userId
+                });
+
+                return Ok(new { 
+                    message = dto.CrearCuentaUsuario 
+                        ? "Personal creado con cuenta de usuario. Se ha enviado un correo de activación." 
+                        : "Personal creado exitosamente",
+                    conCuentaUsuario = dto.CrearCuentaUsuario,
+                    username = dto.CrearCuentaUsuario ? dto.Username : null,
+                    instrucciones = dto.CrearCuentaUsuario 
+                        ? "El usuario recibirá un correo con el enlace de activación. Tiene 24 horas para activar su cuenta." 
+                        : null
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error inesperado durante CreateWithAccount", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
 
         // ✅ ACTUALIZAR
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] PersonalUpdateDTO dto)
         {
-            var ok = await _personalService.UpdateAsync(id, dto);
-            if (!ok)
-                return NotFound(new { message = "Personal no encontrado" });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Update iniciado para id: {id}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Update Personal {id}",
+                Detalles = $"Actualizando Personal con id: {id}",
+                IdUsuario = userId
+            });
 
-            return Ok(new { message = "Personal actualizado correctamente" });
+            try
+            {
+                var ok = await _personalService.UpdateAsync(id, dto);
+                
+                if (!ok)
+                {
+                    // Si se proporcionó documento, probablemente sea duplicado
+                    if (!string.IsNullOrWhiteSpace(dto.Documento))
+                    {
+                        log.Warn($"Update: No se pudo actualizar - documento duplicado o personal no existe para id: {id}");
+                        await _logService.AddAsync(new LogSistemaCreateDTO
+                        {
+                            Nivel = "WARN",
+                            Mensaje = $"No se pudo actualizar el personal: {id}",
+                            Detalles = "El documento proporcionado ya está registrado en otro personal o el personal no existe",
+                            IdUsuario = userId
+                        });
+                        return BadRequest(new { 
+                            message = "No se pudo actualizar el personal",
+                            detalle = "El documento proporcionado ya está registrado en otro personal o el personal no existe"
+                        });
+                    }
+                    
+                    log.Warn($"Personal con id {id} no encontrado para actualizar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para actualizar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = userId
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"Update completado correctamente para id: {id}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Update Personal",
+                    Detalles = $"Personal {id} actualizado exitosamente",
+                    IdUsuario = userId
+                });
+
+                return Ok(new { message = "Personal actualizado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante Update para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
 
         // ✅ ELIMINAR
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var ok = await _personalService.DeleteAsync(id);
-            if (!ok)
-                return NotFound(new { message = "Personal no encontrado" });
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"Delete iniciado para id: {id}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Delete Personal {id}",
+                Detalles = $"Eliminando Personal con id: {id}",
+                IdUsuario = userId
+            });
 
-            return Ok(new { message = "Personal eliminado correctamente" });
+            try
+            {
+                var ok = await _personalService.DeleteAsync(id);
+                
+                if (!ok)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para eliminar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para eliminar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = userId
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"Delete completado correctamente para id: {id}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Delete Personal",
+                    Detalles = $"Personal {id} eliminado exitosamente",
+                    IdUsuario = userId
+                });
+
+                return Ok(new { message = "Personal eliminado correctamente" });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante Delete para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Verificar si un documento ya existe en el sistema
+        /// GET /api/personal/verificar-documento/{documento}
+        /// </summary>
+        [HttpGet("verificar-documento/{documento}")]
+        public async Task<IActionResult> VerificarDocumento(string documento)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info($"VerificarDocumento iniciado para documento: {documento}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = "Petición recibida: Verificar Documento",
+                Detalles = $"Verificando si el documento {documento} existe",
+                IdUsuario = userId
+            });
+
+            if (string.IsNullOrWhiteSpace(documento))
+            {
+                log.Warn("VerificarDocumento: Validación fallida - Documento es requerido");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "WARN",
+                    Mensaje = "Validación fallida: Documento es requerido",
+                    Detalles = "No se proporcionó documento para verificar",
+                    IdUsuario = userId
+                });
+                return BadRequest(new { message = "Documento es requerido" });
+            }
+
+            try
+            {
+                var personales = await _personalService.GetAllAsync();
+                var existe = personales.Any(p => p.Documento == documento);
+
+                log.Info($"VerificarDocumento completado correctamente - Existe: {existe}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Verificar Documento",
+                    Detalles = $"Documento {documento} - Existe: {existe}",
+                    IdUsuario = userId
+                });
+
+                return Ok(new { 
+                    existe = existe,
+                    documento = documento,
+                    mensaje = existe 
+                        ? "El documento ya está registrado en el sistema" 
+                        : "El documento está disponible"
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error inesperado durante VerificarDocumento", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        // ===========================
+        // ✅ NUEVO: LISTADO UNIFICADO PARA GESTIÓN DE USUARIOS
+        // ===========================
+
+        /// <summary>
+        /// Obtener listado completo para Gestión de Usuarios (LEFT JOIN Personal → Usuario → RolesSistema)
+        /// GET /api/personal/gestion-usuarios
+        /// </summary>
+        [HttpGet("gestion-usuarios")]
+        public async Task<IActionResult> GetGestionUsuarios()
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            
+            log.Info("GetGestionUsuarios iniciado");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = "Petición recibida: GetGestionUsuarios",
+                Detalles = "Obteniendo listado unificado de Personal con Usuarios",
+                IdUsuario = userId
+            });
+
+            try
+            {
+                var lista = await _personalService.GetUnifiedListAsync();
+                
+                log.Info("GetGestionUsuarios completado correctamente");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: GetGestionUsuarios",
+                    Detalles = $"Total registros obtenidos: {lista.Count()}",
+                    IdUsuario = userId
+                });
+                
+                return Ok(lista);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error inesperado durante GetGestionUsuarios", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = userId
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        // ===========================
+        // ENDPOINTS BÁSICOS DE PERSONAL
+        // ===========================
+
+        /// <summary>
+        /// Deshabilitación Administrativa Total: Deshabilita Personal y OPCIONALMENTE elimina o deshabilita Usuario
+        /// PATCH /api/personal/deshabilitar/{id}
+        /// </summary>
+        [HttpPatch("deshabilitar/{id}")]
+        public async Task<IActionResult> DeshabilitarPersonalYUsuario(int id, [FromBody] DeshabilitarPersonalDTO? dto)
+        {
+            log.Info($"DeshabilitarPersonalYUsuario iniciado para id: {id}");
+            
+            // Si no se envía el body, usar valores por defecto (eliminarUsuario = false)
+            var eliminarUsuario = dto?.EliminarUsuario ?? false;
+            
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Deshabilitar Personal Y Usuario {id}",
+                Detalles = $"Iniciando deshabilitación administrativa para Personal ID: {id}, Eliminar Usuario: {eliminarUsuario}",
+                IdUsuario = null
+            });
+
+            try
+            {
+                var success = await _personalService.DeshabilitarPersonalYUsuarioAsync(id, eliminarUsuario);
+                
+                if (!success)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para deshabilitar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para deshabilitar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = null
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"DeshabilitarPersonalYUsuario completado correctamente para id: {id}");
+                
+                var mensaje = eliminarUsuario 
+                    ? "Personal deshabilitado y cuenta de usuario eliminada correctamente"
+                    : "Personal y cuenta de usuario deshabilitados correctamente";
+                
+                var detalles = eliminarUsuario
+                    ? "El Personal ha sido marcado como INACTIVO y su cuenta de usuario ha sido ELIMINADA permanentemente de la base de datos."
+                    : "El Personal y su cuenta de usuario asociada (si existe) han sido marcados como INACTIVOS. Esta acción es reversible.";
+                
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Deshabilitar Personal Y Usuario",
+                    Detalles = $"Personal {id} - Eliminar Usuario: {eliminarUsuario}. {detalles}",
+                    IdUsuario = null
+                });
+
+                return Ok(new { 
+                    message = mensaje,
+                    detalles = detalles,
+                    eliminarUsuario = eliminarUsuario
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante DeshabilitarPersonalYUsuario para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = null
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Habilitación/Reactivación de Personal: Reactiva el Personal pero NO reactiva automáticamente el Usuario
+        /// PATCH /api/personal/habilitar/{id}
+        /// 🚨 SEGURIDAD: El Usuario debe habilitarse MANUALMENTE por el administrador
+        /// </summary>
+        [HttpPatch("habilitar/{id}")]
+        public async Task<IActionResult> HabilitarPersonal(int id)
+        {
+            log.Info($"HabilitarPersonal iniciado para id: {id}");
+            await _logService.AddAsync(new LogSistemaCreateDTO
+            {
+                Nivel = "INFO",
+                Mensaje = $"Petición recibida: Habilitar/Reactivar Personal {id}",
+                Detalles = $"Iniciando habilitación de Personal ID: {id}",
+                IdUsuario = null
+            });
+
+            try
+            {
+                var success = await _personalService.HabilitarPersonalAsync(id);
+                
+                if (!success)
+                {
+                    log.Warn($"Personal con id {id} no encontrado para habilitar");
+                    await _logService.AddAsync(new LogSistemaCreateDTO
+                    {
+                        Nivel = "WARN",
+                        Mensaje = $"Personal no encontrado para habilitar: {id}",
+                        Detalles = "Recurso solicitado no existe",
+                        IdUsuario = null
+                    });
+                    return NotFound(new { message = "Personal no encontrado" });
+                }
+
+                log.Info($"HabilitarPersonal completado correctamente para id: {id}");
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "INFO",
+                    Mensaje = "Operación completada correctamente: Habilitar Personal",
+                    Detalles = $"Personal {id} reactivado (Estado = ACTIVO). Usuario NO reactivado automáticamente por seguridad.",
+                    IdUsuario = null
+                });
+
+                return Ok(new { 
+                    message = "Personal reactivado correctamente",
+                    detalles = "El Personal ha sido marcado como ACTIVO. " +
+                              "⚠️ IMPORTANTE: Si el Personal tiene una cuenta de usuario, esta PERMANECE INACTIVA por seguridad. " +
+                              "El administrador debe habilitarla manualmente usando el botón de 'Habilitar/Bloquear Acceso' " +
+                              "después de verificar el rol y restablecer la contraseña si es necesario.",
+                    seguridadCritica = true,
+                    accionRequerida = "Habilitar manualmente el acceso del usuario desde el módulo de gestión de usuarios"
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error inesperado durante HabilitarPersonal para id: {id}", ex);
+                await _logService.AddAsync(new LogSistemaCreateDTO
+                {
+                    Nivel = "ERROR",
+                    Mensaje = ex.Message,
+                    Detalles = ex.ToString(),
+                    IdUsuario = null
+                });
+                return StatusCode(500, new { mensaje = "Error interno del servidor", detalle = ex.Message });
+            }
         }
     }
 }

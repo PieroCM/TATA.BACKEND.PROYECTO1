@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
+using TATA.BACKEND.PROYECTO1.CORE.Core.Services;
+using log4net;
+using System.Security.Claims;
 
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
@@ -11,11 +14,18 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
     [Route("api/[controller]")]
     public class SubidaVolumenController : ControllerBase
     {
-        private readonly ISubidaVolumenServices _subidaVolumenServices;
+        private static readonly ILog log = LogManager.GetLogger(typeof(SubidaVolumenController));
 
-        public SubidaVolumenController(ISubidaVolumenServices subidaVolumenServices)
+        private readonly ISubidaVolumenServices _subidaVolumenServices;
+        private readonly ILogService _logService;
+
+        public SubidaVolumenController(
+            ISubidaVolumenServices subidaVolumenServices, 
+            ILogService logService)
         {
             _subidaVolumenServices = subidaVolumenServices;
+            _logService = logService;
+            log.Debug("SubidaVolumenController inicializado.");
         }
 
         /// <summary>
@@ -23,6 +33,8 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         /// y ejecuta la carga masiva de solicitudes SLA.
         /// </summary>
         /// <param name="filas">Colección de filas de carga masiva.</param>
+        /// <param name="idUsuarioCreador">ID del usuario que ejecuta la carga masiva. Por defecto es 1 (superadmin). 
+        /// En producción, debe obtenerse del contexto de autenticación (JWT claims).</param>
         /// <returns>
         /// Siempre devuelve 200 OK con un objeto BulkUploadResultDto que contiene:
         /// - Total de filas procesadas
@@ -34,35 +46,42 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
         [ProducesResponseType(typeof(BulkUploadResultDto), 200)]
         [ProducesResponseType(400)]
         public async Task<ActionResult<BulkUploadResultDto>> CargarSolicitudes(
-            [FromBody] IEnumerable<SubidaVolumenSolicitudRowDto>? filas)
+            [FromBody] IEnumerable<SubidaVolumenSolicitudRowDto>? filas,
+            [FromQuery] int idUsuarioCreador = 1)
         {
-            // Validar que el cuerpo de la petición no sea nulo
+            // Intentar obtener userId del JWT, usar el query param como fallback
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? idUsuarioCreador.ToString());
+            
+            log.Info($"CargarSolicitudes iniciado para usuario {userId}");
+            await _logService.RegistrarLogAsync("INFO", "Petición recibida: CargarSolicitudes", 
+                $"Petición recibida desde FRONTEND. Usuario creador: {userId}", userId);
+
             if (filas is null)
             {
-                return BadRequest(new 
-                { 
-                    error = "REQUEST_INVALIDO",
-                    mensaje = "El cuerpo de la petición no puede ser nulo. Debe enviar un array de filas.",
-                    detalles = "Verifique que el Content-Type sea 'application/json' y que el body contenga un array válido."
-                });
+                log.Warn("Petición CargarSolicitudes recibida con cuerpo nulo");
+                await _logService.RegistrarLogAsync("WARN", "Body nulo en CargarSolicitudes", 
+                    "El frontend envió null", userId);
+                return BadRequest("El cuerpo de la petición no puede ser nulo.");
             }
 
             var lista = filas.ToList();
             
-            // Si no hay filas, devolver resultado vacío con éxito (no es un error de request)
+            // Si no hay filas, devolver resultado vacío con error
             if (lista.Count == 0)
             {
-                return Ok(new BulkUploadResultDto
-                {
-                    TotalFilas = 0,
-                    FilasExitosas = 0,
-                    FilasConError = 0,
-                    Errores = new List<BulkUploadErrorDto>()
-                });
+                log.Warn("Petición CargarSolicitudes recibida sin filas para procesar");
+                await _logService.RegistrarLogAsync("WARN", "Sin filas para procesar", 
+                    "Lista vacía enviada por frontend", userId);
+                return BadRequest("No se encontraron filas para procesar.");
             }
 
             // Procesar las filas y siempre devolver 200 OK con el resultado
-            var resultado = await _subidaVolumenServices.ProcesarSolicitudesAsync(lista);
+            var resultado = await _subidaVolumenServices.ProcesarSolicitudesAsync(lista, userId);
+            
+            log.Info($"CargarSolicitudes finalizado. Filas procesadas: {resultado.TotalFilas}");
+            await _logService.RegistrarLogAsync("INFO", "Carga masiva completada", 
+                $"Total: {resultado.TotalFilas}, Exitosas: {resultado.FilasExitosas}, Errores: {resultado.FilasConError}", userId);
+            
             return Ok(resultado);
         }
     }
