@@ -8,6 +8,45 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Migrations
     /// <inheritdoc />
     public partial class InitialCreate : Migration
     {
+        // ===============================
+        // MÉTODO PARA CREAR USUARIO SQL PARA DOCKER (Machine Learning)
+        // ===============================
+        /// <summary>
+        /// Crea el usuario SQL 'sla_user' para que Docker (Machine Learning) pueda conectarse a la BD.
+        /// Este método es idempotente: puede ejecutarse múltiples veces sin errores.
+        /// </summary>
+        private void CreateDockerSqlUser(MigrationBuilder migrationBuilder)
+        {
+            // 1. Crear LOGIN en master (si no existe)
+            // NOTA: El LOGIN persiste aunque se elimine la BD
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'sla_user')
+                BEGIN
+                    CREATE LOGIN [sla_user] WITH PASSWORD = 'SLA_Pass123!', 
+                    CHECK_POLICY = OFF,
+                    CHECK_EXPIRATION = OFF;
+                    PRINT 'LOGIN sla_user creado exitosamente';
+                END
+            ");
+
+            // 2. Crear USER en la base de datos actual (si no existe)
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'sla_user')
+                BEGIN
+                    CREATE USER [sla_user] FOR LOGIN [sla_user];
+                    PRINT 'USER sla_user creado en BD';
+                END
+            ");
+
+            // 3. Otorgar permisos de lectura, escritura y ejecución
+            migrationBuilder.Sql(@"
+                ALTER ROLE db_datareader ADD MEMBER [sla_user];
+                ALTER ROLE db_datawriter ADD MEMBER [sla_user];
+                GRANT EXECUTE TO [sla_user];
+                PRINT 'Permisos otorgados a sla_user: db_datareader, db_datawriter, EXECUTE';
+            ");
+        }
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -329,6 +368,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Migrations
                 columns: new[] { "id", "actualizado_en", "destinatario_resumen", "envio_inmediato", "hora_resumen" },
                 values: new object[] { 1, null, "22200150@ue.edu.pe", true, new TimeSpan(0, 8, 0, 0, 0) });
 
+            // ===============================
+            // ÍNDICES
+            // ===============================
             migrationBuilder.CreateIndex(
                 name: "IX_alerta_estado",
                 table: "alerta",
@@ -518,6 +560,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Migrations
                 table: "usuario",
                 column: "username",
                 unique: true);
+
+            // ===============================
+            // CREAR USUARIO SQL PARA DOCKER (Machine Learning)
+            // Este usuario permite que el contenedor Docker se conecte a la BD
+            // ===============================
+            CreateDockerSqlUser(migrationBuilder);
         }
 
         /// <inheritdoc />
@@ -564,6 +612,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Migrations
 
             migrationBuilder.DropTable(
                 name: "roles_sistema");
+
+            // ===============================
+            // ELIMINAR USUARIO SQL DE DOCKER (si se revierte la migración)
+            // ===============================
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT * FROM sys.database_principals WHERE name = 'sla_user')
+                BEGIN
+                    DROP USER [sla_user];
+                    PRINT 'USER sla_user eliminado de la BD';
+                END
+            ");
         }
     }
 }
