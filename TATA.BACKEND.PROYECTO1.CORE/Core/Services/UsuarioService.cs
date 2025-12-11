@@ -43,7 +43,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         {
             // ⚠️ CAMBIO: Buscar por email en lugar de username (incluye rol y permisos)
             var usuario = await _usuarioRepository.GetByEmailAsync(dto.Email);
-            if (usuario == null) 
+            if (usuario == null)
             {
                 _logger.LogWarning("Intento de login con email no registrado: {Email}", dto.Email);
                 return null;
@@ -64,7 +64,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             }
 
             bool passwordOk = BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash);
-            if (!passwordOk) 
+            if (!passwordOk)
             {
                 _logger.LogWarning("Contraseña incorrecta para: {Email}", dto.Email);
                 return null;
@@ -95,7 +95,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     .ToList() ?? new List<string>()
             };
 
-            _logger.LogInformation("Login exitoso: {Email} - Username: {Username} - Rol: {Rol} - Permisos: {Permisos}", 
+            _logger.LogInformation("Login exitoso: {Email} - Username: {Username} - Rol: {Rol} - Permisos: {Permisos}",
                 dto.Email, usuario.Username, response.RolCodigo, string.Join(", ", response.Permisos));
 
             return response;
@@ -105,7 +105,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         {
             // ⚠️ CAMBIO: Buscar por email en lugar de username
             var existing = await _usuarioRepository.GetByEmailAsync(dto.Email);
-            if (existing != null) 
+            if (existing != null)
             {
                 _logger.LogWarning("Intento de registro con email existente: {Email}", dto.Email);
                 return false;
@@ -141,7 +141,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         // ===========================
         // CRUD COMPLETO
         // ===========================
-        
+
         public async Task<IEnumerable<UsuarioResponseDTO>> GetAllAsync()
         {
             var usuarios = await _usuarioRepository.GetAllAsync();
@@ -166,7 +166,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         public async Task<UsuarioResponseDTO?> GetByIdAsync(int id)
         {
             var u = await _usuarioRepository.GetByIdAsync(id);
-            if (u == null) 
+            if (u == null)
             {
                 _logger.LogWarning("Usuario no encontrado: ID {Id}", id);
                 return null;
@@ -213,8 +213,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 };
 
                 await _usuarioRepository.AddAsync(usuario);
-                
-                _logger.LogInformation("Usuario creado: {Username} - Rol: {IdRol}", 
+
+                _logger.LogInformation("Usuario creado: {Username} - Rol: {IdRol}",
                     dto.Username, dto.IdRolSistema);
 
                 // Retornar el usuario creado
@@ -260,7 +260,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 usuario.ActualizadoEn = DateTime.Now;
 
                 await _usuarioRepository.UpdateAsync(usuario);
-                
+
                 _logger.LogInformation("Usuario actualizado: ID {Id} - {Username}", id, usuario.Username);
                 return true;
             }
@@ -283,7 +283,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 }
 
                 await _usuarioRepository.DeleteAsync(id);
-                
+
                 _logger.LogInformation("Usuario eliminado: ID {Id} - {Username}", id, usuario.Username);
                 return true;
             }
@@ -309,8 +309,8 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 usuario.ActualizadoEn = DateTime.Now;
 
                 await _usuarioRepository.UpdateAsync(usuario);
-                
-                _logger.LogInformation("Estado de usuario actualizado: ID {Id} - {Username} - Estado: {Estado}", 
+
+                _logger.LogInformation("Estado de usuario actualizado: ID {Id} - {Username} - Estado: {Estado}",
                     id, usuario.Username, dto.Estado);
                 return true;
             }
@@ -354,7 +354,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 usuario.ActualizadoEn = DateTime.UtcNow;
 
                 await _usuarioRepository.UpdateAsync(usuario);
-                
+
                 _logger.LogInformation("Contraseña cambiada exitosamente para: {Email}", dto.Email);
                 return true;
             }
@@ -371,7 +371,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 // ⚠️ CAMBIO: Buscar por email en lugar de username
                 var usuario = await _usuarioRepository.GetByEmailAsync(request.Email);
-                
+
                 if (usuario == null)
                 {
                     _logger.LogWarning("Solicitud de recuperación para email no registrado: {Email}", request.Email);
@@ -387,21 +387,21 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 // Generar token seguro
                 var token = GenerateSecureToken();
-                
+
                 usuario.token_recuperacion = token;
                 usuario.expiracion_token = DateTime.UtcNow.AddHours(1);
                 usuario.ActualizadoEn = DateTime.UtcNow;
-                
+
                 await _usuarioRepository.UpdateAsync(usuario);
 
                 // ⚠️ CAMBIO: Construir URL absoluta para el frontend
                 var path = $"/forgot-password?email={Uri.EscapeDataString(request.Email)}&token={token}";
                 var recoveryUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
-                
+
                 _logger.LogInformation("URL de recuperación generada para {Email}: {Url}", request.Email, recoveryUrl);
 
                 var emailBody = EmailTemplates.BuildRecuperacionPasswordBody(request.Email, recoveryUrl);
-                
+
                 await _emailService.SendAsync(
                     usuario.PersonalNavigation.CorreoCorporativo,
                     "Recuperación de Contraseña - Sistema SLA",
@@ -423,7 +423,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             try
             {
                 var usuario = await _usuarioRepository.GetByRecoveryTokenAsync(request.Token);
-                
+
                 if (usuario == null)
                 {
                     _logger.LogWarning("Intento de restablecer con token inválido o expirado");
@@ -441,13 +441,13 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 usuario.token_recuperacion = null;
                 usuario.expiracion_token = null;
                 usuario.ActualizadoEn = DateTime.UtcNow;
-                
+
                 await _usuarioRepository.UpdateAsync(usuario);
 
                 if (usuario.PersonalNavigation != null && !string.IsNullOrEmpty(usuario.PersonalNavigation.CorreoCorporativo))
                 {
                     var emailBody = EmailTemplates.BuildPasswordChangedBody(usuario.PersonalNavigation.CorreoCorporativo);
-                    
+
                     await _emailService.SendAsync(
                         usuario.PersonalNavigation.CorreoCorporativo,
                         "Contraseña Actualizada - Sistema SLA",
@@ -466,21 +466,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         // ===========================
-        // MÉTODO AUXILIAR PRIVADO
-        // ===========================
-        
-        private static string GenerateSecureToken()
-        {
-            // Genera un token seguro de 32 bytes (64 caracteres hexadecimales)
-            var randomBytes = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(randomBytes);
-            }
-            return Convert.ToHexString(randomBytes);
-        }
-
-        // ===========================
         // ACTIVACIÓN DE CUENTA
         // ===========================
 
@@ -489,7 +474,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             try
             {
                 var usuario = await _usuarioRepository.GetByRecoveryTokenAsync(request.Token);
-                
+
                 if (usuario == null)
                 {
                     _logger.LogWarning("Intento de activar cuenta con token inválido o expirado");
@@ -503,10 +488,10 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 if (!request.Email.Contains("@"))
                 {
                     _logger.LogInformation("Detectado username en lugar de email: {Username}. Buscando correo corporativo...", request.Email);
-                    
+
                     // Buscar usuario por username
                     var usuarioPorUsername = await _usuarioRepository.GetByUsernameAsync(request.Email);
-                    
+
                     if (usuarioPorUsername == null)
                     {
                         _logger.LogWarning("Username {Username} no existe en el sistema", request.Email);
@@ -521,7 +506,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                     }
 
                     // Verificar que tenga Personal vinculado con correo
-                    if (usuarioPorUsername.PersonalNavigation == null || 
+                    if (usuarioPorUsername.PersonalNavigation == null ||
                         string.IsNullOrWhiteSpace(usuarioPorUsername.PersonalNavigation.CorreoCorporativo))
                     {
                         _logger.LogWarning("El usuario {Username} no tiene Personal vinculado o no tiene correo corporativo", request.Email);
@@ -530,7 +515,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                     // Extraer el correo corporativo real
                     emailParaValidar = usuarioPorUsername.PersonalNavigation.CorreoCorporativo;
-                    
+
                     _logger.LogInformation("Username {Username} mapeado a correo corporativo: {Email}", request.Email, emailParaValidar);
                 }
 
@@ -552,7 +537,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 usuario.token_recuperacion = null;
                 usuario.expiracion_token = null;
                 usuario.ActualizadoEn = DateTime.UtcNow;
-                
+
                 await _usuarioRepository.UpdateAsync(usuario);
 
                 if (usuario.PersonalNavigation != null && !string.IsNullOrEmpty(usuario.PersonalNavigation.CorreoCorporativo))
@@ -563,7 +548,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                         <p>Tu cuenta ha sido activada correctamente.</p>
                         <p>Ya puedes iniciar sesión en el Sistema SLA con tu correo electrónico.</p>
                     ";
-                    
+
                     await _emailService.SendAsync(
                         usuario.PersonalNavigation.CorreoCorporativo,
                         "Cuenta Activada - Sistema SLA",
@@ -607,7 +592,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 // PASO 3: Verificar que el Personal NO tiene ya un usuario vinculado
                 var usuariosExistentes = await _usuarioRepository.GetAllAsync();
                 var personalYaTieneUsuario = usuariosExistentes.Any(u => u.IdPersonal == dto.IdPersonal);
-                
+
                 if (personalYaTieneUsuario)
                 {
                     _logger.LogWarning("Personal {IdPersonal} ya tiene una cuenta de usuario vinculada", dto.IdPersonal);
@@ -640,17 +625,17 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 await _usuarioRepository.AddAsync(nuevoUsuario);
 
-                _logger.LogInformation("Usuario creado y vinculado a Personal {IdPersonal}: Username={Username}, Rol={IdRol}", 
+                _logger.LogInformation("Usuario creado y vinculado a Personal {IdPersonal}: Username={Username}, Rol={IdRol}",
                     dto.IdPersonal, dto.Username, dto.IdRolSistema);
 
                 // PASO 7: Construir URL absoluta de activación
                 var path = $"/activacion-cuenta?email={Uri.EscapeDataString(personal.CorreoCorporativo)}&token={token}";
                 var activacionUrl = $"{_frontendBaseUrl.TrimEnd('/')}{path}";
-                
+
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", dto.Username, activacionUrl);
 
                 // PASO 8: Enviar correo de bienvenida con enlace de activación
-                var emailBody = BuildActivacionBienvenidaBody(
+                var emailBody = EmailTemplates.BuildActivacionBienvenidaBody(
                     personal.Nombres,
                     personal.Apellidos,
                     dto.Username,
@@ -659,11 +644,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 await _emailService.SendAsync(
                     personal.CorreoCorporativo,
-                    "Bienvenido a SLA Manager - Activa tu Cuenta",
+                    "¡Bienvenido a SLA Manager! Activa tu Cuenta",
                     emailBody
                 );
 
-                _logger.LogInformation("Correo de activación enviado a {Email} para usuario {Username}", 
+                _logger.LogInformation("Correo de activación enviado a {Email} para usuario {Username}",
                     personal.CorreoCorporativo, dto.Username);
             }
             catch (InvalidOperationException)
@@ -679,28 +664,18 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
         }
 
         // ===========================
-        // TEMPLATE DE EMAIL DE ACTIVACIÓN/BIENVENIDA
+        // MÉTODO AUXILIAR PRIVADO
         // ===========================
 
-        // ✅ CORRECCIÓN: Usar HTML simple sin estilos en <head> ni emojis (Gmail los filtra)
-        private static string BuildActivacionBienvenidaBody(string nombres, string apellidos, string username, string activacionUrl)
+        private static string GenerateSecureToken()
         {
-            return $@"
-                <h2>Bienvenido a SLA Manager - Activa tu Cuenta</h2>
-                <p>Hola {nombres} {apellidos},</p>
-                <p>Tu cuenta para el sistema <strong>SLA Manager</strong> ha sido creada por un Administrador.</p>
-                <p><strong>Tu nombre de usuario es:</strong> {username}</p>
-                <p>Para activar tu cuenta y establecer tu contraseña por primera vez, haz clic en el siguiente enlace:</p>
-                <p><a href='{activacionUrl}'>Activar mi cuenta</a></p>
-                <p>O copia y pega este enlace en tu navegador:</p>
-                <p>{activacionUrl}</p>
-                <p><strong>Este enlace caducara en 24 horas.</strong></p>
-                <br/>
-                <p>Saludos cordiales,</p>
-                <p>El Equipo de SLA Manager</p>
-                <hr/>
-                <p style='font-size: 11px; color: #999;'>Si no solicitaste esta activacion, puedes ignorar este correo.</p>
-            ";
+            // Genera un token seguro de 32 bytes (64 caracteres hexadecimales)
+            var randomBytes = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+            return Convert.ToHexString(randomBytes);
         }
     }
 }
