@@ -127,8 +127,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
         }
 
         /// <summary>
-        /// Obtiene las solicitudes que necesitan recálculo diario de SLA
-        /// Incluye: ACTIVAS, EN_PROCESO, o pendientes sin fecha de ingreso
+        /// Obtiene las solicitudes que necesitan recálculo diario de SLA.
+        /// Solo incluye solicitudes con estado "EN_PROCESO" (pendientes de fecha de ingreso).
+        /// 
+        /// ESTADOS VÁLIDOS:
+        /// - "EN_PROCESO": Pendiente, sin fecha de ingreso, dentro del umbral
+        /// - "INACTIVA": Cerrada, con fecha de ingreso, cumple SLA
+        /// - "VENCIDA": Cerrada, superó el umbral SLA
+        /// - "ELIMINADO": Borrado lógico
         /// </summary>
         public async Task<List<Solicitud>> GetSolicitudesParaRecalculoAsync()
         {
@@ -138,8 +144,9 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
                 .Where(s =>
                     s.EstadoSolicitud != "ELIMINADO" &&
                     (
-                        s.EstadoSolicitud == "ACTIVA" ||
+                        // Solo recalcular solicitudes EN_PROCESO (pendientes)
                         s.EstadoSolicitud == "EN_PROCESO" ||
+                        // O solicitudes sin fecha de ingreso con estado de cumplimiento en proceso
                         (s.FechaIngreso == null &&
                          s.EstadoCumplimientoSla != null &&
                          s.EstadoCumplimientoSla.StartsWith("EN_PROCESO_"))

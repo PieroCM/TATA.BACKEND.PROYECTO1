@@ -382,7 +382,14 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             return actualizadas;
         }
 
-        // Método privado que encapsula la lógica de SLA usada en SubidaVolumenServices
+        /// <summary>
+        /// Método privado que encapsula la lógica de SLA.
+        /// 
+        /// ESTADOS DE SOLICITUD (EstadoSolicitud):
+        /// - "EN_PROCESO": Sin fecha de ingreso y dentro del umbral SLA
+        /// - "INACTIVA": Con fecha de ingreso y cumple el SLA (dentro del umbral)
+        /// - "VENCIDA": Superó el umbral SLA (con o sin fecha de ingreso)
+        /// </summary>
         private (int numDiasSla, string estadoCumplimientoSla, string estadoSolicitud, string resumenSla) CalcularSlaYResumen(
             DateTime fechaSolicitud, DateTime? fechaIngreso, ConfigSla configSla, DateTime hoyPeru)
         {
@@ -401,17 +408,18 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 if (diasTranscurridos > configSla.DiasUmbral)
                 {
-                    // Ya venció el SLA
+                    // ❌ Ya venció el SLA -> VENCIDA
                     estadoCumplimiento = $"NO_CUMPLE_{codigo}";
-                    estadoSolicitud = "VENCIDO";
-                    resumenSla = $"Solicitud INCUMPLIDA: se excedió el umbral del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
+                    estadoSolicitud = "VENCIDA";
+                    resumenSla = $"Solicitud VENCIDA: se excedió el umbral del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
                 }
                 else
                 {
-                    // Aún dentro del plazo
+                    // ⏳ Aún dentro del plazo -> EN_PROCESO
+                    if (numDiasSla < 0) numDiasSla = 0; // por seguridad
                     estadoCumplimiento = $"EN_PROCESO_{codigo}";
                     estadoSolicitud = "EN_PROCESO";
-                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({diasTranscurridos} de {configSla.DiasUmbral} días)";
+                    resumenSla = $"Solicitud PENDIENTE dentro del SLA ({numDiasSla} de {configSla.DiasUmbral} días)";
                 }
             }
             // Caso B: Con fecha de ingreso (ya cerrada)
@@ -425,16 +433,18 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 if (dias <= configSla.DiasUmbral)
                 {
+                    // ✅ CUMPLE el SLA -> INACTIVA
                     estadoCumplimiento = $"CUMPLE_{codigo}";
+                    estadoSolicitud = "INACTIVA";
                     resumenSla = $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días)";
                 }
                 else
                 {
+                    // ❌ NO CUMPLE el SLA -> VENCIDA
                     estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    estadoSolicitud = "VENCIDA";
                     resumenSla = $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días)";
                 }
-
-                estadoSolicitud = "CERRADO";
             }
 
             return (numDiasSla, estadoCumplimiento, estadoSolicitud, resumenSla);

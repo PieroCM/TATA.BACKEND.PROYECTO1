@@ -447,6 +447,11 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
         /// <summary>
         /// Crea la entidad Solicitud con el cálculo de SLA según las reglas de negocio.
+        /// 
+        /// ESTADOS DE SOLICITUD (EstadoSolicitud):
+        /// - "EN_PROCESO": Sin fecha de ingreso y dentro del umbral SLA
+        /// - "INACTIVA": Con fecha de ingreso y cumple el SLA (dentro del umbral)
+        /// - "VENCIDA": Superó el umbral SLA (con o sin fecha de ingreso)
         /// </summary>
         private Solicitud CrearSolicitud(
             SubidaVolumenSolicitudRowDto row,
@@ -467,7 +472,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 ? $"SLA{configSla.IdSla}"
                 : configSla.CodigoSla;
 
-            // 1) Con fechaIngreso explícita -> INACTIVA (cumpla o no el SLA)
+            // 1) Con fechaIngreso explícita -> puede ser INACTIVA (cumple) o VENCIDA (no cumple)
             if (fechaIngreso.HasValue)
             {
                 var dias = (int)Math.Floor((fechaIngreso.Value - fechaSolicitud).TotalDays);
@@ -475,32 +480,34 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
 
                 if (dias <= configSla.DiasUmbral)
                 {
+                    // ✅ CUMPLE el SLA -> INACTIVA
                     estadoCumplimiento = $"CUMPLE_{codigo}";
+                    estadoSolicitud = "INACTIVA";
                     resumenSla =
                         $"Solicitud atendida dentro del SLA ({dias} de {configSla.DiasUmbral} días).";
                 }
                 else
                 {
+                    // ❌ NO CUMPLE el SLA -> VENCIDA
                     estadoCumplimiento = $"NO_CUMPLE_{codigo}";
+                    estadoSolicitud = "VENCIDA";
                     resumenSla =
                         $"Solicitud atendida fuera del SLA ({dias} de {configSla.DiasUmbral} días).";
                 }
-
-                estadoSolicitud = "INACTIVA";
             }
-            // 2) Sin fechaIngreso -> puede ser ACTIVA (en proceso) o VENCIDA (autocierre)
+            // 2) Sin fechaIngreso -> puede ser EN_PROCESO (pendiente) o VENCIDA (autocierre)
             else
             {
                 var diasTranscurridos = (int)Math.Floor((hoyPeru - fechaSolicitud).TotalDays);
                 numDiasSla = diasTranscurridos;
 
-                // ACTIVA: todavía dentro del umbral
+                // EN_PROCESO: todavía dentro del umbral, esperando fecha de ingreso
                 if (diasTranscurridos <= configSla.DiasUmbral)
                 {
                     if (numDiasSla < 0) numDiasSla = 0; // por seguridad
 
                     estadoCumplimiento = $"EN_PROCESO_{codigo}";
-                    estadoSolicitud = "ACTIVA";
+                    estadoSolicitud = "EN_PROCESO";
                     resumenSla =
                         $"Solicitud PENDIENTE dentro del SLA ({numDiasSla} de {configSla.DiasUmbral} días).";
                 }
@@ -546,7 +553,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 NumDiasSla = numDiasSla,
                 ResumenSla = resumenSla,
                 OrigenDato = origenDato,
-                EstadoSolicitud = estadoSolicitud,            // ACTIVA / INACTIVA / VENCIDA
+                EstadoSolicitud = estadoSolicitud,            // EN_PROCESO / INACTIVA / VENCIDA
                 EstadoCumplimientoSla = estadoCumplimiento,   // EN_PROCESO_*, CUMPLE_*, NO_CUMPLE_*
                 CreadoEn = DateTime.UtcNow,
                 ActualizadoEn = DateTime.UtcNow
