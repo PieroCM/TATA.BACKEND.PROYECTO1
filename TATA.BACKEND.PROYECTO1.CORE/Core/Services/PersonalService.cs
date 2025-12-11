@@ -176,27 +176,71 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
                 
                 _logger.LogInformation("URL de activación generada para {Username}: {Url}", usuario.Username, activacionUrl);
 
-                // ✅ CORRECCIÓN: Usar HTML simple sin estilos en <head> ni emojis (Gmail los filtra)
+                // ✅ TEMPLATE HTML MEJORADO - Diseño profesional y consistente
                 var emailBody = $@"
-                    <h2>Activacion de Cuenta - Sistema SLA</h2>
-                    <p>Hola {personal.Nombres} {personal.Apellidos},</p>
-                    <p>Se ha creado una cuenta de usuario para ti en el <strong>Sistema de Gestion SLA</strong>.</p>
-                    <p><strong>Tu nombre de usuario es:</strong> {usuario.Username}</p>
-                    <p>Para activar tu cuenta y establecer tu contraseña, haz clic en el siguiente enlace:</p>
-                    <p><a href='{activacionUrl}'>Activar mi cuenta</a></p>
-                    <p>O copia y pega este enlace en tu navegador:</p>
-                    <p>{activacionUrl}</p>
-                    <p><strong>Este enlace expirara en 24 horas.</strong></p>
-                    <br/>
-                    <p>Saludos,</p>
-                    <p>El Equipo de SLA Manager</p>
-                ";
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }}
+        .content {{ background-color: #f8f9fa; padding: 30px; border-radius: 0 0 5px 5px; }}
+        .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
+        .welcome-icon {{ color: #007bff; font-size: 48px; text-align: center; margin: 20px 0; }}
+        .info-box {{ background-color: #e7f3ff; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; }}
+        .button-box {{ text-align: center; margin: 30px 0; }}
+        .btn {{ display: inline-block; background-color: #007bff; color: white !important; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; }}
+        .btn:hover {{ background-color: #0056b3; }}
+        .warning-box {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>Bienvenido a SLA Manager</h1>
+        </div>
+        <div class='content'>
+            <div class='welcome-icon'>&#128075;</div>
+            <h2>Hola, {personal.Nombres} {personal.Apellidos}</h2>
+            <p>Tu cuenta para el sistema <strong>SLA Manager</strong> ha sido creada exitosamente por un Administrador.</p>
+            
+            <div class='info-box'>
+                <p style='margin: 0;'><strong>Tu nombre de usuario es:</strong> <code style='background-color: #fff; padding: 5px 10px; border-radius: 3px;'>{usuario.Username}</code></p>
+            </div>
+            
+            <p>Para activar tu cuenta y establecer tu contraseña por primera vez, haz clic en el siguiente botón.</p>
+            
+            <div class='button-box'>
+                <a href='{activacionUrl}' class='btn'>Activar Mi Cuenta</a>
+            </div>
+
+            <div class='warning-box'>
+                <p><strong>Importante:</strong></p>
+                <p style='margin: 0;'>Este enlace <strong>caducará en 24 horas</strong>. Por razones de seguridad, solo puede ser utilizado una vez.</p>
+            </div>
+
+            <p style='font-size: 12px; color: #666; margin-top: 20px;'>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
+            <p style='font-size: 11px; word-break: break-all; color: #007bff;'>{activacionUrl}</p>
+
+            <p style='margin-top: 30px;'>Saludos cordiales,</p>
+            <p><strong>El Equipo de SLA Manager</strong></p>
+        </div>
+        <div class='footer'>
+            <p>Si no solicitaste esta activación, puedes ignorar este correo.</p>
+            <p>Este es un mensaje automático del Sistema de Gestión SLA.</p>
+            <p>Por favor, no respondas a este correo.</p>
+            <p style='margin-top:10px;'>© 2024 Sistema de Gestión SLA - Todos los derechos reservados</p>
+        </div>
+    </div>
+</body>
+</html>";
 
                 try
                 {
                     await _emailService.SendAsync(
                         personal.CorreoCorporativo,
-                        "Activacion de Cuenta - Sistema SLA",
+                        "¡Bienvenido a SLA Manager! Activa tu Cuenta",
                         emailBody
                     );
 
