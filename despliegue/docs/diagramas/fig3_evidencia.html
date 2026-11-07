@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+  body{margin:0;width:1600px;overflow:hidden;background:#FBFAF7;font-family:"Segoe UI",system-ui,sans-serif;color:#1F2933}
+  .wrap{padding:40px 44px 36px}
+  h1{font-size:28px;margin:0 0 6px;font-weight:700}
+  .sub{color:#5B6770;font-size:16px;margin:0 0 22px}
+  .term{background:#111827;border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.18);overflow:hidden}
+  .bar{background:#1F2937;padding:12px 18px;display:flex;align-items:center;gap:8px}
+  .dot{width:13px;height:13px;border-radius:50%}
+  .bar span.t{color:#9CA3AF;font-size:14px;margin-left:14px;font-family:"Cascadia Code",Consolas,monospace}
+  pre{margin:0;padding:22px 26px;font-family:"Cascadia Code",Consolas,monospace;font-size:17px;line-height:1.55;color:#E5E7EB;white-space:pre}
+  .c{color:#7DD3FC}.h{color:#9CA3AF}.ok{color:#4ADE80}.y{color:#FDE68A}.dim{color:#6B7280}
+  .note{margin-top:14px;font-size:14px;color:#5B6770}
+</style></head><body><div class="wrap">
+<h1>Verificación del despliegue local</h1>
+<p class="sub">Salida real de la terminal tras <code>docker compose up -d --build</code> · 6 de noviembre de 2026</p>
+<div class="term">
+<div class="bar"><div class="dot" style="background:#F87171"></div><div class="dot" style="background:#FBBF24"></div><div class="dot" style="background:#34D399"></div><span class="t">Git Bash · ProyectoFinal</span></div>
+<pre><span class="c">$ docker compose ps</span>
+<span class="h">NAME            IMAGE                                        STATUS                        PORTS</span>
+sla_backend     josed20/proyectofinal-backend:1.0.0          <span class="ok">Up 49 seconds (healthy)</span>       0.0.0.0:5260-&gt;8080/tcp
+sla_frontend    josed20/proyectofinal-frontend:1.0.0         <span class="ok">Up 22 seconds</span>                 0.0.0.0:9000-&gt;80/tcp
+sla_sqlserver   mcr.microsoft.com/mssql/server:2022-latest   <span class="ok">Up About a minute (healthy)</span>   0.0.0.0:1433-&gt;1433/tcp
+
+<span class="c">$ curl -i http://localhost:9000/health</span>
+<span class="ok">HTTP/1.1 200 OK</span>
+<span class="dim">Server: nginx/1.27.5</span>
+Healthy
+
+<span class="c">$ curl -X POST http://localhost:9000/api/usuario/signin -d '{"email":"22200150@ue.edu.pe", ...}'</span>
+<span class="ok">HTTP 200</span>  <span class="y">username=superadmin@sla.local  rol=Super Administrador  token=eyJhbGciOiJIUzI1NiIsInR5...</span>
+
+<span class="c">$ curl -H "Authorization: Bearer &lt;token&gt;" http://localhost:9000/api/rolessistema</span>
+<span class="ok">HTTP 200</span>  roles: SUPER_ADMIN, ADMIN, ANALISTA, ESPECIALISTA</pre>
+</div>
+<p class="note">La petición entra por Nginx (puerto 9000), pasa a backend:8080 y la API consulta SQL Server. El JSON de las respuestas se resumió en una línea para que se pueda leer.</p>
+</div></body></html>

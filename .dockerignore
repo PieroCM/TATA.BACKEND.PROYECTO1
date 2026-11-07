@@ -1,0 +1,11 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/*.suo
+**/TestResults
+
+# Archivos de despliegue y documentación (no se necesitan en la imagen)
+despliegue/

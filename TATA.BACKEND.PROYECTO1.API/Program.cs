@@ -23,7 +23,11 @@ var connectionString = _configuration.GetConnectionString("DevConnection");
 // 1) Cargar archivo log4net.config (FORMA CORRECTA .NET 9)
 // =====================================================
 var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
-XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
+var logConfigFile = new FileInfo("log4net.config");
+if (logConfigFile.Exists)
+{
+    XmlConfigurator.Configure(logRepository, logConfigFile);
+}
 
 // =====================================================
 // 2) Providers de Logging de .NET 9 (NO usar AddLog4Net)
@@ -134,13 +138,14 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowQuasarApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:9000")
+            policy.SetIsOriginAllowed(_ => true)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
         });
 });
 
+builder.Services.AddHealthChecks();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
@@ -181,13 +186,17 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (app.Configuration.GetValue<bool>("EnableHttpsRedirection", false))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("AllowQuasarApp");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();

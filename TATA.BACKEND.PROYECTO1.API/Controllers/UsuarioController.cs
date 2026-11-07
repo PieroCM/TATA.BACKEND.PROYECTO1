@@ -9,6 +9,7 @@ using System.Security.Claims;
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
     [Route("api/[controller]")]
+    [Route("[controller]")]
     [ApiController]
     [Authorize] // 🔒 Protege todos los endpoints por defecto
     public class UsuarioController : ControllerBase
