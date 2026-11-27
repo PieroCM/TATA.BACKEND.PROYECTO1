@@ -207,7 +207,7 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 
 // Necesario para que las pruebas de integración usen WebApplicationFactory<Program>
 public partial class Program { }

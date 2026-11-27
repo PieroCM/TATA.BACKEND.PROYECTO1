@@ -441,7 +441,7 @@ public class AlertaService(
             {
                 var skip = (filtros.Pagina.Value - 1) * filtros.TamanoPagina.Value;
                 dashboard = dashboard.Skip(skip).Take(filtros.TamanoPagina.Value).ToList();
-                _logger.LogDebug("Aplicada paginación: Página={Pagina}, Tamaño={Tamaño}",
+                _logger.LogDebug("Aplicada paginación: Página={Pagina}, Tamaño={TamanoPagina}",
                     filtros.Pagina.Value, filtros.TamanoPagina.Value);
             }
 

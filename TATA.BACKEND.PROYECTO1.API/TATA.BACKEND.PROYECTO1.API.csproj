@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <!-- Secretos locales en desarrollo: dotnet user-secrets set "SmtpSettings:Password" "..." -->
+    <UserSecretsId>08885de1-6b8c-48d1-b002-6ece36585cc4</UserSecretsId>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

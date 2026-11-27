@@ -52,6 +52,7 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
                 .Include(s => s.IdSlaNavigation)
                 .Include(s => s.Alerta)
                 .Include(s => s.IdReporte)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(s => s.IdSolicitud == id);
         }
 

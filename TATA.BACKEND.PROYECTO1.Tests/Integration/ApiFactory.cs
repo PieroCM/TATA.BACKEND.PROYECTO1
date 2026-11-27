@@ -33,6 +33,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("JWTSettings:Issuer", "Proyecto1SLAAuthServer");
         builder.UseSetting("JWTSettings:Audience", "Proyecto1SLAUsers");
         builder.UseSetting("ConnectionStrings:DevConnection", "Server=no-se-usa;Database=no-se-usa");
+        // Contraseña con la que el DataSeeder crea el administrador inicial
+        builder.UseSetting("Seed:AdminPassword", AdminPassword);
 
         builder.ConfigureTestServices(services =>
         {

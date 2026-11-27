@@ -38,6 +38,7 @@ services:
       ConnectionStrings__DevConnection: "Server=sqlserver,1433;Database=Proyecto1SLA_DB;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True;Command Timeout=180"
       JWTSettings__SecretKey: "${JWT_SECRET}"
       SmtpSettings__Password: "${SMTP_PASSWORD}"
+      Seed__AdminPassword: "${ADMIN_PASSWORD}"
       SmtpSettings__User: "${SMTP_USER}"
       SmtpSettings__From: "${SMTP_FROM}"
       AppSettings__FrontendBaseUrl: "http://localhost:9000/#"

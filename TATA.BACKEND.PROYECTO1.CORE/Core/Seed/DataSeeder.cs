@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,10 +12,12 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Seed
     public class DataSeeder
     {
         private readonly Proyecto1SlaDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public DataSeeder(Proyecto1SlaDbContext context)
+        public DataSeeder(Proyecto1SlaDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         public async Task SeedAsync()
@@ -193,7 +196,13 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Seed
             // ===============================
             const string adminEmail = "22200150@ue.edu.pe";
             const string adminUsername = "superadmin@sla.local";
-            const string adminPasswordPlano = "Admin123!";
+            // La contraseña inicial viene de la configuración (variable de entorno Seed__AdminPassword)
+            var adminPasswordPlano = _configuration["Seed:AdminPassword"];
+            if (string.IsNullOrWhiteSpace(adminPasswordPlano))
+            {
+                throw new InvalidOperationException(
+                    "Defina Seed:AdminPassword (variable de entorno Seed__AdminPassword) para crear el usuario administrador inicial.");
+            }
 
             // ===============================
             // 2. Obtener rol SUPER_ADMIN (ya debe existir)
