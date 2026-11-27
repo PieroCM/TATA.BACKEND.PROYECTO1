@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
@@ -15,6 +16,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers;
 /// </summary>
 [Route("api/alertas")]
 [ApiController]
+[Authorize]
 public class AlertasController(
     IAlertaService alertaService,
     ILogSistemaService logService,

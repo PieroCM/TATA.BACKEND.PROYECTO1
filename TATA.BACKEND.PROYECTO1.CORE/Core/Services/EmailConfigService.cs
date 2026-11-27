@@ -74,11 +74,10 @@ public class EmailConfigService(
                 config.ResumenDiario = dto.ResumenDiario.Value;
                 hasChanges = true;
                 
-                var emoji = dto.ResumenDiario.Value ? "?" : "?";
                 var estado = dto.ResumenDiario.Value ? "ACTIVADO" : "DESACTIVADO";
                 
                 cambios.Add($"ResumenDiario: {estadoAnterior} ? {dto.ResumenDiario.Value}");
-                _logger.LogInformation("{Emoji} Resumen Diario {Estado} por actualización manual", emoji, estado);
+                _logger.LogInformation("Resumen Diario {Estado} por actualización manual", estado);
             }
 
             // ============================================

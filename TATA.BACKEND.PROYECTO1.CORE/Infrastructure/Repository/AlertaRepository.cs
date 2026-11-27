@@ -59,7 +59,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Infraestructure.Repository
 
             alerta.FechaCreacion = DateTime.UtcNow;
             alerta.Estado = string.IsNullOrWhiteSpace(alerta.Estado) ? "NUEVA" : alerta.Estado;
-            alerta.EnviadoEmail = alerta.EnviadoEmail; // normalmente false
 
             _context.Alerta.Add(alerta);
             await _context.SaveChangesAsync();

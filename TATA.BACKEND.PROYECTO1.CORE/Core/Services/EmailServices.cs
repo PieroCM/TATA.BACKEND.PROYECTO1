@@ -127,7 +127,6 @@ namespace TATA.BACKEND.PROYECTO1.CORE.Core.Services
             {
                 // Configurar cliente con mejor manejo de errores
                 client.CheckCertificateRevocation = false;
-                client.ServerCertificateValidationCallback = (s, c, h, e) => true; // Para desarrollo
                 
                 _logger.LogDebug("🔌 Conectando a servidor SMTP {Host}:{Port}...", _settings.Host, _settings.Port);
 

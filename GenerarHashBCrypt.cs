@@ -1,43 +1,46 @@
 using System;
 
 // ============================================
-// Programa para Generar Hash BCrypt
+// Utilidad para generar un hash BCrypt
 // ============================================
-// Para ejecutar:
-// 1. Crea un nuevo proyecto de consola: dotnet new console -n HashGenerator
-// 2. Instala BCrypt: dotnet add package BCrypt.Net-Next
-// 3. Copia este c�digo en Program.cs
-// 4. Ejecuta: dotnet run
+// Uso (en un proyecto de consola con el paquete BCrypt.Net-Next):
+//   dotnet run -- "<contraseña>"
+// Si no se pasa la contraseña como argumento, se pide por consola.
 // ============================================
 
-class Program
+namespace TATA.BACKEND.PROYECTO1.Herramientas
 {
-    static void Main(string[] args)
+    public static class GenerarHashBCrypt
     {
-        Console.WriteLine("===========================================");
-        Console.WriteLine("  GENERADOR DE HASH BCRYPT");
-        Console.WriteLine("===========================================");
-        Console.WriteLine();
-        
-        string password = "123456";
-        
-        // Generar hash con BCrypt (workFactor = 11)
-        string passwordHash = BCrypt.Net.BCrypt.HashPassword(password, 11);
-        
-        Console.WriteLine($"Contrase�a Original: {password}");
-        Console.WriteLine();
-        Console.WriteLine($"Hash BCrypt Generado:");
-        Console.WriteLine(passwordHash);
-        Console.WriteLine();
-        
-        // Verificar que el hash funciona correctamente
-        bool isValid = BCrypt.Net.BCrypt.Verify(password, passwordHash);
-        Console.WriteLine($"Verificaci�n del hash: {(isValid ? "? V�LIDO" : "? INV�LIDO")}");
-        Console.WriteLine();
-        Console.WriteLine("===========================================");
-        Console.WriteLine("Copia el hash generado para usar en tu script SQL");
-        Console.WriteLine("===========================================");
-        
-        Console.ReadKey();
+        public static void Main(string[] args)
+        {
+            Console.WriteLine("===========================================");
+            Console.WriteLine("  GENERADOR DE HASH BCRYPT");
+            Console.WriteLine("===========================================");
+            Console.WriteLine();
+
+            var textoPlano = args.Length > 0 ? args[0] : LeerDeConsola();
+            if (string.IsNullOrWhiteSpace(textoPlano))
+            {
+                Console.WriteLine("No se ingresó ningún valor.");
+                return;
+            }
+
+            // Generar hash con BCrypt (workFactor = 11)
+            var hash = BCrypt.Net.BCrypt.HashPassword(textoPlano, 11);
+            Console.WriteLine("Hash BCrypt generado:");
+            Console.WriteLine(hash);
+            Console.WriteLine();
+
+            // Verificar que el hash funciona correctamente
+            var esValido = BCrypt.Net.BCrypt.Verify(textoPlano, hash);
+            Console.WriteLine($"Verificación del hash: {(esValido ? "VÁLIDO" : "INVÁLIDO")}");
+        }
+
+        private static string LeerDeConsola()
+        {
+            Console.Write("Texto a hashear: ");
+            return Console.ReadLine() ?? string.Empty;
+        }
     }
 }

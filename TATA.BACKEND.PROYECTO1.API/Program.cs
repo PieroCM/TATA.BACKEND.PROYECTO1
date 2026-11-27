@@ -167,7 +167,15 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<Proyecto1SlaDbContext>();
-        await context.Database.MigrateAsync();
+        if (context.Database.IsRelational())
+        {
+            await context.Database.MigrateAsync();
+        }
+        else
+        {
+            // Proveedor en memoria (pruebas de integración): no hay migraciones que aplicar
+            await context.Database.EnsureCreatedAsync();
+        }
 
         var seeder = services.GetRequiredService<DataSeeder>();
         await seeder.SeedAsync();
@@ -199,4 +207,7 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
+
+// Necesario para que las pruebas de integración usen WebApplicationFactory<Program>
+public partial class Program { }

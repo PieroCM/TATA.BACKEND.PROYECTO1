@@ -100,9 +100,9 @@ try {
         # Análisis del error y sugerencias
         Write-Host "`n?? POSIBLES SOLUCIONES:" -ForegroundColor Yellow
         
-        $error = $errorResponse.error.ToLower()
+        $mensajeError = $errorResponse.error.ToLower()
         
-        if ($error -like "*autenticaci*" -or $error -like "*authentication*") {
+        if ($mensajeError -like "*autenticaci*" -or $mensajeError -like "*authentication*") {
             Write-Host "   ?? ERROR DE AUTENTICACIÓN SMTP" -ForegroundColor Red
             Write-Host "   1. Ve a: https://myaccount.google.com" -ForegroundColor White
             Write-Host "   2. Seguridad ? Verificación en 2 pasos" -ForegroundColor White
@@ -110,20 +110,20 @@ try {
             Write-Host "   4. Actualiza Password en appsettings.json" -ForegroundColor White
             Write-Host "   5. Reinicia la API" -ForegroundColor White
         }
-        elseif ($error -like "*connect*" -or $error -like "*socket*") {
+        elseif ($mensajeError -like "*connect*" -or $mensajeError -like "*socket*") {
             Write-Host "   ?? ERROR DE CONEXIÓN" -ForegroundColor Red
             Write-Host "   1. Verifica que el puerto 587 esté abierto" -ForegroundColor White
             Write-Host "   2. Desactiva temporalmente el firewall" -ForegroundColor White
             Write-Host "   3. Verifica proxy corporativo" -ForegroundColor White
             Write-Host "   4. Prueba desde otra red" -ForegroundColor White
         }
-        elseif ($error -like "*ssl*" -or $error -like "*tls*") {
+        elseif ($mensajeError -like "*ssl*" -or $mensajeError -like "*tls*") {
             Write-Host "   ?? ERROR SSL/TLS" -ForegroundColor Red
             Write-Host "   1. Verifica EnableSsl: true en appsettings.json" -ForegroundColor White
             Write-Host "   2. Verifica Port: 587" -ForegroundColor White
             Write-Host "   3. Actualiza certificados del sistema" -ForegroundColor White
         }
-        elseif ($error -like "*destinatario*" -or $error -like "*configuraci*") {
+        elseif ($mensajeError -like "*destinatario*" -or $mensajeError -like "*configuraci*") {
             Write-Host "   ?? ERROR DE CONFIGURACIÓN" -ForegroundColor Red
             Write-Host "   Ejecuta en SQL Server:" -ForegroundColor White
             Write-Host "   UPDATE email_config SET DestinatarioResumen = 'tu@email.com' WHERE Id = 1;" -ForegroundColor Gray

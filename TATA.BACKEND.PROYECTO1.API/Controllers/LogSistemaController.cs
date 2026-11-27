@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
 using TATA.BACKEND.PROYECTO1.CORE.Core.Interfaces;
 using log4net;
@@ -8,6 +9,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class LogSistemaController : ControllerBase
     {
         private static readonly ILog log = LogManager.GetLogger(typeof(LogSistemaController));

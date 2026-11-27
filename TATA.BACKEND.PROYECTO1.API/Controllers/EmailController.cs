@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using TATA.BACKEND.PROYECTO1.CORE.Core.DTOs;
@@ -15,6 +16,7 @@ namespace TATA.BACKEND.PROYECTO1.API.Controllers;
 /// </summary>
 [Route("api/email")]
 [ApiController]
+[Authorize]
 public class EmailController(
     IEmailAutomationService emailAutomationService,
     IEmailConfigService emailConfigService,
@@ -45,7 +47,7 @@ public class EmailController(
         await _logService.RegistrarLogAsync("INFO", "Petición recibida: SendBroadcast", 
             $"Usuario {userId} solicita broadcast con IdRol={dto?.IdRol}, IdSla={dto?.IdSla}", userId);
 
-        if (!ModelState.IsValid)
+        if (dto is null || !ModelState.IsValid)
         {
             log.Warn("Modelo inválido en SendBroadcast");
             await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 
@@ -390,7 +392,7 @@ public class EmailController(
         await _logService.RegistrarLogAsync("INFO", "Petición recibida: SendNotification", 
             $"Usuario {userId} enviando notificación a {dto?.Destinatario}", userId);
 
-        if (!ModelState.IsValid)
+        if (dto is null || !ModelState.IsValid)
         {
             log.Warn("Modelo inválido en SendNotification");
             await _logService.RegistrarLogAsync("WARN", "Validación fallida: ModelState inválido", 

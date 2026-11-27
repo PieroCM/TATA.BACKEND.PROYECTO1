@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Data;
@@ -11,6 +12,7 @@ using System.Security.Claims;
 namespace TATA.BACKEND.PROYECTO1.API.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class RolRegistroController : ControllerBase
     {
